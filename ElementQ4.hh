@@ -75,7 +75,17 @@ private:
 class ElementQ4Cohesive : public ElementQ4 {
 // PRIVATE MEMBERS
 private:
+    // Node connection
     vector<CohesiveNode*> _NID;
+
+    // Shape function N, vector of 2 on 2 nodes, evaluated in base space (ksi)
+    static vector<double> N(double ksi);
+
+    // Gradient of shape function B, vector of 2 * 1 on 2 nodes, evaluated in base space (ksi)
+    static vector<double> B(double ksi);
+
+    // Jacobian at any given location in base space (ksi, eta), J = dx / d ksi
+    double J(double ksi) const;
 
 // PUBLIC MEMBERS
 public:

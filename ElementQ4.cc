@@ -100,6 +100,7 @@ void ElementQ4::outputInfo(ofstream & myFile) const {
 /** Methods of class ElementQ4Cohesive
  * No default constructor implemented
  */
+
 // Constructor 1 for ElementQ4Cohesive
 ElementQ4Cohesive::ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID) {
     setID(ID);
@@ -111,6 +112,22 @@ ElementQ4Cohesive::~ElementQ4Cohesive() {
     for (int i = 0; i < _NID.size(); i++) {
         delete _NID[i];
     }
+};
+
+// Shape function N, vector of 2 on 2 nodes, evaluated in base space (ksi)
+vector<double> ElementQ4Cohesive::N(double ksi) {
+    return vector<double> {(1. - ksi) / 2., (1. + ksi) / 2.};
+};
+
+// Gradient of shape function B, vector of 2 * 1 on 2 nodes, evaluated in base space (ksi)
+vector<double> ElementQ4Cohesive::B(double ksi) {
+    return vector<double> {- 1. / 2., 1. / 2.};
+};
+
+// Jacobian at any given location in base space (ksi, eta), J = d|x| / d ksi
+double ElementQ4Cohesive::J(double ksi) const {
+    return sqrt(pow(- _NID[0]->getXYZ()[0] + _NID[1]->getXYZ()[0], 2) + 
+                pow(- _NID[0]->getXYZ()[1] + _NID[1]->getXYZ()[1], 2)) / 2.; 
 };
 
 // Set element NID
