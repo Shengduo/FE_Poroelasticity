@@ -67,8 +67,11 @@ public:
     // Set nodal coordinates XYZ
     void setXYZ(const vector<double> & XYZ);
 
-    // Set DOF
+    // Set DOF 1
     void setDOF(const vector<int> & DOF);
+
+    // Set DOF 2
+    void setDOF(int index, int DOF);
 
     // Set mass density
     void setMassDensity(double density);
@@ -85,8 +88,11 @@ public:
     // Get XYZ
     const vector<double> & getXYZ() const;
 
-    // Get DOF
+    // Get DOF 1
     const vector<int> & getDOF() const;
+
+    // Get DOF 2
+    int getDOF(int index) const;
 
     // Get mass density
     double getMassDensity() const;

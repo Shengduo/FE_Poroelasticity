@@ -77,7 +77,7 @@ const vector<double> & Node::getXYZ() const {
     return _nodalXYZ;
 };
 
-// Set DOF
+// Set DOF 1
 void Node::setDOF(const vector<int> & DOF) {
     if (DOF.size() != _nodalDOF.size()) {
         throw("Input DOF incompatible with nodal DOF!");
@@ -85,9 +85,20 @@ void Node::setDOF(const vector<int> & DOF) {
     for(int i = 0; i < _nodalDOF.size(); i++) _nodalDOF[i] = DOF[i];
 };
 
-// Get DOF
+// Set DOF 2
+void Node::setDOF(int index, int DOF) {
+    if (index >= _nodalDOF.size()) throw("Cannot run setDOF2 due to overflow!");
+    _nodalDOF[index] = DOF;
+};
+
+// Get DOF 1
 const vector<int> & Node::getDOF() const {
     return _nodalDOF;
+};
+
+// Get DOF 2
+int Node::getDOF(int index) const {
+    return _nodalDOF[index];
 };
 
 // Set mass density

@@ -35,6 +35,9 @@ private:
     // Cohesive elements
     vector<ElementQ4Cohesive*> cohesiveElements;
 
+    // Total degrees of freedom
+    int _totalDOF;
+    
 // PUBLIC MEMBERS
 public:
     // Constructor
@@ -53,6 +56,9 @@ private:
 
     // Initialization of Nodes
     void initializeNodes();
+
+    // Assign global ID for each DOF
+    void assignNodalDOF();
 
     // Initialization of Elements
     void initializeElements();

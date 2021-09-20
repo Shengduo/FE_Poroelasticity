@@ -27,7 +27,10 @@ void Problem::initialize(const vector<double> & xRanges, const vector<int> & edg
     
     // Initialize nodes
     initializeNodes();
-
+    
+    // Assign Nodal DOFs
+    assignNodalDOF();
+    
     // Initialize elements
     initializeElements();
 };
@@ -113,7 +116,60 @@ void Problem::initializeNodes() {
     };
 
     ofstream myFile;
-    myFile.open("NodeInfo.txt");
+    myFile.open("NodeInfoBefore.txt");
+
+    for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    for (Node* node : lowerNodes) node->outputInfo(myFile, true);
+    for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
+};
+
+// Assign Nodal DOFs;
+void Problem::assignNodalDOF() {
+    // Pointer to currentDOF
+    _totalDOF = 0;
+    
+    // Assign upperzone
+    for (int i = 0; i < upperNodes.size(); i++) {
+        for (int j = 0; j < upperNodes[i]->getDOF().size(); j++) {
+            if (upperNodes[i]->getDOF(j) == 0) {
+                upperNodes[i]->setDOF(j, _totalDOF);
+                _totalDOF += 1;
+            }
+            else {
+                upperNodes[i]->setDOF(j, -1); 
+            }
+        }
+    }
+
+    // Assign lowerzone
+    for (int i = 0; i < lowerNodes.size(); i++) {
+        for (int j = 0; j < lowerNodes[i]->getDOF().size(); j++) {
+            if (lowerNodes[i]->getDOF(j) == 0) {
+                lowerNodes[i]->setDOF(j, _totalDOF);
+                _totalDOF += 1;
+            }
+            else {
+                lowerNodes[i]->setDOF(j, -1); 
+            }
+        }
+    }
+
+    // Assign cohesivezone
+    for (int i = 0; i < cohesiveNodes.size(); i++) {
+        for (int j = 0; j < cohesiveNodes[i]->getDOF().size(); j++) {
+            if (cohesiveNodes[i]->getDOF(j) == 0) {
+                cohesiveNodes[i]->setDOF(j, _totalDOF);
+                _totalDOF += 1;
+            }
+            else {
+                cohesiveNodes[i]->setDOF(j, -1); 
+            }
+        }
+    }
+
+    // Output to another file
+    ofstream myFile;
+    myFile.open("NodeInfoAfter.txt");
 
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
     for (Node* node : lowerNodes) node->outputInfo(myFile, true);
