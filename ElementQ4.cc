@@ -62,7 +62,44 @@ double ElementQ4::J(double ksi, double eta) const {
         matrix[3] += _NID[i]->getXYZ()[1] * B(ksi, eta)[2 * i + 1];
     }
     return matrix[0] * matrix[3] - matrix[1] * matrix[2]; 
-}
+};
+
+// Constants for 2-point gaussian integral
+const vector<double> ElementQ4::IntPos = {- 1. / sqrt(3.), 1. / sqrt(3.)};
+const vector<double> ElementQ4::IntWs = {1., 1.};
+
+// IntegratorNf, integrates a vector input inside an element, both sides using shape function.
+// first-dim: vector of nodes, second-dim: values (vector)
+vector<vector<double>> ElementQ4::IntegratorNf(const vector<vector<double>> & NodeValues) const {
+    if (NodeValues.size() != 4) throw("Not all nodal values are provided for ElementQ4 Integrator!");
+    vector<vector<double>> res(NodeValues.size(), vector<double> (NodeValues[0].size(), 0.));
+
+    // First Calculate intN^T N, four point Gaussian integral
+    vector<double> IntNTN(4 * 4, 0.);
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            for (int k = 0; i < 2; i++) {
+                for (int l = 0; l < 2; l++) {
+                    // \int_{\Omega} f = \sigma _{i,j} w_i * w_j * J(i, j) * f(i,j)
+                    IntNTN[i * 4 + j] += N(IntPos[k], IntPos[l])[i] * N(IntPos[k], IntPos[l])[j] * IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]);
+                }
+            }
+        }
+    } 
+
+    // First loop through all fields
+    for (int j = 0; j < NodeValues[0].size(); j++) {
+        // Then loop through all points
+        for (int i = 0; i < NodeValues.size(); i++) {
+            // Calculate IntNTN(i-th row) * f[j]
+            for (int k = 0; k < 4; k++) {
+                res[i][j] += IntNTN[i * 4 + k] * NodeValues[k][j];
+            }
+        }
+    }
+    return res;
+};
 
 // Set Element ID
 void ElementQ4::setID(int ID) {
@@ -141,6 +178,37 @@ void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
 // Get element NID
 const vector<CohesiveNode*> & ElementQ4Cohesive::getNID() const {
     return _NID;
+};
+
+// IntegratorNf, integrates a vector input inside an element, both sides using shape function.
+// first-dim: vector of nodes, second-dim: values (vector)
+vector<vector<double>> ElementQ4Cohesive::IntegratorNf(const vector<vector<double>> & NodeValues) const {
+    if (NodeValues.size() != 2) throw("Not all nodal values are provided for ElementQ4Cohesive Integrator!");
+    vector<vector<double>> res(NodeValues.size(), vector<double> (NodeValues[0].size(), 0.));
+
+    // First Calculate intN^T N, four point Gaussian integral
+    vector<double> IntNTN(2 * 2, 0.);
+
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            for (int k = 0; i < 2; i++) {
+                // \int_{\Omega} f = \sigma _{i} w_i * J(i) * f(i)
+                IntNTN[i * 2 + j] += N(IntPos[k])[i] * N(IntPos[k])[j] * IntWs[k] * J(IntPos[k]);
+            }
+        }
+    } 
+
+    // First loop through all fields
+    for (int j = 0; j < NodeValues[0].size(); j++) {
+        // Then loop through all points
+        for (int i = 0; i < NodeValues.size(); i++) {
+            // Calculate IntNTN(i-th row) * f[j]
+            for (int k = 0; k < 2; k++) {
+                res[i][j] += IntNTN[i * 2 + k] * NodeValues[k][j];
+            }
+        }
+    }
+    return res;
 };
 
 // Output element info

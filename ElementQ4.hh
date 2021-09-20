@@ -32,6 +32,12 @@ private:
     // Jacobian at any given location in base space (ksi, eta), J = det(\partial (x,y) / \partial (ksi, eta))
     double J(double ksi, double eta) const;
 
+// SHARED WITH COHESIVE CLASS
+protected:
+    // Constants for 2-point gaussian integral
+    const static vector<double> IntPos;
+    const static vector<double> IntWs;
+
 // PUBLIC MEMBERS
 public:
     // Default Constructor
@@ -54,6 +60,10 @@ public:
 
     // Get element NID
     const vector<Node*> & getNID() const;
+
+    // IntegratorNN, integrates a vector input inside an element, both sides using shape function
+    // first-dim: vector of nodes, second-dim: values (vector)
+    vector<vector<double>> IntegratorNf(const vector<vector<double>> & NodeValues) const;
 
     // Output element info
     void outputInfo(ofstream & myFile) const;
@@ -100,6 +110,9 @@ public:
 
     // Get element NID
     const vector<CohesiveNode*> & getNID() const;
+
+    // Integrator, integrates a vector input inside an element, first-dim: vector of nodes, second-dim: values (vector)
+    vector<vector<double>> IntegratorNf(const vector<vector<double>> & NodeValues) const;
 
     // Output element info
     void outputInfo(ofstream & myFile) const;

@@ -36,6 +36,9 @@ protected:
     // displacement(spaceDim), velocity(spaceDim), pressure(1) 
     vector<int> _nodalDOF;
 
+    // Nodal values (0 - mass density; 1,2 - body force (force per unit volume); ...)
+    vector<double> _nodalProperties;
+
 // PUBLIC MEMBERS
 public:
     // Default Constructor
@@ -45,7 +48,12 @@ public:
     Node(int ID, int spaceDim = 2);
 
     // Constructor 2
-    Node(int ID, const vector<double> & XYZ, const vector<int> & DOF, int spaceDim = 2);
+    Node(int ID, 
+         const vector<double> & XYZ, 
+         const vector<int> & DOF, 
+         int spaceDim = 2, 
+         double density = 1., 
+         const vector<double> *bodyForce = NULL);
 
     // Destructor
     ~Node();
@@ -62,6 +70,12 @@ public:
     // Set DOF
     void setDOF(const vector<int> & DOF);
 
+    // Set mass density
+    void setMassDensity(double density);
+
+    // Set body force
+    void setBodyForce(const vector<double> *bodyForce);
+
     // Get spaceDim
     int getSpaceDim() const;
 
@@ -74,11 +88,14 @@ public:
     // Get DOF
     const vector<int> & getDOF() const;
 
-    // Get the variables;
-    // vector<string> getVarNames() const;
+    // Get mass density
+    double getMassDensity() const;
+
+    // Get body force
+    vector<double> getBodyForce() const;
 
     // Output nodal information to a file
-    void outputInfo(ofstream & myFile, bool outputDOF = false) const;
+    void outputInfo(ofstream & myFile, bool outputElse = false) const;
 
 // NOT IMPLEMENTED
 private:

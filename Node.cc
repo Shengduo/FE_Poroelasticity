@@ -20,7 +20,12 @@ Node::Node(int ID, int spaceDim) {
 };
 
 // Constructor 2
-Node::Node(int ID, const vector<double> & XYZ, const vector<int> & DOF, int spaceDim) {
+Node::Node(int ID, 
+           const vector<double> & XYZ, 
+           const vector<int> & DOF, 
+           int spaceDim, 
+           double density, 
+           const vector<double>* bodyForce) {
     _ID = ID;
     _spaceDim = spaceDim;
     _nodalXYZ.resize(_spaceDim, 0.);
@@ -31,6 +36,8 @@ Node::Node(int ID, const vector<double> & XYZ, const vector<int> & DOF, int spac
     // Set nodal coordinates and degree of freedom
     this->setXYZ(XYZ);
     this->setDOF(DOF);
+    this->setMassDensity(density);
+    this->setBodyForce(bodyForce);
 };
 
 // Destructor
@@ -83,12 +90,51 @@ const vector<int> & Node::getDOF() const {
     return _nodalDOF;
 };
 
+// Set mass density
+void Node::setMassDensity(double density) {
+    if (_nodalProperties.size() < 1) _nodalProperties.resize(1);
+    _nodalProperties[0] = density;
+};
+
+// Get mass density
+double Node::getMassDensity() const {
+    if (_nodalProperties.size() < 1) throw ("Mass density not initialized!");
+    return _nodalProperties[0];
+}
+
+// Set body force
+void Node::setBodyForce(const vector<double> *bodyForce) {
+    if (_nodalProperties.size() < 1 + _spaceDim) _nodalProperties.resize(1 + _spaceDim);
+    if (bodyForce) {
+        for (int i = 0; i < _spaceDim; i++) {
+            _nodalProperties[1 + i] = (*bodyForce)[i];
+        }
+    }
+    else {
+        for (int i = 0; i < _spaceDim; i++) {
+            _nodalProperties[1 + i] = 0.;
+        }
+    }
+};
+
+// Get body force
+vector<double> Node::getBodyForce() const {
+    if (_nodalProperties.size() < 1 + _spaceDim) throw("Body force not initialized!");
+    vector<double> res(_spaceDim, 0.);
+    for (int i = 0; i < _spaceDim; i++) {
+        res[i] = _nodalProperties[1 + i];
+    }
+    return res;
+};
+
 // Output nodal information to a file
-void Node::outputInfo(ofstream & myFile, bool outputDOF) const {
+void Node::outputInfo(ofstream & myFile, bool outputElse) const {
     myFile << setw(10) << _ID << " ";
     for (int i = 0; i < _nodalXYZ.size(); i++) myFile << setw(12) << _nodalXYZ[i] << " ";
-    if (outputDOF) {
+    if (outputElse) {
         for (int i = 0; i < _nodalDOF.size(); i++) myFile << setw(10) << _nodalDOF[i] << " ";
+        for (int i = 0; i < _nodalProperties.size(); i++) 
+            myFile << setw(12) << _nodalProperties[i] << " ";
     }
     myFile << "\n";
 };
