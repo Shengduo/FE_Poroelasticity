@@ -37,7 +37,10 @@ private:
 
     // Total degrees of freedom
     int _totalDOF;
-    
+
+    // Total number of nodes
+    int _totalNofNodes;
+
 // PUBLIC MEMBERS
 public:
     // Constructor
@@ -69,6 +72,14 @@ private:
     // Delete Elements
     void deleteElements();
 
+    // Compute Bodyforces
+    void computeBodyForces();
+
+    // Test integratorNfN
+    void testIntegratorNfN() const;
+
+    // Print matrix
+    void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;
 // NOT IMPLEMENTED
 private:
     // Copy Constructor

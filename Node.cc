@@ -17,6 +17,9 @@ Node::Node(int ID, int spaceDim) {
 
     // Default explicit, without trace_strain
     _nodalDOF.resize(2 * _spaceDim + 2, 0);
+    
+    // Nodal body force reset
+    _nodalBodyForce.resize(_spaceDim, 0.);
 };
 
 // Constructor 2
@@ -32,6 +35,9 @@ Node::Node(int ID,
 
     // Default explicit, without trace_strain
     _nodalDOF.resize(2 * _spaceDim + 2, 0);
+
+    // Nodal body force reset
+    _nodalBodyForce.resize(_spaceDim, 0.);
 
     // Set nodal coordinates and degree of freedom
     this->setXYZ(XYZ);
@@ -146,6 +152,8 @@ void Node::outputInfo(ofstream & myFile, bool outputElse) const {
         for (int i = 0; i < _nodalDOF.size(); i++) myFile << setw(10) << _nodalDOF[i] << " ";
         for (int i = 0; i < _nodalProperties.size(); i++) 
             myFile << setw(12) << _nodalProperties[i] << " ";
+        for (int i = 0; i < _nodalBodyForce.size(); i++)
+            myFile << setw(12) << _nodalBodyForce[i] << " ";
     }
     myFile << "\n";
 };
@@ -164,6 +172,9 @@ CohesiveNode::CohesiveNode(int ID, int spaceDim) {
 
     // {Lagrange multiplier, fault_pressure}
     _nodalDOF.resize(_spaceDim + 1, 0);
+
+    // Set nodal body force to 0.
+    _nodalBodyForce.resize(_spaceDim, 0.);
 };
 
 // Constructor 2
@@ -174,4 +185,5 @@ CohesiveNode::CohesiveNode(int ID, const vector<double> & XYZ, const vector<int>
     setXYZ(XYZ);
     _nodalDOF.resize(spaceDim + 1);
     setDOF(DOF);
+    _nodalBodyForce.resize(_spaceDim, 0.);
 };

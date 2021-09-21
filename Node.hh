@@ -38,9 +38,14 @@ protected:
 
     // Nodal values (0 - mass density; 1,2 - body force (force per unit volume); ...)
     vector<double> _nodalProperties;
-
+    
 // PUBLIC MEMBERS
 public:
+    /** TO DO 
+     * Change this nodalBodyForce to private, currently for debugging purpose..
+     */
+    vector<double> _nodalBodyForce;
+    
     // Default Constructor
     Node();
 

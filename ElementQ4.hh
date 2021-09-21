@@ -61,9 +61,15 @@ public:
     // Get element NID
     const vector<Node*> & getNID() const;
 
-    // IntegratorNN, integrates a vector input inside an element, both sides using shape function
+    // IntegratorNf, integrates a vector input inside an element, both sides using shape function
     // first-dim: vector of nodes, second-dim: values (vector)
-    vector<vector<double>> IntegratorNf(const vector<vector<double>> & NodeValues) const;
+    void IntegratorNf(vector<vector<double>> & res,
+                      const vector<vector<double>> & NodeValues) const;
+
+    // IntegratorNfN, integrates a vector input inside an element, both sides using shape function
+    // first-dim: vector of nodes^2, second-dim: values (vector)
+    void IntegratorNfN(vector<vector<double>> & res,
+                      const vector<vector<double>> & NodeValues) const;
 
     // Output element info
     void outputInfo(ofstream & myFile) const;
@@ -112,7 +118,13 @@ public:
     const vector<CohesiveNode*> & getNID() const;
 
     // Integrator, integrates a vector input inside an element, first-dim: vector of nodes, second-dim: values (vector)
-    vector<vector<double>> IntegratorNf(const vector<vector<double>> & NodeValues) const;
+    void IntegratorNf(vector<vector<double>> & res, 
+                      const vector<vector<double>> & NodeValues) const;
+
+    // IntegratorNfN, integrates a vector input inside an element, both sides using shape function
+    // first-dim: vector of nodes^2, second-dim: values (vector)
+    void IntegratorNfN(vector<vector<double>> & res,
+                      const vector<vector<double>> & NodeValues) const;
 
     // Output element info
     void outputInfo(ofstream & myFile) const;

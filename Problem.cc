@@ -33,6 +33,12 @@ void Problem::initialize(const vector<double> & xRanges, const vector<int> & edg
     
     // Initialize elements
     initializeElements();
+
+    // Test: compute body forces
+    computeBodyForces();
+
+    // Test: global mass matrix
+    testIntegratorNfN();
 };
 
 // Initialize Geometry2D
@@ -60,7 +66,11 @@ void Problem::initializeNodes() {
     // Default DOF
     vector<int> DOF_default (2 * spaceDim + 2, 0);
     DOF_default[2 * spaceDim + 1] = 1;
-
+    
+    // Mass Density and Body force.
+    double massDensity = 1.0;
+    static vector<double> bodyForce  = {0, -10.0};
+    
     // Upper subzone nodes
     upperNodes.resize(myGeometry->nOfNodes);
     int nodeID = 0;
@@ -75,7 +85,8 @@ void Problem::initializeNodes() {
             thisXYZ[0] = i * edgeSize[0];
             thisXYZ[1] = j * edgeSize[1];
             // Initialize a node
-            upperNodes[nodeID_in_set] = new Node(nodeID, thisXYZ, DOF_default, spaceDim);
+            upperNodes[nodeID_in_set] = 
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, massDensity, &bodyForce);
             if (j == myGeometry->yNodeNum - 1) // Upper surface
                 upperNodes[nodeID_in_set]->setDOF(DOF_vp_fixed);
             nodeID += 1;
@@ -94,8 +105,11 @@ void Problem::initializeNodes() {
             // Reset the coordinates
             thisXYZ[0] = i * edgeSize[0];
             thisXYZ[1] = - j * edgeSize[1];
+            
             // Initialize a node
-            lowerNodes[nodeID_in_set] = new Node(nodeID, thisXYZ, DOF_default, spaceDim);
+            lowerNodes[nodeID_in_set] = 
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, massDensity, &bodyForce);
+            
             if (j == myGeometry->yNodeNum - 1) // Lower surface
                 lowerNodes[nodeID_in_set]->setDOF(DOF_vp_fixed);
             nodeID += 1;
@@ -111,10 +125,12 @@ void Problem::initializeNodes() {
         thisXYZ[0] = i * edgeSize[0];
         thisXYZ[1] = 0.;
         cohesiveNodes[nodeID_in_set] = new CohesiveNode(nodeID, thisXYZ, DOF_cohesive_default, spaceDim);
+        cohesiveNodes[nodeID_in_set]->setMassDensity(massDensity);
+        cohesiveNodes[nodeID_in_set]->setBodyForce(&bodyForce);
         nodeID += 1;
         nodeID_in_set += 1;
     };
-
+    _totalNofNodes = nodeID;
     ofstream myFile;
     myFile.open("NodeInfoBefore.txt");
 
@@ -166,14 +182,6 @@ void Problem::assignNodalDOF() {
             }
         }
     }
-
-    // Output to another file
-    ofstream myFile;
-    myFile.open("NodeInfoAfter.txt");
-
-    for (Node* node : upperNodes) node->outputInfo(myFile, true);
-    for (Node* node : lowerNodes) node->outputInfo(myFile, true);
-    for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
 };
 
 // Initialize Elements, !! CURRENTLY only ElementQ4s are available
@@ -198,7 +206,7 @@ void Problem::initializeElements() {
 
             // Setting NID for lower subzone
             NID = {lowerNodes[(j + 1) * myGeometry->xNodeNum + i], 
-                   lowerNodes[(j + 1) * myGeometry->xNodeNum + i], 
+                   lowerNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
                    lowerNodes[j * myGeometry->xNodeNum + i + 1], 
                    lowerNodes[j * myGeometry->xNodeNum + i]};
 
@@ -261,4 +269,166 @@ void Problem::deleteElements() {
     for (int i = 0; i < cohesiveElements.size(); i++) {
         delete cohesiveElements[i];
     }
+};
+
+// Calculate Nodal bodyForces, NOW for TESTING INTEGRATORS
+void Problem::computeBodyForces() {
+    vector<vector<double>> eleBodyForces(4, vector<double> (_spaceDim, 0.));
+    vector<vector<double>> nodalValues(4, vector<double> (_spaceDim, 0.));
+
+    // Loop through upperZone elements
+    for (ElementQ4* element : upperElements) {
+        // Set the function-to-be-integrated
+        for (int i = 0; i < element->getNID().size(); i++) {
+            nodalValues[i] = {element->getNID()[i]->getMassDensity() 
+                                * element->getNID()[i]->getBodyForce()[0],
+                              element->getNID()[i]->getMassDensity() 
+                                * element->getNID()[i]->getBodyForce()[1]};
+        }
+        // Call integrator
+        element->IntegratorNf(eleBodyForces, nodalValues);
+        
+        // Add to the nodal bodyforces
+        for (int i = 0; i < element->getNID().size(); i++) {
+            for (int j = 0; j < _spaceDim; j++) {
+                element->getNID()[i]->_nodalBodyForce[j] += eleBodyForces[i][j];
+            }
+        }
+    }
+
+    // Loop through lowerZone elements
+    for (ElementQ4* element : lowerElements) {
+        // Set the function-to-be-integrated
+        for (int i = 0; i < element->getNID().size(); i++) {
+            nodalValues[i] = {element->getNID()[i]->getMassDensity() 
+                                * element->getNID()[i]->getBodyForce()[0],
+                              element->getNID()[i]->getMassDensity() 
+                                * element->getNID()[i]->getBodyForce()[1]};
+        }
+        // Call integrator
+        element->IntegratorNf(eleBodyForces, nodalValues);
+        
+        // Add to the nodal bodyforces
+        for (int i = 0; i < element->getNID().size(); i++) {
+            for (int j = 0; j < _spaceDim; j++) {
+                element->getNID()[i]->_nodalBodyForce[j] += eleBodyForces[i][j];
+            }
+        }
+    }
+
+    // Loop through cohesive nodes
+    eleBodyForces.resize(2);
+    nodalValues.resize(2);
+
+    for (ElementQ4Cohesive* element : cohesiveElements) {
+        // Set the function-to-be-integrated
+        for (int i = 0; i < element->getNID().size(); i++) {
+            nodalValues[i] = {element->getNID()[i]->getMassDensity() 
+                                * element->getNID()[i]->getBodyForce()[0],
+                              element->getNID()[i]->getMassDensity() 
+                                * element->getNID()[i]->getBodyForce()[1]};
+        }
+        // Call integrator
+        element->IntegratorNf(eleBodyForces, nodalValues);
+        
+        // Add to the nodal bodyforces
+        for (int i = 0; i < element->getNID().size(); i++) {
+            for (int j = 0; j < _spaceDim; j++) {
+                element->getNID()[i]->_nodalBodyForce[j] += eleBodyForces[i][j];
+            }
+        }
+    }
+    // Output to another file
+    ofstream myFile;
+    myFile.open("NodeInfoAfter.txt");
+
+    for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    for (Node* node : lowerNodes) node->outputInfo(myFile, true);
+    for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
+};
+
+// Test integratorNfN
+void Problem::testIntegratorNfN() const {
+    // Set mass density
+    double massDensity = 1.0;
+
+    // Initialize some results
+    vector<double> globalMassMatrix(_totalNofNodes * _totalNofNodes, 0.0);
+    vector<vector<double>> eleMassMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), vector<double>(1, 0.));
+    vector<vector<double>> nodalValues(upperElements[0]->getNID().size(), vector<double>(1, massDensity));
+
+    // The global i, j indices
+    int I, J;
+    // Loop through upper Elements
+    for (ElementQ4 *element : upperElements) {
+        // Set nodal values to nodal density
+        for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorNfN(eleMassMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalMassMatrix[_totalNofNodes * I + J] 
+                    += eleMassMatrix[k * nodalValues.size() + l][0];
+            }
+        }
+    }
+    
+   // Loop through lower Elements
+    for (ElementQ4 *element : lowerElements) {
+        // Set nodal values to nodal density
+        for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorNfN(eleMassMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalMassMatrix[_totalNofNodes * I + J] 
+                    += eleMassMatrix[k * nodalValues.size() + l][0];
+            }
+        }
+    }
+    
+    // Loop through cohesive Elements
+    eleMassMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
+    nodalValues.resize(cohesiveElements[0]->getNID().size());
+    // Loop through cohesive Elements
+    for (ElementQ4Cohesive *element : cohesiveElements) {
+        // Set nodal values to nodal density
+        for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorNfN(eleMassMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalMassMatrix[_totalNofNodes * I + J] 
+                    += eleMassMatrix[k * nodalValues.size() + l][0];
+            }
+        }
+    }
+
+    // Printout the matrix
+    ofstream myFile;
+    myFile.open("GlobalMassMatrix.txt");
+    printMatrix(myFile, globalMassMatrix, _totalNofNodes, _totalNofNodes);
+};
+
+// Printout a matrix
+void Problem::printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const {
+    for (int i = 0; i < nRows; i++) {
+        for (int j = 0; j < nCols; j++) {
+            myFile << setw(12) << Matrix[i * nCols + j] << " ";
+        }
+        myFile << "\n";
+    }
+    myFile << "\n";
 };
