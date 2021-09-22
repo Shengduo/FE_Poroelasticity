@@ -59,6 +59,53 @@ void ElementQ4Cohesive::evaluateF(vector<double> & res, double ksi,
     }
 };
 
+/** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi) 
+ * in LOGICAL space with given nodal values.
+ * Calculated by using shape function to map
+ */
+void ElementQ4Cohesive::evaluateF_x(vector<double> & res, double ksi,
+                        const vector<vector<double>> & NodeValues) const {
+    // Number of nodes
+    int nOfNodes = this->getNID().size();
+    if (NodeValues.size() != nOfNodes) 
+        throw("In evaluateF_x, nodeValues do not match number of nodes!");
+    
+    // Space dim is 2 for Q4Cohesive
+    int spaceDim = 2;
+
+    // Set res to 0.;
+    res.resize(spaceDim * NodeValues[0].size());
+    fill(res.begin(), res.end(), 0.0);
+
+    // Temperary res_s
+    vector<double> res_s(NodeValues[0].size(), 0.);
+
+    // Loop through fields
+    for(int f = 0; f < NodeValues[0].size(); f++) {
+        // Loop through nodes
+        for (int n = 0; n < NodeValues.size(); n++) {
+            // Calculate \partial F / \partial \ksi
+            res_s[f] += B(ksi)[n] * NodeValues[n][f];
+        }
+    }
+
+    // Calculate {\partial ksi / \ partial x, \partial ksi / \partial y}
+    double invJ [2] = {0., 0.};
+    double temp = this->getNID()[1]->getXYZ()[0] - this->getNID()[0]->getXYZ()[0];
+    if (fabs(temp) > 1e-15) invJ[0] = 2. / temp;
+    temp = this->getNID()[1]->getXYZ()[1] - this->getNID()[0]->getXYZ()[1];
+    if (fabs(temp) > 1e-15) invJ[1] = 2. / temp; 
+
+    /** Apply invJ = (\partial x \partial \ksi) ^ -1 */
+    // All fields
+    for (int f = 0; f < NodeValues[0].size(); f++) {
+        // All spaceDims
+        for (int d = 0; d < spaceDim; d++) {
+            res[f * spaceDim + d] = res_s[f] * invJ[d];
+        }
+    }
+};
+
 // Set element NID
 void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
     _NID.resize(NID.size());

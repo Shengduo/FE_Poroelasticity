@@ -38,11 +38,10 @@ private:
      */
     double J(double ksi, double eta) const;
 
-    /** Evaluate vector at (ksi, eta) in logical space with given nodal values.
-     * Calculated by using shape function to map
+    /** calculate inverse of Jacobian at any given location in base space (ksi, eta), 
+     * invJ = (\partial (x,y) / \partial (ksi, eta)) ^ (-1)
      */
-    void evaluateF(vector<double> & res, double ksi, double eta, 
-                   const vector<vector<double>> & NodeValues) const;
+    bool InvJ(vector<double> & res, double ksi, double eta) const;
 
 // SHARED WITH COHESIVE CLASS
 protected:
@@ -72,6 +71,19 @@ public:
 
     /** Get element NID */
     const vector<Node*> & getNID() const;
+
+    /** Evaluate vector at (ksi, eta) in logical space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF(vector<double> & res, double ksi, double eta, 
+                   const vector<vector<double>> & NodeValues) const;
+    
+    /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi, eta) 
+     * in LOGICAL space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF_x(vector<double> & res, double ksi, double eta, 
+                   const vector<vector<double>> & NodeValues) const;   
 
     /** IntegratorNf, integrates a vector input inside an element, 
      * both sides using shape function

@@ -66,7 +66,7 @@ void Problem::initializeNodes() {
     
     // Mass Density and Body force.
     double massDensity = 1.0;
-    static vector<double> bodyForce  = {0, -10.0};
+    vector<double> bodyForce  = {0, -10.0};
     
     // Upper subzone nodes
     upperNodes.resize(myGeometry->nOfNodes);
@@ -81,6 +81,8 @@ void Problem::initializeNodes() {
             // Reset the coordinates
             thisXYZ[0] = i * edgeSize[0];
             thisXYZ[1] = j * edgeSize[1];
+            massDensity = thisXYZ[0] + thisXYZ[1];
+            bodyForce  = {-thisXYZ[0], -thisXYZ[1]};
             // Initialize a node
             upperNodes[nodeID_in_set] = 
                 new Node(nodeID, thisXYZ, DOF_default, spaceDim, massDensity, &bodyForce);
@@ -102,7 +104,8 @@ void Problem::initializeNodes() {
             // Reset the coordinates
             thisXYZ[0] = i * edgeSize[0];
             thisXYZ[1] = - j * edgeSize[1];
-            
+            massDensity = thisXYZ[0] + thisXYZ[1];
+            bodyForce  = {-thisXYZ[0], -thisXYZ[1]};
             // Initialize a node
             lowerNodes[nodeID_in_set] = 
                 new Node(nodeID, thisXYZ, DOF_default, spaceDim, massDensity, &bodyForce);
@@ -121,6 +124,8 @@ void Problem::initializeNodes() {
     for (int i = 0; i < myGeometry->xNodeNum; i++) {
         thisXYZ[0] = i * edgeSize[0];
         thisXYZ[1] = 0.;
+        massDensity = thisXYZ[0] + thisXYZ[1];
+        bodyForce  = {-thisXYZ[0], -thisXYZ[1]};
         cohesiveNodes[nodeID_in_set] = new CohesiveNode(nodeID, thisXYZ, DOF_cohesive_default, spaceDim);
         cohesiveNodes[nodeID_in_set]->setMassDensity(massDensity);
         cohesiveNodes[nodeID_in_set]->setBodyForce(&bodyForce);
@@ -349,6 +354,9 @@ void:: Problem::testIntegrators() {
     // Test: compute body forces
     computeBodyForces();
 
+    // Test: test gradient function
+    testEvaluateF_x();
+
     // Test: global mass matrix
     testIntegratorNfN();
 
@@ -360,6 +368,76 @@ void:: Problem::testIntegrators() {
 
     // Test: NfB
     testIntegratorNfB();
+};
+
+/** Test gradient operator */
+void Problem::testEvaluateF_x() const {
+    vector<vector<double>> NodeValues(4, vector<double>(3, 0.));
+    vector<double> res(_spaceDim * 3, 0.);
+    vector<double> IntPos = {- 1./sqrt(3.), 1./sqrt(3.)};
+    
+    // Loop through upper elements
+    for (ElementQ4 *element : upperElements) {
+        cout <<"Element No." << setw(10) << element->getID() << " " << "\n";
+        for (int i = 0; i < element->getNID().size(); i++) {
+            NodeValues[i][0] = element->getNID()[i]->getMassDensity();
+            NodeValues[i][1] = element->getNID()[i]->getBodyForce()[0];
+            NodeValues[i][2] = element->getNID()[i]->getBodyForce()[1];
+        }
+        for (int i = 0; i < IntPos.size(); i++) {
+            for (int j = 0; j < IntPos.size(); j++) {
+                element->evaluateF_x(res, IntPos[i], IntPos[j], NodeValues);
+                cout << "Integration point: " << i * _spaceDim + j;
+                for (int k = 0; k < res.size(); k++) {
+                    cout << setw(12) << res[k];
+                }
+                cout << "\n";
+            }
+        }
+        cout << "\n";
+    }
+
+    // Loop through upper elements
+    for (ElementQ4 *element : lowerElements) {
+        cout <<"Element No." << setw(10) << element->getID() << " " << "\n";
+        for (int i = 0; i < element->getNID().size(); i++) {
+            NodeValues[i][0] = element->getNID()[i]->getMassDensity();
+            NodeValues[i][1] = element->getNID()[i]->getBodyForce()[0];
+            NodeValues[i][2] = element->getNID()[i]->getBodyForce()[1];
+        }
+        for (int i = 0; i < IntPos.size(); i++) {
+            for (int j = 0; j < IntPos.size(); j++) {
+                element->evaluateF_x(res, IntPos[i], IntPos[j], NodeValues);
+                cout << "Integration point: " << i * _spaceDim + j;
+                for (int k = 0; k < res.size(); k++) {
+                    cout << setw(12) << res[k];
+                }
+                cout << "\n";
+            }
+        }
+        cout << "\n";
+    }
+
+    NodeValues.resize(2);
+    // Loop through cohesive elements
+    for (ElementQ4Cohesive *element : cohesiveElements) {
+        cout <<"Element No." << setw(10) << element->getID() << " " << "\n";
+        for (int i = 0; i < element->getNID().size(); i++) {
+            NodeValues[i][0] = element->getNID()[i]->getMassDensity();
+            NodeValues[i][1] = element->getNID()[i]->getBodyForce()[0];
+            NodeValues[i][2] = element->getNID()[i]->getBodyForce()[1];
+        }
+
+        for (int i = 0; i < IntPos.size(); i++) {
+            element->evaluateF_x(res, IntPos[i], NodeValues);
+            cout << "Integration point: " << i;
+            for (int k = 0; k < res.size(); k++) {
+                cout << setw(12) << res[k];
+            }
+            cout << "\n";
+        }
+        cout << "\n";
+    }
 };
 
 /** Test integratorNfN */

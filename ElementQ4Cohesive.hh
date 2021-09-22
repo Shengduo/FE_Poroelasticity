@@ -26,9 +26,7 @@ private:
     /** Jacobian at any given location in base space (ksi, eta), J = dx / d ksi */
     double J(double ksi) const;
 
-    /** Evaluate a function at ksi */
-    void evaluateF(vector<double> & res, double ksi, 
-                   const vector<vector<double>> & NodeValues) const;
+
 
 // PUBLIC MEMBERS
 public:
@@ -43,6 +41,17 @@ public:
 
     /** Get element NID */
     const vector<CohesiveNode*> & getNID() const;
+
+    /** Evaluate a function at ksi */
+    void evaluateF(vector<double> & res, double ksi, 
+                   const vector<vector<double>> & NodeValues) const;
+    
+    /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi) 
+     * in LOGICAL space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF_x(vector<double> & res, double ksi,
+                   const vector<vector<double>> & NodeValues) const;
 
     /** Integrator, integrates a vector input inside an element, 
      * first-dim: vector of nodes, second-dim: values (vector)

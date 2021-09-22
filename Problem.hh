@@ -90,6 +90,9 @@ private:
     // Test integrator NfB
     void testIntegratorNfB() const;
 
+    // TestGradient 
+    void testEvaluateF_x() const;
+    
     // Print matrix
     void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;
 // NOT IMPLEMENTED

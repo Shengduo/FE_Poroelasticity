@@ -68,6 +68,43 @@ double ElementQ4::J(double ksi, double eta) const {
 const vector<double> ElementQ4::IntPos = {- 1. / sqrt(3.), 1. / sqrt(3.)};
 const vector<double> ElementQ4::IntWs = {1., 1.};
 
+/** calculate inverse of Jacobian at any given location in base space (ksi, eta), 
+ * invJ = (\partial (x,y) / \partial (ksi, eta)) ^ (-1)
+ * returns false if J is singular
+ */
+bool ElementQ4::InvJ(vector<double> & res, double ksi, double eta) const {
+    // Reset all res to 0.
+    res.resize(4);
+    fill(res.begin(), res.end(), 0.0);
+    
+    double matrix [4] = {0., 0., 0., 0.};
+    // Calculate J_matrix
+    for (int i = 0; i < 4; i++) {
+        res[0] += _NID[i]->getXYZ()[0] * B(ksi, eta)[2 * i];
+        res[1] += _NID[i]->getXYZ()[0] * B(ksi, eta)[2 * i + 1];
+        res[2] += _NID[i]->getXYZ()[1] * B(ksi, eta)[2 * i];
+        res[3] += _NID[i]->getXYZ()[1] * B(ksi, eta)[2 * i + 1];
+    }
+
+    // Calculate J
+    double J = res[0] * res[3] - res[1] * res[2];
+    
+    // If J_matrix is singular
+    if (fabs(J) <= 1e-15) {
+        fill(res.begin(), res.end(), 0.);
+        return false;
+    }
+
+    // Calculate invJ, using J as a temp
+    double temp = res[3];
+    res[3] = res[0] / J;
+    res[0] = temp / J;
+    res[1] = - res[1] / J;
+    res[2] = - res[2] / J;
+    return true;
+};
+
+/** Evaluate a function F at (ksi, eta) */
 void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta, 
                           const vector<vector<double>> & NodeValues) const {
     // Make sure sizes match
@@ -82,6 +119,51 @@ void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta,
         // Loop through all nodes
         for (int n = 0; n < NodeValues.size(); n++) {
             res[f] += N(ksi, eta)[n] * NodeValues[n][f];
+        }
+    }
+};
+
+/** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi, eta) 
+ * in LOGICAL space with given nodal values.
+ * Calculated by using shape function to map
+ */
+void ElementQ4::evaluateF_x(vector<double> & res, double ksi, double eta, 
+                            const vector<vector<double>> & NodeValues) const {
+    // Number of nodes
+    int nOfNodes = this->getNID().size();
+    if (NodeValues.size() != nOfNodes) 
+        throw("In evaluateF_x, nodeValues do not match number of nodes!");
+    
+    // Space dim is 2 for Q4
+    int spaceDim = 2;
+
+    // Set res to 0.;
+    res.resize(spaceDim * NodeValues[0].size());
+    fill(res.begin(), res.end(), 0.0);
+
+    vector<double> invJ(spaceDim * spaceDim, 0.);
+    if (!InvJ(invJ, ksi, eta)) throw("J is singular for evaluateF_x!");
+
+    vector<double> res_s(res.size(), 0.);    
+    // Loop through fields
+    for(int f = 0; f < NodeValues[0].size(); f++) {
+        // Loop through nodes
+        for (int n = 0; n < NodeValues.size(); n++) {
+            // Loop through spaceDim
+            for (int d = 0; d < spaceDim; d++) {
+                // Calculate \partial F / \partial \ksi
+                res_s[d + f * spaceDim] += B(ksi, eta)[n * spaceDim + d] * NodeValues[n][f];
+            }
+        }
+    }
+
+    /** Apply invJ = (\partial x \partial \ksi) ^ -1 */
+    // All fields
+    for (int f = 0; f < NodeValues[0].size(); f++) {
+        // All spaceDims
+        for (int d = 0; d < spaceDim; d++) {
+            res[f * spaceDim + d] = invJ[0 * spaceDim + d] * res_s[f * spaceDim + 0] 
+                                    + invJ[1 * spaceDim + d] * res_s[f * spaceDim + 1];
         }
     }
 };
