@@ -9,8 +9,8 @@
  */
 int main() {
     // Initialize problem
-    vector<double> spaceDomain = {1.0, 1.0};
-    vector<int> nOfEdges = {1, 1};
+    vector<double> spaceDomain = {6.0, 3.0};
+    vector<int> nOfEdges = {6, 3};
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     myProblem->initialize(spaceDomain, nOfEdges);

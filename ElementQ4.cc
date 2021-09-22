@@ -61,14 +61,30 @@ double ElementQ4::J(double ksi, double eta) const {
         matrix[2] += _NID[i]->getXYZ()[1] * B(ksi, eta)[2 * i];
         matrix[3] += _NID[i]->getXYZ()[1] * B(ksi, eta)[2 * i + 1];
     }
-    // DEBUG LINES
-    // cout << "J= " << matrix[0] * matrix[3] - matrix[1] * matrix[2] << "\n";
     return matrix[0] * matrix[3] - matrix[1] * matrix[2]; 
 };
 
 // Constants for 2-point gaussian integral
 const vector<double> ElementQ4::IntPos = {- 1. / sqrt(3.), 1. / sqrt(3.)};
 const vector<double> ElementQ4::IntWs = {1., 1.};
+
+void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta, 
+                          const vector<vector<double>> & NodeValues) const {
+    // Make sure sizes match
+    if (NodeValues.size() != _NID.size()) throw("Not all nodal values are provided for evaluate");
+    
+    // Initialize result based on input
+    res.resize(NodeValues[0].size(), 0.);
+    for (int i = 0; i < res.size(); i++) res[i] = 0.;
+
+    // Loop through all fields
+    for (int f = 0; f < NodeValues[0].size(); f++) {
+        // Loop through all nodes
+        for (int n = 0; n < NodeValues.size(); n++) {
+            res[f] += N(ksi, eta)[n] * NodeValues[n][f];
+        }
+    }
+};
 
 // IntegratorNf, integrates a vector input inside an element, both sides using shape function.
 // first-dim: vector of nodes, second-dim: values (vector)
@@ -77,16 +93,6 @@ void ElementQ4::IntegratorNf(vector<vector<double>> & res,
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
     if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 Integrator!");
-    // DEBUG LINES
-    /**
-    for (int i = 0; i < NodeValues.size(); i++) {
-        for (int j = 0; j < NodeValues[i].size(); j++) {
-            cout << NodeValues[i][j] << " ";
-        }
-        cout << "\n";
-    }
-    cout << "\n";
-    */
     // Set res first to all 0.
     for (int i = 0; i < res.size(); i++) {
         for (int j = 0; j < res[i].size(); j++) res[i][j] = 0.;
@@ -106,17 +112,6 @@ void ElementQ4::IntegratorNf(vector<vector<double>> & res,
         }
     } 
 
-    // DEBUG LINES
-    /**
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            cout << IntNTN[4 * i + j] << " ";
-        }
-        cout << "\n";
-    }
-    cout << "\n";
-    */ 
-
     // First loop through all fields
     for (int j = 0; j < NodeValues[0].size(); j++) {
         // Then loop through all points
@@ -127,28 +122,20 @@ void ElementQ4::IntegratorNf(vector<vector<double>> & res,
             }
         }
     }
-    // DEBUG LINES
-    /**
-    for (int i = 0; i < NodeValues.size(); i++) {
-        for (int j = 0; j < NodeValues[i].size(); j++) {
-            cout << res[i][j] << " ";
-        }
-        cout << "\n";
-    }
-    cout << "\n";
-    */
 };
 
-// IntegratorNfN, integrates a vector input inside an element, both sides using shape function
-// first-dim: vector of nodes^2, second-dim: values (vector)
+/** IntegratorNfN, integrates a vector input inside an element, both sides using shape function
+ * first-dim: vector of nodes^2, second-dim: values (vector)
+ */
 void ElementQ4::IntegratorNfN(vector<vector<double>> & res, const vector<vector<double>> & NodeValues) const {
     // Some constants
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 Integrator!");
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorNfN!");
     int nOfFields = NodeValues[0].size();
     double pointValue = 0.;
+
     // Set res to all 0;
     for (int i = 0; i < res.size(); i++) {
         for (int j = 0; j < res[i].size(); j++) res[i][j] = 0.;
@@ -168,20 +155,53 @@ void ElementQ4::IntegratorNfN(vector<vector<double>> & res, const vector<vector<
                 }                
             }
         }
-
-        // DEBUG LINES
-        /**
-        for (int i = 0; i < nOfNodes; i++) {
-            for (int j = 0; j < nOfNodes; j++) {
-                cout << setw(12) << res[nOfNodes * i + j][f] << " ";
-            }
-            cout << "\n";
-        }
-        cout << "\n";
-        */
     }
 };
 
+/** IntegratorBfB, integrates a vector input inside an element, 
+ * both sides using gradient of shape function
+ * RES:
+ * first-dim: vector of nodes^2, 
+ * NODEVALUES:
+ * first-dim vector of nodes, 
+ * second-dim 2 * 2 matrix.
+ */
+void ElementQ4::IntegratorBfB(vector<double> & res,
+                              const vector<vector<double>> & NodeValues) const {
+    // Some constants
+    int nOfNodes = this->getNID().size();
+    int nOfIntPts = IntPos.size();
+    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorBfB!");
+    double pointValue = 0.;
+    vector<double> pointD(getNID()[0]->getSpaceDim()^2, 0.);
+    // Set res to all 0;
+    for (int i = 0; i < res.size(); i++) {
+        res[i] = 0.;
+    }
+
+    // Calculate res[i,j]
+    // In the integral (B^T D B)_{i,j} = B_pi D_pq B qj
+    for (int i = 0; i < nOfNodes; i++) {
+        for (int j = 0; j < nOfNodes; j++) {
+            for (int k = 0; k < nOfIntPts; k++) {
+                for (int l = 0; l < nOfIntPts; l++) {
+                    // Constants for the integral
+                    pointValue = IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]);
+                    evaluateF(pointD, IntPos[k], IntPos[l], NodeValues); 
+                    for (int p = 0; p < 2; p++) {
+                        for (int q = 0; q < 2; q++) {
+                            res[i * nOfNodes + j] += pointValue 
+                                                     * B(IntPos[k], IntPos[l])[p + 2 * i] 
+                                                     * pointD[2 * p + q] 
+                                                     * B(IntPos[k], IntPos[l])[q + 2 * j]; 
+                        }
+                    }                   
+                }
+            }                
+        }
+    }
+};
 
 // Set Element ID
 void ElementQ4::setID(int ID) {
@@ -249,6 +269,27 @@ double ElementQ4Cohesive::J(double ksi) const {
                 pow(- _NID[0]->getXYZ()[1] + _NID[1]->getXYZ()[1], 2)) / 2.; 
 };
 
+/** Evaluate a vector at ksi in logical space with given nodal values.
+ * Calculated by using shape function to map.
+ */
+void ElementQ4Cohesive::evaluateF(vector<double> & res, double ksi,
+                                  const vector<vector<double>> & NodeValues) const {
+    // Make sure sizes match
+    if (NodeValues.size() != _NID.size()) throw("Not all nodal values are provided for evaluateF");
+    
+    // Initialize result based on input
+    res.resize(NodeValues[0].size(), 0.);
+    for (int i = 0; i < res.size(); i++) res[i] = 0.;
+
+    // Loop through all fields
+    for (int f = 0; f < NodeValues[0].size(); f++) {
+        // Loop through all nodes
+        for (int n = 0; n < NodeValues.size(); n++) {
+            res[f] += N(ksi)[n] * NodeValues[n][f];
+        }
+    }
+};
+
 // Set element NID
 void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
     _NID.resize(NID.size());
@@ -295,8 +336,9 @@ void ElementQ4Cohesive::IntegratorNf(vector<vector<double>> & res,
     }
 };
 
-// IntegratorNfN, integrates a vector input inside an element, both sides using shape function
-// first-dim: vector of nodes^2, second-dim: values (vector)
+/** IntegratorNfN, integrates a vector input inside an element, both sides using shape function
+ * first-dim: vector of nodes^2, second-dim: values (vector)
+ */
 void ElementQ4Cohesive::IntegratorNfN(vector<vector<double>> & res, const vector<vector<double>> & NodeValues) const {
     // Some constants
     int nOfNodes = this->getNID().size();
@@ -324,6 +366,49 @@ void ElementQ4Cohesive::IntegratorNfN(vector<vector<double>> & res, const vector
             }
         }
     }
+};
+
+/** IntegratorBfB, integrates a vector input inside an element, 
+ * both sides using gradient of shape function
+ * RES:
+ * first-dim: vector of nodes^2, 
+ * NODEVALUES:
+ * first-dim vector of nodes, 
+ * second-dim 2 * 2 matrix.
+ */
+void ElementQ4Cohesive::IntegratorBfB(vector<double> & res,
+                                      const vector<vector<double>> & NodeValues) const {
+    // Some constants
+    int nOfNodes = this->getNID().size();
+    int nOfIntPts = IntPos.size();
+    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorBfB!");
+    double pointValue = 0.;
+    vector<double> pointD(NodeValues[0].size(), 0.);
+    // Set res to all 0;
+    for (int i = 0; i < res.size(); i++) {
+        res[i] = 0.;
+    }
+
+    // Calculate res[i,j]
+    // In the integral (B^T D B)_{i,j} = B_pi D_pq B qj
+    for (int i = 0; i < nOfNodes; i++) {
+        for (int j = 0; j < nOfNodes; j++) {
+            for (int k = 0; k < nOfIntPts; k++) {
+                // Constants for the integral
+                pointValue = IntWs[k] * J(IntPos[k]);
+                evaluateF(pointD, IntPos[k], NodeValues);
+                for (int p = 0; p < 1; p++) {
+                    for (int q = 0; q < 1; q++) {
+                        res[i * nOfNodes + j] += pointValue 
+                                * B(IntPos[k])[p + i] 
+                                * pointD[p + q] 
+                                * B(IntPos[k])[q + j]; 
+                    }
+                }                
+            }                
+        }
+    }   
 };
 
 // Output element info

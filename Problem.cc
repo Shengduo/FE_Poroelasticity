@@ -34,11 +34,8 @@ void Problem::initialize(const vector<double> & xRanges, const vector<int> & edg
     // Initialize elements
     initializeElements();
 
-    // Test: compute body forces
-    computeBodyForces();
-
-    // Test: global mass matrix
-    testIntegratorNfN();
+    // Test integrators
+    testIntegrators();
 };
 
 // Initialize Geometry2D
@@ -347,6 +344,18 @@ void Problem::computeBodyForces() {
     for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
 };
 
+// Test all integrators
+void:: Problem::testIntegrators() {
+    // Test: compute body forces
+    computeBodyForces();
+
+    // Test: global mass matrix
+    testIntegratorNfN();
+
+    // Test: global stiffness matrix
+    testIntegratorBfB();
+};
+
 // Test integratorNfN
 void Problem::testIntegratorNfN() const {
     // Set mass density
@@ -420,6 +429,83 @@ void Problem::testIntegratorNfN() const {
     ofstream myFile;
     myFile.open("GlobalMassMatrix.txt");
     printMatrix(myFile, globalMassMatrix, _totalNofNodes, _totalNofNodes);
+};
+
+// Test integratorBfB
+void Problem::testIntegratorBfB() const {
+    // Set Nodal stiffness matrix
+    double massDensity = 1.0;
+    vector<double> nodalD = {1., 0., 0., 1.};
+    vector<vector<double>> nodalValues(4, nodalD);
+
+    // Initialize some results
+    vector<double> globalStiffMatrix(_totalNofNodes * _totalNofNodes, 0.0);
+    vector<double> eleStiffMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), 0.);
+
+    // The global i, j indices
+    int I, J;
+    // Loop through upper Elements
+    for (ElementQ4 *element : upperElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorBfB(eleStiffMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalStiffMatrix[_totalNofNodes * I + J] 
+                    += eleStiffMatrix[k * nodalValues.size() + l];
+            }
+        }
+    }
+    
+    // Loop through lower Elements
+    for (ElementQ4 *element : lowerElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorBfB(eleStiffMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalStiffMatrix[_totalNofNodes * I + J] 
+                    += eleStiffMatrix[k * nodalValues.size() + l];                
+            }
+        }
+    }
+    
+    // Loop through cohesive Elements
+    eleStiffMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
+    nodalValues.resize(cohesiveElements[0]->getNID().size());
+    for (int i = 0; i < nodalValues.size(); i++) nodalValues[i].resize(1, 1.);
+    // Loop through cohesive Elements
+    for (ElementQ4Cohesive *element : cohesiveElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorBfB(eleStiffMatrix, nodalValues);
+
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalStiffMatrix[_totalNofNodes * I + J] 
+                    += eleStiffMatrix[k * nodalValues.size() + l];
+            }
+        }
+    }
+
+    // Printout the matrix
+    ofstream myFile;
+    myFile.open("GlobalStiffMatrix.txt");
+    printMatrix(myFile, globalStiffMatrix, _totalNofNodes, _totalNofNodes); 
 };
 
 // Printout a matrix

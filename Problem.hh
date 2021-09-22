@@ -72,11 +72,17 @@ private:
     // Delete Elements
     void deleteElements();
 
+    // Test integrators
+    void testIntegrators();
+    
     // Compute Bodyforces
     void computeBodyForces();
 
     // Test integratorNfN
     void testIntegratorNfN() const;
+    
+    // Test integratorBfB
+    void testIntegratorBfB() const;
 
     // Print matrix
     void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;

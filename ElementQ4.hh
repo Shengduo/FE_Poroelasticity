@@ -17,69 +17,92 @@ using namespace std;
 class ElementQ4 {
 // PRIVATE MEMBERS
 private:
-    // Element ID, should start from 0
+    /** Element ID, should start from 0 */
     int _ID;
 
-    // Element-node connection
+    /** Element-node connection */
     vector<Node*> _NID;
     
-    // Shape function N, vector of 4 on 4 nodes, evaluated in base space (ksi, eta)
+    /** Shape function N, vector of 4 on 4 nodes, 
+     * evaluated in base space (ksi, eta)
+     */
     static vector<double> N(double ksi, double eta);
 
-    // Gradient of shape function B, vector of 4 * 2 on 4 nodes, 2 directions, evaluated in base space (ksi, eta)
+    /** Gradient of shape function B, vector of 4 * 2 on 4 nodes, 2 directions, 
+     * evaluated in base space (ksi, eta)
+     */
     static vector<double> B(double ksi, double eta);
 
-    // Jacobian at any given location in base space (ksi, eta), J = det(\partial (x,y) / \partial (ksi, eta))
+    /** Jacobian at any given location in base space (ksi, eta), 
+     * J = det(\partial (x,y) / \partial (ksi, eta))
+     */
     double J(double ksi, double eta) const;
+
+    /** Evaluate vector at (ksi, eta) in logical space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF(vector<double> & res, double ksi, double eta, 
+                   const vector<vector<double>> & NodeValues) const;
 
 // SHARED WITH COHESIVE CLASS
 protected:
-    // Constants for 2-point gaussian integral
+    /** Constants for 2-point gaussian integral */
     const static vector<double> IntPos;
     const static vector<double> IntWs;
 
 // PUBLIC MEMBERS
 public:
-    // Default Constructor
+    /** Default Constructor */
     ElementQ4();
 
-    // Constructor
+    /** Constructor */
     ElementQ4(int ID, const vector<Node*> & NID);
 
-    // Destructor
+    /** Destructor */
     ~ElementQ4();
     
-    // Set element ID
+    /** Set element ID */
     void setID(int ID);
 
-    // Get element ID
+    /** Get element ID */
     int getID() const;
     
-    // Set element NID
+    /** Set element NID */
     void setNID(const vector<Node*> & NID);
 
-    // Get element NID
+    /** Get element NID */
     const vector<Node*> & getNID() const;
 
-    // IntegratorNf, integrates a vector input inside an element, both sides using shape function
-    // first-dim: vector of nodes, second-dim: values (vector)
+    /** IntegratorNf, integrates a vector input inside an element, 
+     * both sides using shape function
+     * first-dim: vector of nodes, second-dim: values (vector)
+     */
     void IntegratorNf(vector<vector<double>> & res,
                       const vector<vector<double>> & NodeValues) const;
 
-    // IntegratorNfN, integrates a vector input inside an element, both sides using shape function
-    // first-dim: vector of nodes^2, second-dim: values (vector)
+    /** IntegratorNfN, integrates a vector input inside an element, 
+     * both sides using shape function
+     * first-dim: vector of nodes^2, second-dim: values (vector)
+     */
     void IntegratorNfN(vector<vector<double>> & res,
                       const vector<vector<double>> & NodeValues) const;
 
-    // Output element info
+    /** IntegratorBfB, integrates a vector input inside an element, 
+     * both sides using shape function
+     * first-dim: vector of nodes^2, second-dim: values (vector)
+     */
+    void IntegratorBfB(vector<double> & res,
+                      const vector<vector<double>> & NodeValues) const;
+
+    /** Output element info */
     void outputInfo(ofstream & myFile) const;
 
 // NOT IMPLEMENTED
 private:
-    // Copy constructor
+    /** Copy constructor */
     ElementQ4(const ElementQ4 &);
 
-    // Move-assign operator
+    /** Move-assign operator */
     const ElementQ4 & operator=(const ElementQ4 &);
 };
 
@@ -91,49 +114,82 @@ private:
 class ElementQ4Cohesive : public ElementQ4 {
 // PRIVATE MEMBERS
 private:
-    // Node connection
+    /** Node connection */
     vector<CohesiveNode*> _NID;
 
-    // Shape function N, vector of 2 on 2 nodes, evaluated in base space (ksi)
+    /** Shape function N, vector of 2 on 2 nodes, 
+     * evaluated in base space (ksi)
+     */
     static vector<double> N(double ksi);
 
-    // Gradient of shape function B, vector of 2 * 1 on 2 nodes, evaluated in base space (ksi)
+    /** Gradient of shape function B, vector of 2 * 1 on 2 nodes, 
+     * evaluated in base space (ksi)
+     */
     static vector<double> B(double ksi);
 
-    // Jacobian at any given location in base space (ksi, eta), J = dx / d ksi
+    /** Jacobian at any given location in base space (ksi, eta), J = dx / d ksi */
     double J(double ksi) const;
+
+    /** Evaluate a function at ksi */
+    void evaluateF(vector<double> & res, double ksi, 
+                   const vector<vector<double>> & NodeValues) const;
 
 // PUBLIC MEMBERS
 public:
-    // Constructor
+    /** Constructor */
     ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID);
     
-    // Destructor
+    /** Destructor */
     ~ElementQ4Cohesive();
 
-    // Set element NID
+    /** Set element NID */
     void setNID(const vector<CohesiveNode*> & NID);
 
-    // Get element NID
+    /** Get element NID */
     const vector<CohesiveNode*> & getNID() const;
 
-    // Integrator, integrates a vector input inside an element, first-dim: vector of nodes, second-dim: values (vector)
+    /** Integrator, integrates a vector input inside an element, 
+     * first-dim: vector of nodes, second-dim: values (vector)
+     */
     void IntegratorNf(vector<vector<double>> & res, 
                       const vector<vector<double>> & NodeValues) const;
 
-    // IntegratorNfN, integrates a vector input inside an element, both sides using shape function
-    // first-dim: vector of nodes^2, second-dim: values (vector)
+    /** IntegratorNfN, integrates a vector input inside an element, 
+     * both sides using shape function
+     * first-dim: vector of nodes^2, second-dim: values (vector)
+     */
     void IntegratorNfN(vector<vector<double>> & res,
-                      const vector<vector<double>> & NodeValues) const;
+                       const vector<vector<double>> & NodeValues) const;
 
-    // Output element info
+    /** IntegratorBfB, integrates a vector input inside an element, 
+     * both sides using gradient of shape function
+     * first-dim: vector of nodes^2, second-dim: values (vector)
+     */
+    void IntegratorBfB(vector<double> & res,
+                       const vector<vector<double>> & NodeValues) const;
+
+    /** IntegratorBfN, integrates a vector input inside an element, 
+     * both sides using gradient of shape function
+     * first-dim: vector of nodes^2, second-dim: values (vector)
+     */
+    void IntegratorBfN(vector<vector<double>> & res,
+                       const vector<vector<double>> & NodeValues) const;
+
+    /** IntegratorNfB, integrates a vector input inside an element, 
+     * both sides using gradient of shape function
+     * first-dim: vector of nodes^2, second-dim: values (vector)
+     */
+    void IntegratorNfB(vector<vector<double>> & res,
+                       const vector<vector<double>> & NodeValues) const;
+
+    /** Output element info */
     void outputInfo(ofstream & myFile) const;
 
 // NOT IMPLEMENTED
 private:
-    // Copy constructor
+    /** Copy constructor */
     ElementQ4Cohesive(const ElementQ4Cohesive & );
 
-    // Move-assign operator
+    /** Move-assign operator */
     const ElementQ4Cohesive & operator=(const ElementQ4Cohesive & ); 
 };
