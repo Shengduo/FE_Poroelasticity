@@ -84,6 +84,12 @@ private:
     // Test integratorBfB
     void testIntegratorBfB() const;
 
+    // Test integrator BfN
+    void testIntegratorBfN() const;
+
+    // Test integrator NfB
+    void testIntegratorNfB() const;
+
     // Print matrix
     void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;
 // NOT IMPLEMENTED

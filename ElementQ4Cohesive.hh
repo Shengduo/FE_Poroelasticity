@@ -65,16 +65,16 @@ public:
                        const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorBfN, integrates a vector input inside an element, 
-     * both sides using gradient of shape function
-     * first-dim: vector of nodes^2, second-dim: values (vector)
+     * left side gradient of shape function, right side shape function
+     * RES, first-dim: vector of nodes^2, second-dim: values (vector)
      * NODEVALUES, first dim: nodes, second dim: spaceDim by 1 matrix, stored as a vector
      */
     void IntegratorBfN(vector<double> & res,
                        const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorNfB, integrates a vector input inside an element, 
-     * both sides using gradient of shape function
-     * first-dim: vector of nodes^2, second-dim: values (vector)
+     * left side shape function, right side gradient of shape function, 
+     * RES, first-dim: vector of nodes^2, second-dim: values (vector)
      * NODEVALUES, first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
      */
     void IntegratorNfB(vector<double> & res,

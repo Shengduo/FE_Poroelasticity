@@ -354,9 +354,15 @@ void:: Problem::testIntegrators() {
 
     // Test: global stiffness matrix
     testIntegratorBfB();
+
+    // Test: BfN
+    testIntegratorBfN();
+
+    // Test: NfB
+    testIntegratorNfB();
 };
 
-// Test integratorNfN
+/** Test integratorNfN */
 void Problem::testIntegratorNfN() const {
     // Set mass density
     double massDensity = 1.0;
@@ -431,7 +437,7 @@ void Problem::testIntegratorNfN() const {
     printMatrix(myFile, globalMassMatrix, _totalNofNodes, _totalNofNodes);
 };
 
-// Test integratorBfB
+/** Test integratorBfB */
 void Problem::testIntegratorBfB() const {
     // Set Nodal stiffness matrix
     double massDensity = 1.0;
@@ -508,7 +514,161 @@ void Problem::testIntegratorBfB() const {
     printMatrix(myFile, globalStiffMatrix, _totalNofNodes, _totalNofNodes); 
 };
 
-// Printout a matrix
+/** Test integratorBfN */
+void Problem::testIntegratorBfN() const {
+    // Set Nodal BfN matrix
+    double massDensity = 1.0;
+    vector<double> nodalD = {1., 0.};
+    vector<vector<double>> nodalValues(upperElements[0]->getNID().size(), nodalD);
+
+    // Initialize some results
+    vector<double> globalBfNMatrix(_totalNofNodes * _totalNofNodes, 0.0);
+    vector<double> eleBfNMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), 0.);
+
+    // The global i, j indices
+    int I, J;
+    // Loop through upper Elements
+    for (ElementQ4 *element : upperElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorBfN(eleBfNMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalBfNMatrix[_totalNofNodes * I + J] 
+                    += eleBfNMatrix[k * nodalValues.size() + l];
+            }
+        }
+    }
+    
+    // Loop through lower Elements
+    for (ElementQ4 *element : lowerElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorBfN(eleBfNMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalBfNMatrix[_totalNofNodes * I + J] 
+                    += eleBfNMatrix[k * nodalValues.size() + l];                
+            }
+        }
+    }
+    
+    // Loop through cohesive Elements
+    eleBfNMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
+    nodalValues.resize(cohesiveElements[0]->getNID().size());
+    for (int i = 0; i < nodalValues.size(); i++) nodalValues[i].resize(1, 1.);
+    // Loop through cohesive Elements
+    for (ElementQ4Cohesive *element : cohesiveElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorBfN(eleBfNMatrix, nodalValues);
+
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalBfNMatrix[_totalNofNodes * I + J] 
+                    += eleBfNMatrix[k * nodalValues.size() + l];
+            }
+        }
+    }
+
+    // Printout the matrix
+    ofstream myFile;
+    myFile.open("GlobalBfNMatrix.txt");
+    printMatrix(myFile, globalBfNMatrix, _totalNofNodes, _totalNofNodes); 
+};
+
+/** Test integratorNfB */
+void Problem::testIntegratorNfB() const {
+    // Set Nodal NfB matrix
+    double massDensity = 1.0;
+    vector<double> nodalD = {1., 0.};
+    vector<vector<double>> nodalValues(upperElements[0]->getNID().size(), nodalD);
+
+    // Initialize some results
+    vector<double> globalNfBMatrix(_totalNofNodes * _totalNofNodes, 0.0);
+    vector<double> eleNfBMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), 0.);
+
+    // The global i, j indices
+    int I, J;
+    // Loop through upper Elements
+    for (ElementQ4 *element : upperElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorNfB(eleNfBMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalNfBMatrix[_totalNofNodes * I + J] 
+                    += eleNfBMatrix[k * nodalValues.size() + l];
+            }
+        }
+    }
+    
+    // Loop through lower Elements
+    for (ElementQ4 *element : lowerElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorNfB(eleNfBMatrix, nodalValues);
+        
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalNfBMatrix[_totalNofNodes * I + J] 
+                    += eleNfBMatrix[k * nodalValues.size() + l];                
+            }
+        }
+    }
+    
+    // Loop through cohesive Elements
+    eleNfBMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
+    nodalValues.resize(cohesiveElements[0]->getNID().size());
+    for (int i = 0; i < nodalValues.size(); i++) nodalValues[i].resize(1, 1.);
+    // Loop through cohesive Elements
+    for (ElementQ4Cohesive *element : cohesiveElements) {
+        // Set nodal values to nodal density
+        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
+       
+        // Calculate the nodal values
+        element->IntegratorNfB(eleNfBMatrix, nodalValues);
+
+        for (int k = 0; k < element->getNID().size(); k++) {
+            for (int l = 0; l < element->getNID().size(); l++) {
+                I = element->getNID()[k]->getID();
+                J = element->getNID()[l]->getID();
+                globalNfBMatrix[_totalNofNodes * I + J] 
+                    += eleNfBMatrix[k * nodalValues.size() + l];
+            }
+        }
+    }
+
+    // Printout the matrix
+    ofstream myFile;
+    myFile.open("GlobalNfBMatrix.txt");
+    printMatrix(myFile, globalNfBMatrix, _totalNofNodes, _totalNofNodes); 
+};
+
+/** Printout a matrix */
 void Problem::printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const {
     for (int i = 0; i < nRows; i++) {
         for (int j = 0; j < nCols; j++) {

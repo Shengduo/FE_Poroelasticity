@@ -151,7 +151,7 @@ void ElementQ4Cohesive::IntegratorBfB(vector<double> & res,
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorBfB!");
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4Cohesive IntegratorBfB!");
     double pointValue = 0.;
     vector<double> pointD(NodeValues[0].size(), 0.);
     // Set res to all 0;
@@ -178,6 +178,101 @@ void ElementQ4Cohesive::IntegratorBfB(vector<double> & res,
             }                
         }
     }   
+};
+
+/** IntegratorBfN, integrates a vector input inside an element, 
+ * left side gradient of shape function, right side shape function
+ * first-dim: vector of nodes^2, second-dim: values (vector)
+ * NODEVALUES, first dim: nodes, second dim: spaceDim by 1 matrix, stored as a vector
+ */
+void ElementQ4Cohesive::IntegratorBfN(vector<double> & res,
+                                      const vector<vector<double>> & NodeValues) const {
+    // Some constants
+    int nOfNodes = this->getNID().size();
+    int nOfIntPts = IntPos.size();
+    
+    // Cohesive Nodes have special spaceDim 
+    int spaceDim = this->getNID()[0]->getSpaceDim() - 1; 
+    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4Cohesive IntegratorBfN!");
+    if (NodeValues[0].size() != spaceDim * 1) throw ("Nodal matrix provided not compatible with ElementQ4Cohesive IntegratorBfN!");
+    
+    // Temp values and vectors
+    double pointValue = 0.;
+    vector<double> pointVector(NodeValues[0].size(), 0.);
+
+    // Set res to all 0;
+    for (int i = 0; i < res.size(); i++) {
+        res[i] = 0.;
+    }
+
+    // Calculate res[i,j]
+    // In the integral (B^T F N)_{i,j} = B_pi F_pq N qj
+    for (int i = 0; i < nOfNodes; i++) {
+        for (int j = 0; j < nOfNodes; j++) {
+            for (int k = 0; k < nOfIntPts; k++) {
+                // Constants for the integral
+                pointValue = IntWs[k] * J(IntPos[k]);
+                evaluateF(pointVector, IntPos[k], NodeValues); 
+                for (int p = 0; p < spaceDim; p++) {
+                    for (int q = 0; q < 1; q++) {
+                        res[i * nOfNodes + j] += pointValue 
+                                                 * B(IntPos[k])[p + spaceDim * i] 
+                                                 * pointVector[1 * p + q] 
+                                                 * N(IntPos[k])[q + j]; 
+                    }
+                }
+            }                
+        }
+    }
+};
+
+/** IntegratorNfB, integrates a vector input inside an element, 
+ * left side shape function, right side gradient of shape function, 
+ * first-dim: vector of nodes^2, second-dim: values (vector)
+ * NODEVALUES, first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
+ */
+void ElementQ4Cohesive::IntegratorNfB(vector<double> & res,
+                                      const vector<vector<double>> & NodeValues) const {
+    // Some constants
+    int nOfNodes = this->getNID().size();
+    int nOfIntPts = IntPos.size();
+
+    // Cohesive Node has special spaceDim
+    int spaceDim = this->getNID()[0]->getSpaceDim() - 1; 
+
+    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4Cohesive IntegratorNfB!");
+    if (NodeValues[0].size() != 1 * spaceDim) throw ("Nodal matrix provided not compatible with ElementQ4Cohesive IntegratorNfB!");
+    
+    // Temp values and vectors
+    double pointValue = 0.;
+    vector<double> pointVector(NodeValues[0].size(), 0.);
+
+    // Set res to all 0;
+    for (int i = 0; i < res.size(); i++) {
+        res[i] = 0.;
+    }
+
+    // Calculate res[i,j]
+    // In the integral (N^T F B)_{i,j} = N_pi F_pq B qj
+    for (int i = 0; i < nOfNodes; i++) {
+        for (int j = 0; j < nOfNodes; j++) {
+            for (int k = 0; k < nOfIntPts; k++) {
+                // Constants for the integral
+                pointValue = IntWs[k] * J(IntPos[k]);
+                evaluateF(pointVector, IntPos[k], NodeValues); 
+                for (int p = 0; p < 1; p++) {
+                    for (int q = 0; q < spaceDim; q++) {
+                        res[i * nOfNodes + j] += pointValue 
+                                                    * N(IntPos[k])[p + i] 
+                                                    * pointVector[p + q * 1] 
+                                                    * B(IntPos[k])[q + spaceDim * j]; 
+                    }
+                }
+            }                
+        }
+    }
 };
 
 // Output element info
