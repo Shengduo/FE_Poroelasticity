@@ -203,6 +203,100 @@ void ElementQ4::IntegratorBfB(vector<double> & res,
     }
 };
 
+/** IntegratorBfN, integrates a vector input inside an element, 
+ * both sides using gradient of shape function
+ * first-dim: vector of nodes^2, second-dim: values (vector)
+ * NODEVALUES, first dim: nodes, second dim: spaceDim by 1 matrix, stored as a vector
+ */
+void ElementQ4::IntegratorBfN(vector<double> & res,
+                              const vector<vector<double>> & NodeValues) const {
+    // Some constants
+    int nOfNodes = this->getNID().size();
+    int nOfIntPts = IntPos.size();
+    int spaceDim = this->getNID()[0]->getSpaceDim(); 
+    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorBfN!");
+    if (NodeValues[0].size() != spaceDim * 1) throw ("Nodal matrix provided not compatible with IntegratorBfN!");
+    
+    // Temp values and vectors
+    double pointValue = 0.;
+    vector<double> pointVector(NodeValues[0].size(), 0.);
+
+    // Set res to all 0;
+    for (int i = 0; i < res.size(); i++) {
+        res[i] = 0.;
+    }
+
+    // Calculate res[i,j]
+    // In the integral (B^T F N)_{i,j} = B_pi F_pq N qj
+    for (int i = 0; i < nOfNodes; i++) {
+        for (int j = 0; j < nOfNodes; j++) {
+            for (int k = 0; k < nOfIntPts; k++) {
+                for (int l = 0; l < nOfIntPts; l++) {
+                    // Constants for the integral
+                    pointValue = IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]);
+                    evaluateF(pointVector, IntPos[k], IntPos[l], NodeValues); 
+                    for (int p = 0; p < spaceDim; p++) {
+                        for (int q = 0; q < 1; q++) {
+                            res[i * nOfNodes + j] += pointValue 
+                                                     * B(IntPos[k], IntPos[l])[p + spaceDim * i] 
+                                                     * pointVector[1 * p + q] 
+                                                     * N(IntPos[k], IntPos[l])[q + j]; 
+                        }
+                    }                   
+                }
+            }                
+        }
+    }
+};
+
+/** IntegratorNfB, integrates a vector input inside an element, 
+ * both sides using gradient of shape function
+ * first-dim: vector of nodes^2, second-dim: values (vector)
+ * NODEVALUES, first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
+ */
+void ElementQ4::IntegratorNfB(vector<double> & res,
+                   const vector<vector<double>> & NodeValues) const {
+    // Some constants
+    int nOfNodes = this->getNID().size();
+    int nOfIntPts = IntPos.size();
+    int spaceDim = this->getNID()[0]->getSpaceDim(); 
+    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorNfB!");
+    if (NodeValues[0].size() != 1 * spaceDim) throw ("Nodal matrix provided not compatible with IntegratorNfB!");
+    
+    // Temp values and vectors
+    double pointValue = 0.;
+    vector<double> pointVector(NodeValues[0].size(), 0.);
+
+    // Set res to all 0;
+    for (int i = 0; i < res.size(); i++) {
+        res[i] = 0.;
+    }
+
+    // Calculate res[i,j]
+    // In the integral (N^T F B)_{i,j} = N_pi F_pq B qj
+    for (int i = 0; i < nOfNodes; i++) {
+        for (int j = 0; j < nOfNodes; j++) {
+            for (int k = 0; k < nOfIntPts; k++) {
+                for (int l = 0; l < nOfIntPts; l++) {
+                    // Constants for the integral
+                    pointValue = IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]);
+                    evaluateF(pointVector, IntPos[k], IntPos[l], NodeValues); 
+                    for (int p = 0; p < 1; p++) {
+                        for (int q = 0; q < spaceDim; q++) {
+                            res[i * nOfNodes + j] += pointValue 
+                                                     * N(IntPos[k], IntPos[l])[p + i] 
+                                                     * pointVector[p + q * 1] 
+                                                     * B(IntPos[k], IntPos[l])[q + spaceDim * j]; 
+                        }
+                    }                   
+                }
+            }                
+        }
+    }
+};
+
 // Set Element ID
 void ElementQ4::setID(int ID) {
     _ID = ID;
