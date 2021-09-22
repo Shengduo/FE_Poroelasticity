@@ -3,7 +3,7 @@
  * Initialize, solve and write the results.
  */
 #include "Geometry2D.hh"
-#include "ElementQ4.hh"
+#include "ElementQ4Cohesive.hh"
 
 /** Class Problem
  * Define a problem and solves it
@@ -74,7 +74,7 @@ private:
 
     // Test integrators
     void testIntegrators();
-    
+
     // Compute Bodyforces
     void computeBodyForces();
 

@@ -2,7 +2,7 @@ CC = g++
 CCFLAGS = -g --std=c++14
 EXE = main
 SRCDIR = FE_poroelasticity
-TARGS = Node.o ElementQ4.o Problem.o main.o
+TARGS = Node.o ElementQ4.o ElementQ4Cohesive.o Problem.o main.o
 # Show the dependencies
 vpath %.cc ${SRCDIR}
 all: ${EXE}
