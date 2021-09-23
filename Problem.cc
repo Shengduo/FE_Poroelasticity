@@ -134,11 +134,12 @@ void Problem::initializeNodes() {
     };
     _totalNofNodes = nodeID;
     ofstream myFile;
-    myFile.open("NodeInfoBefore.txt");
-
+    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out);
+    myFile << "=================== NodeInfoBefore ======================================" << "\n";
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
     for (Node* node : lowerNodes) node->outputInfo(myFile, true);
     for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
+    myFile.close();
 };
 
 // Assign Nodal DOFs;
@@ -225,16 +226,18 @@ void Problem::initializeElements() {
     for (int i = 0; i < myGeometry->xEdgeNum; i++) {
         NID_cohesive = {cohesiveNodes[i], 
                cohesiveNodes[i + 1]};
+        NID = {lowerNodes[i], lowerNodes[i + 1], upperNodes[i], upperNodes[i + 1]};
         cohesiveElements[i] = 
-            new ElementQ4Cohesive(cohesiveElementST + i, NID_cohesive);
+            new ElementQ4Cohesive(cohesiveElementST + i, NID_cohesive, NID);
     }
 
     ofstream myFile;
-    myFile.open("ElementInfo.txt");
-
+    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
     for (ElementQ4* thisElement : upperElements) thisElement->outputInfo(myFile);
     for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
     for (ElementQ4Cohesive* thisElement : cohesiveElements) thisElement->outputInfo(myFile);
+    myFile.close();
 };
 
 // Delete Nodes;
@@ -340,13 +343,15 @@ void Problem::computeBodyForces() {
             }
         }
     }
-    // Output to another file
+    // Output to log file
     ofstream myFile;
-    myFile.open("NodeInfoAfter.txt");
+    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== NodeInfoAfter ======================================" << "\n";
 
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
     for (Node* node : lowerNodes) node->outputInfo(myFile, true);
     for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
+    myFile.close();
 };
 
 // Test all integrators
@@ -511,8 +516,10 @@ void Problem::testIntegratorNfN() const {
 
     // Printout the matrix
     ofstream myFile;
-    myFile.open("GlobalMassMatrix.txt");
+    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== Global Mass Matrix ======================================" << "\n";
     printMatrix(myFile, globalMassMatrix, _totalNofNodes, _totalNofNodes);
+    myFile.close();
 };
 
 /** Test integratorBfB */
@@ -588,8 +595,10 @@ void Problem::testIntegratorBfB() const {
 
     // Printout the matrix
     ofstream myFile;
-    myFile.open("GlobalStiffMatrix.txt");
+    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== GlobalStiffMatrix ======================================" << "\n";
     printMatrix(myFile, globalStiffMatrix, _totalNofNodes, _totalNofNodes); 
+    myFile.close();
 };
 
 /** Test integratorBfN */
@@ -665,8 +674,10 @@ void Problem::testIntegratorBfN() const {
 
     // Printout the matrix
     ofstream myFile;
-    myFile.open("GlobalBfNMatrix.txt");
+    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== GlobalBfNMatrix ======================================" << "\n";
     printMatrix(myFile, globalBfNMatrix, _totalNofNodes, _totalNofNodes); 
+    myFile.close();
 };
 
 /** Test integratorNfB */
@@ -742,8 +753,10 @@ void Problem::testIntegratorNfB() const {
 
     // Printout the matrix
     ofstream myFile;
-    myFile.open("GlobalNfBMatrix.txt");
+    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== GlobalNfBMatrix ======================================" << "\n";
     printMatrix(myFile, globalNfBMatrix, _totalNofNodes, _totalNofNodes); 
+    myFile.close();
 };
 
 /** Printout a matrix */

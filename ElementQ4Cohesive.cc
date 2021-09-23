@@ -9,30 +9,57 @@
  * No default constructor implemented
  */
 
-// Constructor 1 for ElementQ4Cohesive
-ElementQ4Cohesive::ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID) {
+/** Constructor 1 for ElementQ4Cohesive */
+ElementQ4Cohesive::ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, const vector<Node*> & NIDMinusPlus) {
     setID(ID);
     setNID(NID);
+    setNIDMinusPlus(NIDMinusPlus);
 };
 
-// Destructor
+/** Destructor */
 ElementQ4Cohesive::~ElementQ4Cohesive() {
     for (int i = 0; i < _NID.size(); i++) {
         delete _NID[i];
     }
 };
 
-// Shape function N, vector of 2 on 2 nodes, evaluated in base space (ksi)
+/** Set element NID */
+void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
+    _NID.resize(NID.size());
+    for (int i = 0; i < NID.size(); i++) {
+        _NID[i] = NID[i];
+    }
+};
+
+/** Get element NID */
+const vector<CohesiveNode*> & ElementQ4Cohesive::getNID() const {
+    return _NID;
+};
+
+/** Set element NIDMinusPlus */
+void ElementQ4Cohesive::setNIDMinusPlus(const vector<Node*> & NIDMinusPlus) {
+    _NIDMinusPlus.resize(NIDMinusPlus.size());
+    for (int i = 0; i < NIDMinusPlus.size(); i++) {
+        _NIDMinusPlus[i] = NIDMinusPlus[i];
+    }
+};
+
+/** Get element NIDMinusPlus */
+const vector<Node*> & ElementQ4Cohesive::getNIDMinusPlus() const {
+    return _NIDMinusPlus;
+};
+
+/** Shape function N, vector of 2 on 2 nodes, evaluated in base space (ksi) */
 vector<double> ElementQ4Cohesive::N(double ksi) {
     return vector<double> {(1. - ksi) / 2., (1. + ksi) / 2.};
 };
 
-// Gradient of shape function B, vector of 2 * 1 on 2 nodes, evaluated in base space (ksi)
+/** Gradient of shape function B, vector of 2 * 1 on 2 nodes, evaluated in base space (ksi) */
 vector<double> ElementQ4Cohesive::B(double ksi) {
     return vector<double> {- 1. / 2., 1. / 2.};
 };
 
-// Jacobian at any given location in base space (ksi, eta), J = d|x| / d ksi
+/** Jacobian at any given location in base space (ksi, eta), J = d|x| / d ksi */
 double ElementQ4Cohesive::J(double ksi) const {
     return sqrt(pow(- _NID[0]->getXYZ()[0] + _NID[1]->getXYZ()[0], 2) + 
                 pow(- _NID[0]->getXYZ()[1] + _NID[1]->getXYZ()[1], 2)) / 2.; 
@@ -106,21 +133,9 @@ void ElementQ4Cohesive::evaluateF_x(vector<double> & res, double ksi,
     }
 };
 
-// Set element NID
-void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
-    _NID.resize(NID.size());
-    for (int i = 0; i < NID.size(); i++) {
-        _NID[i] = NID[i];
-    }
-};
-
-// Get element NID
-const vector<CohesiveNode*> & ElementQ4Cohesive::getNID() const {
-    return _NID;
-};
-
-// IntegratorNf, integrates a vector input inside an element, both sides using shape function.
-// first-dim: vector of nodes, second-dim: values (vector)
+/** IntegratorNf, integrates a vector input inside an element, both sides using shape function.
+ * first-dim: vector of nodes, second-dim: values (vector)
+ */
 void ElementQ4Cohesive::IntegratorNf(vector<vector<double>> & res, 
                                      const vector<vector<double>> & NodeValues) const {
     if (NodeValues.size() != 2) throw("Not all nodal values are provided for ElementQ4Cohesive Integrator!");
@@ -322,11 +337,15 @@ void ElementQ4Cohesive::IntegratorNfB(vector<double> & res,
     }
 };
 
-// Output element info
+/** Output element info */
 void ElementQ4Cohesive::outputInfo(ofstream & myFile) const {
     myFile << setw(10) << getID() << " ";
     for (int i = 0; i < getNID().size(); i++) {
         myFile << setw(10) << getNID()[i]->getID() << " ";
+    }
+    cout << "Minus Plus Nodes: ";
+    for (int i = 0; i < getNIDMinusPlus().size(); i++) {
+        myFile << setw(10) << getNIDMinusPlus()[i]->getID() << " ";
     }
     myFile << "\n";
 };

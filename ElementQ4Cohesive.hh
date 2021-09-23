@@ -13,6 +13,9 @@ private:
     /** Node connection */
     vector<CohesiveNode*> _NID;
 
+    /** Minus and plus side node connection */
+    vector<Node*> _NIDMinusPlus;
+
     /** Shape function N, vector of 2 on 2 nodes, 
      * evaluated in base space (ksi)
      */
@@ -31,7 +34,7 @@ private:
 // PUBLIC MEMBERS
 public:
     /** Constructor */
-    ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID);
+    ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, const vector<Node*> & NIDMinusPlus);
     
     /** Destructor */
     ~ElementQ4Cohesive();
@@ -41,6 +44,12 @@ public:
 
     /** Get element NID */
     const vector<CohesiveNode*> & getNID() const;
+
+    /** Set element NIDMinusPlus */
+    void setNIDMinusPlus(const vector<Node*> & NIDMinusPlus);
+
+    /** Get element NIDMinusPlus handle */
+    const vector<Node*> & getNIDMinusPlus() const;
 
     /** Evaluate a function at ksi */
     void evaluateF(vector<double> & res, double ksi, 
