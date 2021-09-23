@@ -49,7 +49,13 @@ void Problem::initializeNodes() {
     int spaceDim = _spaceDim;
 
     // Number of elements and nodes
-
+    // Parameters for bulk Nodes
+    double lambda = 1.;
+    double shearModulus = 1.;
+    double biotAlpha = 1.;
+    double biotMp = 1.;
+    double fluidMobility = 1.;
+    double fluidViscosity = 1.;
     // Element size
     vector<double> edgeSize (spaceDim);
     edgeSize[0] = myGeometry->xRange / myGeometry->xEdgeNum;
@@ -85,7 +91,15 @@ void Problem::initializeNodes() {
             bodyForce  = {-thisXYZ[0], -thisXYZ[1]};
             // Initialize a node
             upperNodes[nodeID_in_set] = 
-                new Node(nodeID, thisXYZ, DOF_default, spaceDim, massDensity, &bodyForce);
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, 
+                         massDensity, 
+                         &bodyForce, 
+                         lambda, 
+                         shearModulus, 
+                         biotAlpha, 
+                         biotMp, 
+                         fluidMobility, 
+                         fluidViscosity);
             if (j == myGeometry->yNodeNum - 1) // Upper surface
                 upperNodes[nodeID_in_set]->setDOF(DOF_vp_fixed);
             nodeID += 1;
@@ -108,7 +122,15 @@ void Problem::initializeNodes() {
             bodyForce  = {-thisXYZ[0], -thisXYZ[1]};
             // Initialize a node
             lowerNodes[nodeID_in_set] = 
-                new Node(nodeID, thisXYZ, DOF_default, spaceDim, massDensity, &bodyForce);
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, 
+                         massDensity, 
+                         &bodyForce, 
+                         lambda, 
+                         shearModulus, 
+                         biotAlpha, 
+                         biotMp, 
+                         fluidMobility, 
+                         fluidViscosity);
             
             if (j == myGeometry->yNodeNum - 1) // Lower surface
                 lowerNodes[nodeID_in_set]->setDOF(DOF_vp_fixed);
@@ -134,7 +156,7 @@ void Problem::initializeNodes() {
     };
     _totalNofNodes = nodeID;
     ofstream myFile;
-    myFile.open("Testlog.txt", std::fstream::in | std::fstream::out);
+    myFile.open("Testlog.txt");
     myFile << "=================== NodeInfoBefore ======================================" << "\n";
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
     for (Node* node : lowerNodes) node->outputInfo(myFile, true);
@@ -228,7 +250,7 @@ void Problem::initializeElements() {
                cohesiveNodes[i + 1]};
         NID = {lowerNodes[i], lowerNodes[i + 1], upperNodes[i], upperNodes[i + 1]};
         cohesiveElements[i] = 
-            new ElementQ4Cohesive(cohesiveElementST + i, NID_cohesive, NID);
+            new ElementQ4Cohesive(cohesiveElementST + i, NID_cohesive, NID); 
     }
 
     ofstream myFile;

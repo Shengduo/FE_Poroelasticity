@@ -36,8 +36,23 @@ protected:
     // displacement(spaceDim), velocity(spaceDim), pressure(1) 
     vector<int> _nodalDOF;
 
-    // Nodal values (0 - mass density; 1,2 - body force (force per unit volume); ...)
+    /** Nodal properties values (0 - mass density; 
+     * 1,2 - body force (force per unit volume); 
+     * 3 - \lambda (drained);
+     * 4 - shear modulus G;
+     * 5 - Biot coefficient \alpha;
+     * 6 - Biot modulus M_p;
+     * 7 - Fluid mobility \kappa;
+     * 8 - Fluid viscosity \mu;
+     * ...)
+     */
     vector<double> _nodalProperties;
+
+    /** Current vector [displacement, velocity, pressure, tracestrain] */
+    vector<double> s;
+    
+    /** Current vector time derivative d/dt [displacement, velocity, pressure, tracestrain] */
+    vector<double> s_t;
     
 // PUBLIC MEMBERS
 public:
@@ -58,7 +73,13 @@ public:
          const vector<int> & DOF, 
          int spaceDim = 2, 
          double density = 1., 
-         const vector<double> *bodyForce = NULL);
+         const vector<double> *bodyForce = NULL, 
+         double lambda = 0., 
+         double shearModulus = 0., 
+         double biotAlpha = 0., 
+         double biotMp = 0., 
+         double fluidMobility = 0., 
+         double fluidViscosity = 0.);
 
     // Destructor
     ~Node();
@@ -84,6 +105,42 @@ public:
     // Set body force
     void setBodyForce(const vector<double> *bodyForce);
 
+    // Set lambda
+    void setLambda(double lambda) {
+        if (_nodalProperties.size() < 4) _nodalProperties.resize(4);
+        _nodalProperties[3] = lambda;
+    };
+
+    // Set shear modulus
+    void setShearModulus(double shearModulus) {
+        if (_nodalProperties.size() < 5) _nodalProperties.resize(5);
+        _nodalProperties[4] = shearModulus;
+    };
+
+    // Set Biot coefficient alpha
+    void setBiotAlpha(double biotAlpha) {
+        if (_nodalProperties.size() < 6) _nodalProperties.resize(6);
+        _nodalProperties[5] = biotAlpha;
+    };
+
+    // Set Biot modulus M_p
+    void setBiotMp(double biotMp) {
+        if (_nodalProperties.size() < 7) _nodalProperties.resize(7);
+        _nodalProperties[6] = biotMp;
+    };
+
+    // Set fluid mobility kappa
+    void setFluidMobility(double fluidMobility) {
+        if (_nodalProperties.size() < 8) _nodalProperties.resize(8);
+        _nodalProperties[7] = fluidMobility;
+    };
+
+    // Set fluid viscosity mu
+    void setFluidViscosity(double fluidViscosity) {
+        if (_nodalProperties.size() < 9) _nodalProperties.resize(9);
+        _nodalProperties[8] = fluidViscosity;
+    };
+
     // Get spaceDim
     int getSpaceDim() const;
 
@@ -104,6 +161,54 @@ public:
 
     // Get body force
     vector<double> getBodyForce() const;
+
+    // Get lambda
+    double getLambda() const {
+        if (_nodalProperties.size() < 4) throw("Lambda not initialized!");
+        return _nodalProperties[3];
+    };
+
+    // Get shear modulus
+    double getShearModulus() const {
+        if (_nodalProperties.size() < 5) throw("Shear modulus not initialized!");
+        return _nodalProperties[4];
+    };
+
+    // Get Biot coefficient alpha
+    double getBiotAlpha() const {
+        if (_nodalProperties.size() < 6) throw("Biot Alpha not initialized!");
+        return _nodalProperties[5];
+    };
+
+    // Set Biot modulus M_p
+    double getBiotMp() const {
+        if (_nodalProperties.size() < 7) throw("Biot Mp not initialized!");
+        return _nodalProperties[6];
+    };
+
+    // Set fluid mobility kappa
+    double getFluidMobility() const {
+        if (_nodalProperties.size() < 8) throw("Fluid mobility not initialized!");
+        return _nodalProperties[7];
+    };
+
+    // Set fluid viscosity mu
+    double getFluidViscosity() const {
+        if (_nodalProperties.size() < 9) throw("Fluid viscosity not initialized!");
+        return _nodalProperties[8];
+    };
+
+    /** Push initial s to the global vector s */
+    void pushS(vector<double> & globalS) const;
+
+    /** Get current s_t from the global vector s_t */
+    void fetchS_t(const vector<double> & globalS_t);
+
+    /** Get current s from the global vector s */
+    void fetchS(const vector<double> & globalS);
+
+    /** Get current s_t from the global vector s_t */
+    void fetchS_t(const vector<double> & globalS_t);
 
     // Output nodal information to a file
     void outputInfo(ofstream & myFile, bool outputElse = false) const;

@@ -14,12 +14,17 @@ Node::Node(int ID, int spaceDim) {
     _ID = ID;
     _spaceDim = spaceDim;
     _nodalXYZ.resize(_spaceDim, 0.);
-
+    
     // Default explicit, without trace_strain
     _nodalDOF.resize(2 * _spaceDim + 2, 0);
     
+    // Resize solution s and s_t
+    s.resize(_nodalDOF.size(), 0.);
+    s_t.resize(_nodalDOF.size(), 0.);
+
     // Nodal body force reset
     _nodalBodyForce.resize(_spaceDim, 0.);
+    
 };
 
 // Constructor 2
@@ -28,7 +33,13 @@ Node::Node(int ID,
            const vector<int> & DOF, 
            int spaceDim, 
            double density, 
-           const vector<double>* bodyForce) {
+           const vector<double>* bodyForce, 
+           double lambda, 
+           double shearModulus, 
+           double biotAlpha, 
+           double biotMp, 
+           double fluidMobility, 
+           double fluidViscosity) {
     _ID = ID;
     _spaceDim = spaceDim;
     _nodalXYZ.resize(_spaceDim, 0.);
@@ -44,6 +55,12 @@ Node::Node(int ID,
     this->setDOF(DOF);
     this->setMassDensity(density);
     this->setBodyForce(bodyForce);
+    this->setLambda(lambda);
+    this->setShearModulus(shearModulus);
+    this->setBiotAlpha(biotAlpha);
+    this->setBiotMp(biotMp);
+    this->setFluidMobility(fluidMobility);
+    this->setFluidViscosity(fluidViscosity);
 };
 
 // Destructor
@@ -144,14 +161,38 @@ vector<double> Node::getBodyForce() const {
     return res;
 };
 
-// Output nodal information to a file
+/** Push initial s to the global vector s */
+void Node::pushS(vector<double> & globalS) const {
+    for (int i = 0; i < _nodalDOF.size(); i++) {
+        if (_nodalDOF[i] != -1) globalS[_nodalDOF[i]] = s[i];
+    }
+};
+
+/** Get current s from the global vector s */
+void Node::fetchS(const vector<double> & globalS) {
+    for (int i = 0; i < _nodalDOF.size(); i++) {
+        if (_nodalDOF[i] != -1) s[i] = globalS[_nodalDOF[i]];
+    }
+};
+
+/** Get current s_t from the global vector s_t */
+void Node::fetchS_t(const vector<double> & globalS_t) {
+    for (int i = 0; i < _nodalDOF.size(); i++) {
+        if (_nodalDOF[i] != -1) s_t[i] = globalS_t[_nodalDOF[i]];
+    }
+};
+
+/** Output nodal information to a file */
 void Node::outputInfo(ofstream & myFile, bool outputElse) const {
-    myFile << setw(10) << _ID << " ";
+    myFile <<"Node ID: " <<  setw(10) << _ID << " " << "Node XYZ: ";
     for (int i = 0; i < _nodalXYZ.size(); i++) myFile << setw(12) << _nodalXYZ[i] << " ";
     if (outputElse) {
+        myFile << "Node DOF: ";
         for (int i = 0; i < _nodalDOF.size(); i++) myFile << setw(10) << _nodalDOF[i] << " ";
+        myFile << "Node Properties: ";
         for (int i = 0; i < _nodalProperties.size(); i++) 
             myFile << setw(12) << _nodalProperties[i] << " ";
+        myFile << "Node Forces: ";
         for (int i = 0; i < _nodalBodyForce.size(); i++)
             myFile << setw(12) << _nodalBodyForce[i] << " ";
     }
