@@ -198,11 +198,11 @@ public:
         return _nodalProperties[8];
     };
 
+    /** Initialize s = [displacement, velocity, pressure, trace_strain] */
+    void initializeS(const vector<double> & initialS);
+
     /** Push initial s to the global vector s */
     void pushS(vector<double> & globalS) const;
-
-    /** Get current s_t from the global vector s_t */
-    void fetchS_t(const vector<double> & globalS_t);
 
     /** Get current s from the global vector s */
     void fetchS(const vector<double> & globalS);
@@ -223,7 +223,7 @@ private:
 //------------------------------------------------------------------------------------------------------------------------------------------------------
 /** Class CohesiveNode, 
  * deals with the cohesive nodes initialization and calculation.
- * has DOF: {lambda(spaceDim), pressureFault}
+ * has DOF: {lambda(spaceDim), pressure_fault, theta}
  */
 class CohesiveNode : public Node {
 // PUBLIC MEMBERS
@@ -233,6 +233,9 @@ public:
 
     // Constructor 2
     CohesiveNode(int ID, const vector<double> & XYZ, const vector<int> & DOF, int spaceDim = 2);
+
+    /** Initialize s */
+    void initializeS(const vector<double> & initialS);
 
 // NOT IMPLEMENTED
 private:

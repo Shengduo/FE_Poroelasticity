@@ -33,7 +33,8 @@ void Problem::initialize(const vector<double> & xRanges, const vector<int> & edg
     
     // Initialize elements
     initializeElements();
-
+    
+    
     // Test integrators
     testIntegrators();
 };
@@ -142,7 +143,7 @@ void Problem::initializeNodes() {
     
     // Cohesive Nodes;
     cohesiveNodes.resize(myGeometry->xNodeNum);
-    vector<int> DOF_cohesive_default(spaceDim + 1, 0);
+    vector<int> DOF_cohesive_default(spaceDim + 2, 0);
     for (int i = 0; i < myGeometry->xNodeNum; i++) {
         thisXYZ[0] = i * edgeSize[0];
         thisXYZ[1] = 0.;

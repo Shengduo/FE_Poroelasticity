@@ -161,6 +161,13 @@ vector<double> Node::getBodyForce() const {
     return res;
 };
 
+/** Initialize s = [displacement, velocity, pressure, trace_strain] */
+void Node::initializeS(const vector<double> & initialS) {
+    if (initialS.size() != _spaceDim * 2 + 2) throw("Initial s vector not compatible with nodal DOFs!");
+    s.resize(initialS.size());
+    for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
+};
+
 /** Push initial s to the global vector s */
 void Node::pushS(vector<double> & globalS) const {
     for (int i = 0; i < _nodalDOF.size(); i++) {
@@ -211,8 +218,8 @@ CohesiveNode::CohesiveNode(int ID, int spaceDim) {
     setSpaceDim(spaceDim);
     _nodalXYZ.resize(_spaceDim, 0.);
 
-    // {Lagrange multiplier, fault_pressure}
-    _nodalDOF.resize(_spaceDim + 1, 0);
+    // {lambda, fault_pressure, theta}
+    _nodalDOF.resize(_spaceDim + 2, 0);
 
     // Set nodal body force to 0.
     _nodalBodyForce.resize(_spaceDim, 0.);
@@ -224,7 +231,14 @@ CohesiveNode::CohesiveNode(int ID, const vector<double> & XYZ, const vector<int>
     setID(ID);
     setSpaceDim(spaceDim);
     setXYZ(XYZ);
-    _nodalDOF.resize(spaceDim + 1);
+    _nodalDOF.resize(spaceDim + 2);
     setDOF(DOF);
     _nodalBodyForce.resize(_spaceDim, 0.);
+};
+
+/** Initialize s = [lambda, fault_pressure, theta] */
+void CohesiveNode::initializeS(const vector<double> & initialS) {
+    if (initialS.size() != _spaceDim + 2) throw("Initial s vector not compatible with cohesive nodal DOFs!");
+    s.resize(initialS.size());
+    for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
 };
