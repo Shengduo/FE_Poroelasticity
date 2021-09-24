@@ -4,6 +4,7 @@
  */
 #include "Geometry2D.hh"
 #include "ElementQ4Cohesive.hh"
+#include "FeKernel.hh"
 
 /** Class Problem
  * Define a problem and solves it
@@ -92,7 +93,7 @@ private:
 
     // TestGradient 
     void testEvaluateF_x() const;
-    
+
     // Print matrix
     void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;
 // NOT IMPLEMENTED
