@@ -2,12 +2,14 @@
  * Define a virtual base class FeKernel
  * Allow detailed implementation of jacobian, residual functions in derived classes
  */
+#include <vector>
 using namespace std;
 
 /** Class FeKernel,
  * virtual parent class for the integration kernels of bulk elements.
+ * Calculate and pass back pointwise jacobians.
  * Formulation of equations: F(t, \dot{s}, s) = G(t, s)
- * !! Only usable for implicit and IMEX scheme FOR NOW
+ * !! Only implemented for implicit and IMEX scheme FOR NOW
  */
 class FeKernel {
 // PUBLIC METHODS
@@ -40,7 +42,7 @@ public:
     /** Left hand side residual 
      * G0(t, s)
      */
-    virtual void G0(vector<double> & G,                   // stores the result                   
+    virtual void G0(vector<double> & G0,                   // stores the result                   
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
@@ -52,7 +54,7 @@ public:
     /** Left hand side residual 
      * G1(t, s)
      */
-    virtual void G1(vector<double> & G,                   // stores the result                   
+    virtual void G1(vector<double> & G1,                   // stores the result                   
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
@@ -109,6 +111,12 @@ public:
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
                    ) const;
+    
+    /** Default constructor */
+    FeKernel() {};
+
+    /** Default Virtual destructor */
+    virtual ~FeKernel() {};
 
 // NOT IMPLEMENTED
 private:
