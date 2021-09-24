@@ -71,7 +71,7 @@ double ElementQ4Cohesive::J(double ksi) const {
 void ElementQ4Cohesive::evaluateF(vector<double> & res, double ksi,
                                   const vector<vector<double>> & NodeValues) const {
     // Make sure sizes match
-    if (NodeValues.size() != _NID.size()) throw("Not all nodal values are provided for evaluateF");
+    if (NodeValues.size() != _NID.size()) throw "Not all nodal values are provided for evaluateF.";
     
     // Initialize result based on input
     res.resize(NodeValues[0].size(), 0.);
@@ -95,7 +95,7 @@ void ElementQ4Cohesive::evaluateF_x(vector<double> & res, double ksi,
     // Number of nodes
     int nOfNodes = this->getNID().size();
     if (NodeValues.size() != nOfNodes) 
-        throw("In evaluateF_x, nodeValues do not match number of nodes!");
+        throw "In evaluateF_x, nodeValues do not match number of nodes!";
     
     // Space dim is 2 for Q4Cohesive
     int spaceDim = 2;
@@ -138,7 +138,7 @@ void ElementQ4Cohesive::evaluateF_x(vector<double> & res, double ksi,
  */
 void ElementQ4Cohesive::IntegratorNf(vector<vector<double>> & res, 
                                      const vector<vector<double>> & NodeValues) const {
-    if (NodeValues.size() != 2) throw("Not all nodal values are provided for ElementQ4Cohesive Integrator!");
+    if (NodeValues.size() != 2) throw "Not all nodal values are provided for ElementQ4Cohesive Integrator!";
     for (int i = 0; i < res.size(); i++) {
         for (int j = 0; j < res[i].size(); j++) res[i][j] = 0.;
     }
@@ -175,7 +175,7 @@ void ElementQ4Cohesive::IntegratorNfN(vector<vector<double>> & res, const vector
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4Cohesive Integrator!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4Cohesive Integrator!";
     int nOfFields = NodeValues[0].size();
     double pointValue = 0.;
     // Set res to all 0;
@@ -213,7 +213,7 @@ void ElementQ4Cohesive::IntegratorBfB(vector<double> & res,
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4Cohesive IntegratorBfB!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4Cohesive IntegratorBfB!";
     double pointValue = 0.;
     vector<double> pointD(NodeValues[0].size(), 0.);
     // Set res to all 0;
@@ -256,8 +256,8 @@ void ElementQ4Cohesive::IntegratorBfN(vector<double> & res,
     // Cohesive Nodes have special spaceDim 
     int spaceDim = this->getNID()[0]->getSpaceDim() - 1; 
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4Cohesive IntegratorBfN!");
-    if (NodeValues[0].size() != spaceDim * 1) throw ("Nodal matrix provided not compatible with ElementQ4Cohesive IntegratorBfN!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4Cohesive IntegratorBfN!";
+    if (NodeValues[0].size() != spaceDim * 1) throw "Nodal matrix provided not compatible with ElementQ4Cohesive IntegratorBfN!";
     
     // Temp values and vectors
     double pointValue = 0.;
@@ -304,8 +304,8 @@ void ElementQ4Cohesive::IntegratorNfB(vector<double> & res,
     int spaceDim = this->getNID()[0]->getSpaceDim() - 1; 
 
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4Cohesive IntegratorNfB!");
-    if (NodeValues[0].size() != 1 * spaceDim) throw ("Nodal matrix provided not compatible with ElementQ4Cohesive IntegratorNfB!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4Cohesive IntegratorNfB!";
+    if (NodeValues[0].size() != 1 * spaceDim) throw "Nodal matrix provided not compatible with ElementQ4Cohesive IntegratorNfB!";
     
     // Temp values and vectors
     double pointValue = 0.;

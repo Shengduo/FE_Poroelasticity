@@ -13,6 +13,11 @@ int main() {
     vector<int> nOfEdges = {1, 1};
     // Get a handle of the problem
     Problem* myProblem = new Problem();
-    myProblem->initialize(spaceDomain, nOfEdges);
+    try {
+        myProblem->initialize(spaceDomain, nOfEdges);
+    }
+    catch (const char* msg) {
+        cerr << msg << endl;
+    }
     return 0;
 };

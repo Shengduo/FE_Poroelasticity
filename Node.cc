@@ -89,7 +89,7 @@ int Node::getID() const {
 // Set nodal coordinates
 void Node::setXYZ(const vector<double> & XYZ) {
     if (XYZ.size() != _spaceDim) {
-        throw("Input nodal coordinates are not compatible with space dimension!");
+        throw "Input nodal coordinates are not compatible with space dimension!";
     }
     _nodalXYZ.resize(_spaceDim);
     for (int i = 0; i < _spaceDim; i++) _nodalXYZ[i] = XYZ[i];
@@ -103,14 +103,14 @@ const vector<double> & Node::getXYZ() const {
 // Set DOF 1
 void Node::setDOF(const vector<int> & DOF) {
     if (DOF.size() != _nodalDOF.size()) {
-        throw("Input DOF incompatible with nodal DOF!");
+        throw "Input DOF incompatible with nodal DOF!";
     }
     for(int i = 0; i < _nodalDOF.size(); i++) _nodalDOF[i] = DOF[i];
 };
 
 // Set DOF 2
 void Node::setDOF(int index, int DOF) {
-    if (index >= _nodalDOF.size()) throw("Cannot run setDOF2 due to overflow!");
+    if (index >= _nodalDOF.size()) throw "Cannot run setDOF2 due to overflow!";
     _nodalDOF[index] = DOF;
 };
 
@@ -132,7 +132,7 @@ void Node::setMassDensity(double density) {
 
 // Get mass density
 double Node::getMassDensity() const {
-    if (_nodalProperties.size() < 1) throw ("Mass density not initialized!");
+    if (_nodalProperties.size() < 1) throw "Mass density not initialized!";
     return _nodalProperties[0];
 }
 
@@ -153,7 +153,7 @@ void Node::setBodyForce(const vector<double> *bodyForce) {
 
 // Get body force
 vector<double> Node::getBodyForce() const {
-    if (_nodalProperties.size() < 1 + _spaceDim) throw("Body force not initialized!");
+    if (_nodalProperties.size() < 1 + _spaceDim) throw "Body force not initialized!";
     vector<double> res(_spaceDim, 0.);
     for (int i = 0; i < _spaceDim; i++) {
         res[i] = _nodalProperties[1 + i];
@@ -163,7 +163,7 @@ vector<double> Node::getBodyForce() const {
 
 /** Initialize s = [displacement, velocity, pressure, trace_strain] */
 void Node::initializeS(const vector<double> & initialS) {
-    if (initialS.size() != _spaceDim * 2 + 2) throw("Initial s vector not compatible with nodal DOFs!");
+    if (initialS.size() != _spaceDim * 2 + 2) throw "Initial s vector not compatible with nodal DOFs!";
     s.resize(initialS.size());
     for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
 };
@@ -238,7 +238,7 @@ CohesiveNode::CohesiveNode(int ID, const vector<double> & XYZ, const vector<int>
 
 /** Initialize s = [lambda, fault_pressure, theta] */
 void CohesiveNode::initializeS(const vector<double> & initialS) {
-    if (initialS.size() != _spaceDim + 2) throw("Initial s vector not compatible with cohesive nodal DOFs!");
+    if (initialS.size() != _spaceDim + 2) throw "Initial s vector not compatible with cohesive nodal DOFs!";
     s.resize(initialS.size());
     for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
 };

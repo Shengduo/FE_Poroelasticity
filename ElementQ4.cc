@@ -108,7 +108,7 @@ bool ElementQ4::InvJ(vector<double> & res, double ksi, double eta) const {
 void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta, 
                           const vector<vector<double>> & NodeValues) const {
     // Make sure sizes match
-    if (NodeValues.size() != _NID.size()) throw("Not all nodal values are provided for evaluate");
+    if (NodeValues.size() != _NID.size()) throw "Not all nodal values are provided for evaluate";
     
     // Initialize result based on input
     res.resize(NodeValues[0].size(), 0.);
@@ -132,7 +132,7 @@ void ElementQ4::evaluateF_x(vector<double> & res, double ksi, double eta,
     // Number of nodes
     int nOfNodes = this->getNID().size();
     if (NodeValues.size() != nOfNodes) 
-        throw("In evaluateF_x, nodeValues do not match number of nodes!");
+        throw "In evaluateF_x, nodeValues do not match number of nodes!";
     
     // Space dim is 2 for Q4
     int spaceDim = 2;
@@ -142,7 +142,7 @@ void ElementQ4::evaluateF_x(vector<double> & res, double ksi, double eta,
     fill(res.begin(), res.end(), 0.0);
 
     vector<double> invJ(spaceDim * spaceDim, 0.);
-    if (!InvJ(invJ, ksi, eta)) throw("J is singular for evaluateF_x!");
+    if (!InvJ(invJ, ksi, eta)) throw "J is singular for evaluateF_x!";
 
     vector<double> res_s(res.size(), 0.);    
     // Loop through fields
@@ -174,7 +174,7 @@ void ElementQ4::IntegratorNf(vector<vector<double>> & res,
                              const vector<vector<double>> & NodeValues) const {
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 Integrator!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorNf!";
     // Set res first to all 0.
     for (int i = 0; i < res.size(); i++) {
         for (int j = 0; j < res[i].size(); j++) res[i][j] = 0.;
@@ -214,7 +214,7 @@ void ElementQ4::IntegratorNfN(vector<vector<double>> & res, const vector<vector<
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorNfN!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorNfN!";
     int nOfFields = NodeValues[0].size();
     double pointValue = 0.;
 
@@ -254,7 +254,7 @@ void ElementQ4::IntegratorBfB(vector<double> & res,
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorBfB!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorBfB!";
     double pointValue = 0.;
     vector<double> pointD(getNID()[0]->getSpaceDim()^2, 0.);
     // Set res to all 0;
@@ -297,8 +297,8 @@ void ElementQ4::IntegratorBfN(vector<double> & res,
     int nOfIntPts = IntPos.size();
     int spaceDim = this->getNID()[0]->getSpaceDim(); 
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorBfN!");
-    if (NodeValues[0].size() != spaceDim * 1) throw ("Nodal matrix provided not compatible with IntegratorBfN!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorBfN!";
+    if (NodeValues[0].size() != spaceDim * 1) throw "Nodal matrix provided not compatible with IntegratorBfN!";
     
     // Temp values and vectors
     double pointValue = 0.;
@@ -344,8 +344,8 @@ void ElementQ4::IntegratorNfB(vector<double> & res,
     int nOfIntPts = IntPos.size();
     int spaceDim = this->getNID()[0]->getSpaceDim(); 
     if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw("Not all nodal values are provided for ElementQ4 IntegratorNfB!");
-    if (NodeValues[0].size() != 1 * spaceDim) throw ("Nodal matrix provided not compatible with IntegratorNfB!");
+    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorNfB!";
+    if (NodeValues[0].size() != 1 * spaceDim) throw "Nodal matrix provided not compatible with IntegratorNfB!";
     
     // Temp values and vectors
     double pointValue = 0.;

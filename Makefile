@@ -17,7 +17,9 @@ run:
 	./${EXE}
 clean:
 	rm -rf ${TARGS} ${EXE} *.txt
-
+	
+cleantext:
+	rm -rf *.txt
 .PHONY:
-	clean run
+	clean cleantext run
 
