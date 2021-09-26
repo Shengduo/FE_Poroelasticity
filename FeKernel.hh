@@ -22,6 +22,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
@@ -34,6 +35,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
@@ -46,6 +48,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
@@ -58,6 +61,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
@@ -71,6 +75,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
@@ -83,6 +88,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
@@ -95,6 +101,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
@@ -107,6 +114,7 @@ public:
                    const vector<double> & s,              // solution vector s
                    const vector<double> & s_x,            // gradient of s
                    const vector<double> & s_t,            // time derivative of s
+                   double s_tshift,                       // sigma of tshift due to the time-derivative
                    const vector<double> & sOff,           // offset of each solution field
                    const vector<double> & a,              // auxiliary fields
                    const vector<double> & aOff            // auxiliary fields offset
