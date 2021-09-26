@@ -2,7 +2,7 @@
  * Default implementation of base class FeKernel
  */
 #include "FeKernel.hh"
-#include <vector>
+
 /** Left hand side residual 
  * F0(t, \dot{s}, s)
  */

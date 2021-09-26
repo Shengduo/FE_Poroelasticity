@@ -8,7 +8,7 @@ using namespace std;
 /** Class FeKernel,
  * virtual parent class for the integration kernels of bulk elements.
  * Calculate and pass back pointwise jacobians.
- * Formulation of equations: F(t, \dot{s}, s) = G(t, s)
+ * Formulation of equations: F(t, dot{s}, s) = G(t, s)
  * !! Only implemented for implicit and IMEX scheme FOR NOW
  */
 class FeKernel {
