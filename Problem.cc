@@ -17,6 +17,9 @@ Problem::~Problem() {
 
     // Release Elements
     deleteElements();
+
+    // Destroy global vectors and matrices
+    VecDestroy(&globalF);
 };
 
 // General initialization
@@ -31,9 +34,14 @@ void Problem::initialize(const vector<double> & xRanges, const vector<int> & edg
     // Assign Nodal DOFs
     assignNodalDOF();
     
+    // Test push global F
+    testPushGlobalF();
+    
+    // Test fetch global F
+    testFetchGlobalF();
+    
     // Initialize elements
     initializeElements();
-    
     
     // Test integrators
     testIntegrators();
@@ -80,7 +88,7 @@ void Problem::initializeNodes() {
     int nodeID = 0;
     int nodeID_in_set = 0;
     vector<double> thisXYZ(spaceDim);
-    
+    vector<double> initialS(spaceDim * 2 + 2, 1.);
     // First y
     for (int j = 0; j < myGeometry->yNodeNum; j++) {
         // Then x
@@ -103,11 +111,16 @@ void Problem::initializeNodes() {
                          fluidViscosity);
             if (j == myGeometry->yNodeNum - 1) // Upper surface
                 upperNodes[nodeID_in_set]->setDOF(DOF_vp_fixed);
+            upperNodes[nodeID_in_set]->initializeS(initialS);
             nodeID += 1;
             nodeID_in_set += 1;
+            
+            
+            
         }
     }
 
+    fill(initialS.begin(), initialS.end(), 2.0);
     // Lower subzone nodes
     lowerNodes.resize(myGeometry->nOfNodes);
     // Reset in-set node ID
@@ -135,14 +148,18 @@ void Problem::initializeNodes() {
             
             if (j == myGeometry->yNodeNum - 1) // Lower surface
                 lowerNodes[nodeID_in_set]->setDOF(DOF_vp_fixed);
+            lowerNodes[nodeID_in_set]->initializeS(initialS);
             nodeID += 1;
             nodeID_in_set += 1;
+            
         }
     }
     nodeID_in_set = 0;
     
     // Cohesive Nodes;
     cohesiveNodes.resize(myGeometry->xNodeNum);
+    initialS.resize(spaceDim + 2);
+    fill(initialS.begin(), initialS.end(), 3.0);
     vector<int> DOF_cohesive_default(spaceDim + 2, 0);
     for (int i = 0; i < myGeometry->xNodeNum; i++) {
         thisXYZ[0] = i * edgeSize[0];
@@ -152,8 +169,10 @@ void Problem::initializeNodes() {
         cohesiveNodes[nodeID_in_set] = new CohesiveNode(nodeID, thisXYZ, DOF_cohesive_default, spaceDim);
         cohesiveNodes[nodeID_in_set]->setMassDensity(massDensity);
         cohesiveNodes[nodeID_in_set]->setBodyForce(&bodyForce);
+        cohesiveNodes[nodeID_in_set]->initializeS(initialS);
         nodeID += 1;
         nodeID_in_set += 1;
+        
     };
     _totalNofNodes = nodeID;
     ofstream myFile;
@@ -207,6 +226,47 @@ void Problem::assignNodalDOF() {
                 cohesiveNodes[i]->setDOF(j, -1); 
             }
         }
+    }
+};
+
+// TEST Try push to globalF
+void Problem::testPushGlobalF() {
+    // Set size of global F
+    VecCreate(PETSC_COMM_WORLD, &globalF);
+    VecSetSizes(globalF, PETSC_DECIDE, _totalDOF);
+    VecSetFromOptions(globalF);
+
+    // Upper zone
+    for (Node* node : upperNodes) {
+        node->pushS(globalF);
+    }
+    // lower zone
+    for (Node* node : lowerNodes) {
+        node->pushS(globalF);
+    }
+    // Cohesive zone
+    for (CohesiveNode* node : cohesiveNodes) {
+        node->pushS(globalF);
+    }
+    
+    // Output the global F
+    cout << "TEST: Global F\n";
+    VecView(globalF, PETSC_VIEWER_STDOUT_SELF);
+};
+
+// TEST Try Fetching from globalF
+void Problem::testFetchGlobalF() {
+    // Upper zone
+    for (Node* node : upperNodes) {
+        node->fetchS_t(globalF);
+    }
+    // lower zone
+    for (Node* node : lowerNodes) {
+        node->fetchS_t(globalF);
+    }
+    // Cohesive zone
+    for (CohesiveNode* node : cohesiveNodes) {
+        node->fetchS_t(globalF);
     }
 };
 

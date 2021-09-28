@@ -41,6 +41,9 @@ private:
 
     // Total number of nodes
     int _totalNofNodes;
+    
+    // Global residual vector
+    Vec globalF;
 
 // PUBLIC MEMBERS
 public:
@@ -64,6 +67,12 @@ private:
     // Assign global ID for each DOF
     void assignNodalDOF();
 
+    // TEST Try push to globalF
+    void testPushGlobalF();
+
+    // TEST Try getting from globalF
+    void testFetchGlobalF();
+    
     // Initialization of Elements
     void initializeElements();
 

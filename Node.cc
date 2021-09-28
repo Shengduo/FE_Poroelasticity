@@ -164,28 +164,37 @@ vector<double> Node::getBodyForce() const {
 /** Initialize s = [displacement, velocity, pressure, trace_strain] */
 void Node::initializeS(const vector<double> & initialS) {
     if (initialS.size() != _spaceDim * 2 + 2) throw "Initial s vector not compatible with nodal DOFs!";
+    
     s.resize(initialS.size());
     for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
 };
 
 /** Push initial s to the global vector s */
-void Node::pushS(vector<double> & globalS) const {
+void Node::pushS(Vec & globalS) const {
     for (int i = 0; i < _nodalDOF.size(); i++) {
-        if (_nodalDOF[i] != -1) globalS[_nodalDOF[i]] = s[i];
+        if (_nodalDOF[i] != -1) {
+            VecSetValue(globalS, _nodalDOF[i], s[i], INSERT_VALUES);
+        }
     }
 };
 
 /** Get current s from the global vector s */
-void Node::fetchS(const vector<double> & globalS) {
+void Node::fetchS(const Vec & globalS) {
+    if (s.size() < _nodalDOF.size()) s.resize(_nodalDOF.size());
     for (int i = 0; i < _nodalDOF.size(); i++) {
-        if (_nodalDOF[i] != -1) s[i] = globalS[_nodalDOF[i]];
+        if (_nodalDOF[i] != -1) {
+            VecGetValues(globalS, 1, &(_nodalDOF[i]), &(s[i]));
+        }
     }
 };
 
 /** Get current s_t from the global vector s_t */
-void Node::fetchS_t(const vector<double> & globalS_t) {
+void Node::fetchS_t(const Vec & globalS_t) {
+    if (s_t.size() < _nodalDOF.size()) s_t.resize(_nodalDOF.size());
     for (int i = 0; i < _nodalDOF.size(); i++) {
-        if (_nodalDOF[i] != -1) s_t[i] = globalS_t[_nodalDOF[i]];
+        if (_nodalDOF[i] != -1) {
+            VecGetValues(globalS_t, 1, &(_nodalDOF[i]), &(s_t[i]));
+        }
     }
 };
 
@@ -202,6 +211,9 @@ void Node::outputInfo(ofstream & myFile, bool outputElse) const {
         myFile << "Node Forces: ";
         for (int i = 0; i < _nodalBodyForce.size(); i++)
             myFile << setw(12) << _nodalBodyForce[i] << " ";
+        myFile << "S_t: ";
+        for (int i = 0; i < s_t.size(); i++)
+            myFile << setw(12) << s_t[i] << " "; 
     }
     myFile << "\n";
 };

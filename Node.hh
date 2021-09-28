@@ -7,6 +7,8 @@
 #include <string>
 #include <cmath>
 #include <fstream>
+#include "petsc.h"
+#include "petscvec.h"
 using namespace std;
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -202,13 +204,13 @@ public:
     void initializeS(const vector<double> & initialS);
 
     /** Push initial s to the global vector s */
-    void pushS(vector<double> & globalS) const;
+    void pushS(Vec & globalS) const;
 
     /** Get current s from the global vector s */
-    void fetchS(const vector<double> & globalS);
+    void fetchS(const Vec & globalS);
 
     /** Get current s_t from the global vector s_t */
-    void fetchS_t(const vector<double> & globalS_t);
+    void fetchS_t(const Vec & globalS_t);
 
     // Output nodal information to a file
     void outputInfo(ofstream & myFile, bool outputElse = false) const;
