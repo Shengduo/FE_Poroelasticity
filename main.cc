@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
     /** Try out some Petsc things,
      * Start from a vector.
-     */
+
     
     if (ierr) return ierr;
     // Petsc vec
@@ -43,5 +43,6 @@ int main(int argc, char **argv) {
     //ierr = VecView(x, PETSC_VIEWER_STDOUT_SELF); if (ierr) return ierr;
     //ierr = VecView(y, PETSC_VIEWER_STDOUT_SELF); if (ierr) return ierr;
     ierr = PetscFinalize(); if (ierr) return ierr;
+    */
     return 0;
 };
