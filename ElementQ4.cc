@@ -37,7 +37,7 @@ vector<double> ElementQ4::N(double ksi, double eta) {
     return N;
 };
 
-// Gradient of shape function B at (ksi, eta)
+// Gradient of shape function N at (ksi, eta)
 vector<double> ElementQ4::B(double ksi, double eta) {
     vector<double> B(8, 0.); 
     // [\partial N[0] / \partial \ksi, \partial N[0] / \partial \eta, \partial N[1] / \partial \ksi...]
@@ -50,6 +50,43 @@ vector<double> ElementQ4::B(double ksi, double eta) {
     B[6] = - (1. + eta) / 4.;
     B[7] = (1. - ksi) / 4.;
     return B;
+};
+
+// Gradient_x of shape function B at (ksi, eta)
+vector<double> ElementQ4::B_x(double ksi, double eta) const{
+    // Space dimension is 2 for Q4
+    int spaceDim = 2;
+    int nOfNodes = _NID.size();
+    vector<double> B_eta = B(ksi, eta); 
+    // [\partial N[0] / \partial \ksi, \partial N[0] / \partial \eta, \partial N[1] / \partial \ksi...]
+    vector<double> invJ(spaceDim * spaceDim, 0.);
+    InvJ(invJ, ksi, eta);
+    vector<double> B_x(B_eta.size(), 0.);
+
+    for (int n = 0; n < nOfNodes; n++) {
+        for (int i = 0; i < spaceDim; i++) {
+            for (int j = 0; j < spaceDim; j++) {
+                B_x[i + n * spaceDim] += B_eta[j + n * spaceDim] * invJ[j * spaceDim + i];
+            }            
+        }
+    }
+    return B_x;
+};
+
+// Gradient of shape function B_x[i, j] at (ksi, eta)
+double ElementQ4::B_x(const vector<double> & Bvector, int i, int j) const {
+    // [\partial N[0] / \partial \ksi, \partial N[0] / \partial \eta, \partial N[1] / \partial \ksi...]
+    // Some constants
+    int spaceDim = 2;
+    int nOfNodes = 4;
+    int nOfDofs = 2 * spaceDim + 2;
+    int nRows = spaceDim * nOfDofs;
+    int nCols = nOfNodes * nOfDofs;
+    double res = 0.;
+    if (i / spaceDim == j % nOfDofs) {
+        res = Bvector[j / nOfDofs * spaceDim + i % spaceDim];
+    }
+    return res;
 };
 
 // Jacobian at any given location in base space (ksi, eta), J = det(\partial (x,y) / \partial (ksi, eta))
@@ -246,37 +283,66 @@ void ElementQ4::IntegratorNfN(vector<vector<double>> & res, const vector<vector<
  * first-dim: vector of nodes^2, 
  * NODEVALUES:
  * first-dim vector of nodes, 
- * second-dim 2 * 2 matrix.
+ * second-dim (spaceDim * nDof) ^ 2 matrix.
  */
 void ElementQ4::IntegratorBfB(vector<double> & res,
                               const vector<vector<double>> & NodeValues) const {
     // Some constants
     int nOfNodes = this->getNID().size();
+    int nOfDofs = this->getNID()[0]->getDOF().size();
     int nOfIntPts = IntPos.size();
-    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorBfB!";
-    double pointValue = 0.;
-    vector<double> pointD(getNID()[0]->getSpaceDim()^2, 0.);
-    // Set res to all 0;
+    int spaceDim = this->getNID()[0]->getSpaceDim();
+    int nOfColsF = nOfDofs * spaceDim;
+    int nOfColsRes = nOfDofs * nOfNodes;
+
+    if (res.size() != nOfColsRes * nOfColsRes) 
+        res.resize(nOfColsRes * nOfColsRes);
+    
+    if (NodeValues.size() != nOfNodes) 
+        throw "Not all nodal values are provided for ElementQ4 IntegratorBfB!";
+    
+    if (NodeValues[0].size() != nOfColsF * nOfColsF) 
+        throw "Input f is not compatible with nodal dofs in ElementQ4 IntegratorBfB!";
+    
+    // Clear res
     for (int i = 0; i < res.size(); i++) {
         res[i] = 0.;
     }
 
+    // Pre-store integration constants at different points
+    vector<double> pointValue(nOfIntPts * nOfIntPts);
+    vector<vector<double>> pointD(nOfIntPts * nOfIntPts, vector<double>(NodeValues[0].size(), 0.));
+    
+
+
+
+    // Stores the B_x vectors
+    vector<vector<double>> Bvector(nOfIntPts * nOfIntPts);
+
+    // Calculate Bvector, pointValue and pointD
+    for (int i = 0; i < nOfIntPts; i++) {
+        for (int j = 0; j < nOfIntPts; j++) {
+            pointValue[i * nOfIntPts + j] = IntWs[i] * IntWs[j] * J(IntPos[i], IntPos[j]);
+            Bvector[i * nOfIntPts + j] = B_x(IntPos[i], IntPos[j]);
+            evaluateF(pointD[i * nOfIntPts + j], IntPos[i], IntPos[j], NodeValues);             
+        }
+    }
+    
     // Calculate res[i,j]
     // In the integral (B^T D B)_{i,j} = B_pi D_pq B qj
-    for (int i = 0; i < nOfNodes; i++) {
-        for (int j = 0; j < nOfNodes; j++) {
+    int intPtIndex = 0;
+    for (int i = 0; i < nOfColsRes; i++) {
+        for (int j = 0; j < nOfColsRes; j++) {
             for (int k = 0; k < nOfIntPts; k++) {
                 for (int l = 0; l < nOfIntPts; l++) {
-                    // Constants for the integral
-                    pointValue = IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]);
-                    evaluateF(pointD, IntPos[k], IntPos[l], NodeValues); 
-                    for (int p = 0; p < 2; p++) {
-                        for (int q = 0; q < 2; q++) {
-                            res[i * nOfNodes + j] += pointValue 
-                                                     * B(IntPos[k], IntPos[l])[p + 2 * i] 
-                                                     * pointD[2 * p + q] 
-                                                     * B(IntPos[k], IntPos[l])[q + 2 * j]; 
+                    for (int p = 0; p < nOfColsF; p++) {
+                        for (int q = 0; q < nOfColsF; q++) {
+                            intPtIndex = k * nOfIntPts + l;
+                            res[i * nOfColsRes + j] += pointValue[intPtIndex]
+                                                     * B_x(Bvector[intPtIndex], p, i)
+                                                     // Debug line
+                                                     * pointD[intPtIndex][nOfColsF * p + q] 
+                                                     * B_x(Bvector[intPtIndex], q, j); 
                         }
                     }                   
                 }
@@ -409,4 +475,129 @@ void ElementQ4::outputInfo(ofstream & myFile) const {
         myFile << setw(10) << getNID()[i]->getID() << " ";
     }
     myFile << "\n";
+};
+
+
+//============ Element Jacobians and residuals =====================================================
+
+/** Calculate element jacobian Jf */
+void ElementQ4::JF(Mat & globalJF, int Kernel) const {
+    // Switch kernel
+    switch (Kernel) {
+        // 2D Quasi-static linear elasticity
+        case 0: {
+            int nOfNodes = this->getNID().size();
+            int spaceDim = this->getNID()[0]->getSpaceDim();
+            int nOfDofs = this->getNID()[0]->getDOF().size();
+            int nCols = spaceDim * nOfDofs;
+            int nColsJF = nOfDofs * nOfNodes;
+            vector<vector<double>> NodeJFs(this->getNID().size(), vector<double>(nCols * nCols, 0.));
+
+            // Call pointwise Jacobian
+            for (int i = 0; i < nOfNodes; i++) {
+                ElasticKernel::Jf3(NodeJFs[i], spaceDim, this->getNID()[i]->getNodalProperties());
+            }
+
+            // Calculate B^T D B
+            vector<double> JF3(nColsJF * nColsJF, 0.);
+            IntegratorBfB(JF3, NodeJFs);
+            
+            // Assemble to globalJF
+            JFPush(globalJF, JF3);      
+
+            /** DEBUG LINES
+            ofstream myFile;
+            myFile.open("NodeJFs.txt");
+            // Nodal D matrix
+            for (int n = 0; n < nOfNodes; n++) {
+                myFile << "Node ID: " << this->getNID()[n]->getID() << "\n";
+                for (int i = 0; i < nCols; i++) {
+                    for (int j = 0; j < nCols; j++) {
+                        myFile << setw(12) << NodeJFs[n][i * nCols + j] << " ";
+                    }
+                    myFile << "\n";
+                }
+                myFile << "\n";
+            }    
+            */  
+        }
+        default:
+            break;
+    }
+};
+
+/** Push local Jf to global Jf */
+void ElementQ4::JFPush(Mat & globalJF, const vector<double> & JF) const {
+    // Some constants
+    int nOfNodes = this->getNID().size();
+    int spaceDim = this->getNID()[0]->getSpaceDim();
+    int nOfDofs = this->getNID()[0]->getDOF().size();
+    int nCols = spaceDim * nOfDofs;
+    int nColsJF = nOfDofs * nOfNodes;
+    
+    // Stores global and local index
+    int I, J, localI, localJ;
+    double this_value;
+    // Assemble to globalJF
+    // First node
+    for (int n1 = 0; n1 < nOfNodes; n1++)
+    {
+        cout << "\n";
+        // Then row of local JF3
+        for (int i = 0; i < nOfDofs; i++)
+        {
+            I = this->getNID()[n1]->getDOF()[i];
+            if (I == -1)
+                continue;
+            
+            // DEBUG LINE
+            cout << "n1 = " << n1 << " i = " << i << " I = " << I << "\n";
+
+            localI = n1 * nOfDofs + i;
+            // Then node
+            for (int n2 = 0; n2 < nOfNodes; n2++)
+            {
+                // Then col of local JF3
+                for (int j = 0; j < nOfDofs; j++)
+                {
+                    J = this->getNID()[n2]->getDOF()[j];
+                    if (J == -1)
+                        continue;
+                    localJ = n2 * nOfDofs + j;
+                    this_value = JF[localI * nColsJF + localJ];
+                    if (abs(this_value) < 1e-15) continue;
+                    MatSetValues(globalJF, 1, &(I), 1, &(J), &(JF[localI * nColsJF + localJ]), ADD_VALUES);
+                }
+            }
+        }
+    }
+
+    // Debug Lines
+    ofstream myFile;
+    myFile.open("JF.txt");
+
+    // Element stiffness matrix
+    myFile << "Element ID : " << this->getID() <<"\n";
+    for (int n1 = 0; n1 < nOfNodes; n1++) {
+        for (int n2 = 0; n2 < nOfNodes; n2++) {
+            myFile << setw(12) << JF[n1 * nOfDofs * nColsJF+ n2 * nOfDofs] << " " 
+                << setw(12) << JF[n1 * nOfDofs * nColsJF + n2 * nOfDofs + 1] << " ";
+        }
+        myFile << "\n"; 
+        for (int n2 = 0; n2 < nOfNodes; n2++) {
+            myFile << setw(12) << JF[(n1 * nOfDofs + 1) * nColsJF+ n2 * nOfDofs] << " " 
+                << setw(12) << JF[(n1 * nOfDofs + 1) * nColsJF + n2 * nOfDofs + 1] << " ";
+        }
+        myFile << "\n"; 
+    }
+
+    // Element stiffness matrix including all
+    myFile << "\n" << "Global JF :" << "\n";
+    for (int i = 0; i < nColsJF; i++) {
+        for (int j = 0; j < nColsJF; j++) {
+            myFile << setw(12) << JF[i * nColsJF + j] - JF[j * nColsJF + i] << " ";
+        }
+        myFile << "\n";
+    }
+    myFile.close();
 };

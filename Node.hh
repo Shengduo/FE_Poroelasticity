@@ -8,7 +8,7 @@
 #include <cmath>
 #include <fstream>
 #include "petsc.h"
-#include "petscvec.h"
+#include "petscksp.h"
 using namespace std;
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -199,6 +199,11 @@ public:
         if (_nodalProperties.size() < 9) throw("Fluid viscosity not initialized!");
         return _nodalProperties[8];
     };
+
+    // Get _nodalProperties
+    const vector<double> & getNodalProperties() const {
+        return _nodalProperties;
+    }
 
     /** Initialize s = [displacement, velocity, pressure, trace_strain] */
     void initializeS(const vector<double> & initialS);

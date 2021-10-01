@@ -4,7 +4,6 @@
  */
 #include "Geometry2D.hh"
 #include "ElementQ4Cohesive.hh"
-#include "FeKernel.hh"
 
 /** Class Problem
  * Define a problem and solves it
@@ -45,6 +44,12 @@ private:
     // Global residual vector
     Vec globalF;
 
+    // Global solution vector
+    Vec globalS;
+
+    // Global JF
+    Mat globalJF;
+
 // PUBLIC MEMBERS
 public:
     // Constructor
@@ -73,6 +78,9 @@ private:
     // TEST Try getting from globalF
     void testFetchGlobalF();
     
+    // TEST assemble globalJF
+    void testAssembleGlobalJF();
+
     // Initialization of Elements
     void initializeElements();
 
@@ -105,6 +113,38 @@ private:
 
     // Print matrix
     void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;
+
+// ============= Test Elastic Solution ============================================================
+/** Only has 1 block upperNodes and upperElements
+ * Test Petsc, Mat, Vec, KSP solver, integratorBfB
+ */
+// PUBLIC METHODS
+public:
+    // Initialize elastic problem
+    void initializeElastic(const vector<double> & xRanges, const vector<int> & edgeNums);
+
+// PRIVATE METHODS
+private:
+    // Initialization of Nodes
+    void initializeNodesElastic();
+
+    // Assign global ID for each DOF
+    void assignNodalDOFElastic();
+
+    // Initialization of Elements
+    void initializeElementsElastic();
+
+    // TEST Try push to globalF, push the upper surface force
+    void testPushGlobalFElastic();
+
+    // TEST Try push to globalJF, load only pushes the upper surface force
+    void testPushGlobalJFElastic();
+
+    // Linear solver
+    void solveElastic();
+
+    // Get back result from globalS
+    void testFetchGlobalSElastic();
 // NOT IMPLEMENTED
 private:
     // Copy Constructor

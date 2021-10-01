@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
-        myProblem->initialize(spaceDomain, nOfEdges);
+        myProblem->initializeElastic(spaceDomain, nOfEdges);
     }
     catch (const char* msg) {
         cerr << msg << endl;

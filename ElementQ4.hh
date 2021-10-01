@@ -9,6 +9,7 @@
 #include <cmath>
 #include <fstream>
 #include "Node.hh"
+#include "ElasticKernel.hh"
 using namespace std;
 
 /** Class ElementQ4
@@ -32,6 +33,16 @@ private:
      * evaluated in base space (ksi, eta)
      */
     static vector<double> B(double ksi, double eta);
+
+    /** Gradient of shape function B_x[i, j], double value, 
+     * evaluated in base space (ksi, eta)
+     */
+    double B_x(const vector<double> & Bvector, int i, int j) const;
+
+    /** Gradient_x of shape function B at (ksi, eta)
+     * Non-static
+     */
+    vector<double> B_x(double ksi, double eta) const;
 
     /** Jacobian at any given location in base space (ksi, eta), 
      * J = det(\partial (x,y) / \partial (ksi, eta))
@@ -124,6 +135,17 @@ public:
 
     /** Output element info */
     void outputInfo(ofstream & myFile) const;
+
+//============ Element Jacobians and residuals =====================================================
+// PUBLIC MEMBERS
+public: 
+    /** Calculate element jacobian JF */
+    void JF(Mat & globalJF, int Kernel) const;
+
+// PRIVATE MEMBERS
+private:
+    /** Push local Jf to global Jf */
+    void JFPush(Mat & globalJF, const vector<double> & JF) const;
 
 // NOT IMPLEMENTED
 private:

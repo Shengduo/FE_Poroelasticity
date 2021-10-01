@@ -211,9 +211,21 @@ void ElementQ4Cohesive::IntegratorBfB(vector<double> & res,
                                       const vector<vector<double>> & NodeValues) const {
     // Some constants
     int nOfNodes = this->getNID().size();
+    int nOfDofs = this->getNID()[0]->getDOF().size();
     int nOfIntPts = IntPos.size();
-    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
-    if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4Cohesive IntegratorBfB!";
+
+    // Special spaceDim for cohesive zone cells
+    int spaceDim = this->getNID()[0]->getSpaceDim() - 1;
+
+    int nOfColsF = nOfDofs * spaceDim;
+    int nOfColsRes = nOfDofs * nOfNodes;
+
+    if (res.size() != nOfColsRes * nOfColsRes) res.resize(nOfColsRes * nOfColsRes);
+    if (NodeValues.size() != nOfNodes) 
+        throw "Not all nodal values are provided for ElementQ4Cohesive IntegratorBfB!";
+    if (NodeValues[0].size() != nOfColsF * nOfColsF) 
+        throw "Input f is not compatible with nodal dofs in ElementQ4Cohesive IntegratorBfB!";
+    
     double pointValue = 0.;
     vector<double> pointD(NodeValues[0].size(), 0.);
     // Set res to all 0;
@@ -223,18 +235,18 @@ void ElementQ4Cohesive::IntegratorBfB(vector<double> & res,
 
     // Calculate res[i,j]
     // In the integral (B^T D B)_{i,j} = B_pi D_pq B qj
-    for (int i = 0; i < nOfNodes; i++) {
-        for (int j = 0; j < nOfNodes; j++) {
+    for (int i = 0; i < nOfColsRes; i++) {
+        for (int j = 0; j < nOfColsRes; j++) {
             for (int k = 0; k < nOfIntPts; k++) {
                 // Constants for the integral
                 pointValue = IntWs[k] * J(IntPos[k]);
                 evaluateF(pointD, IntPos[k], NodeValues);
-                for (int p = 0; p < 1; p++) {
-                    for (int q = 0; q < 1; q++) {
-                        res[i * nOfNodes + j] += pointValue 
-                                * B(IntPos[k])[p + i] 
-                                * pointD[p + q] 
-                                * B(IntPos[k])[q + j]; 
+                for (int p = 0; p < nOfColsF; p++) {
+                    for (int q = 0; q < nOfColsF; q++) {
+                        res[i * nOfColsRes + j] += pointValue 
+                                * B(IntPos[k])[(p % nOfDofs) + (i % nOfDofs)] 
+                                * pointD[(p % nOfDofs) + (q % nOfDofs)] 
+                                * B(IntPos[k])[(q % nOfDofs) + (j % nOfDofs)]; 
                     }
                 }                
             }                

@@ -852,3 +852,270 @@ void Problem::printMatrix(ofstream & myFile, const vector<double>& Matrix, int n
     }
     myFile << "\n";
 };
+
+// ============= Test Elastic Solution ============================================================
+/** Only has 1 block upperNodes and upperElements
+ * Test Petsc, Mat, Vec, KSP solver, integratorBfB
+ */
+// Initialization of elastic problem
+void Problem::initializeElastic(const vector<double> & xRanges, const vector<int> & edgeNums) {
+    // Initialize geometry2D
+    if (_spaceDim == 2) initializeGeometry2D(xRanges, edgeNums);
+    
+    // Initialize nodes
+    initializeNodesElastic();
+    
+    // Assign Nodal DOFs
+    assignNodalDOFElastic();
+    
+    // Test push global F
+    testPushGlobalFElastic();
+        
+    // Initialize elements
+    initializeElementsElastic();
+
+    // Test push global JF
+    testPushGlobalJFElastic();
+
+    // Linear solver
+    solveElastic();
+
+    // Get back result
+    testFetchGlobalSElastic();
+};
+
+// Initialization of Nodes
+void Problem::initializeNodesElastic() {
+    // Some input geometrical values
+    int spaceDim = _spaceDim;
+
+    // Number of elements and nodes
+    // Parameters for bulk Nodes
+    double lambda = 1.;
+    double shearModulus = 1.;
+    double biotAlpha = 1.;
+    double biotMp = 1.;
+    double fluidMobility = 1.;
+    double fluidViscosity = 1.;
+    // Element size
+    vector<double> edgeSize (spaceDim);
+    edgeSize[0] = myGeometry->xRange / myGeometry->xEdgeNum;
+    edgeSize[1] = myGeometry->yRange / myGeometry->yEdgeNum;
+    
+    // DOF of fixed u_x, velocity and pressure
+    vector<int> DOF_x_fixed (2 * spaceDim + 2, 1); 
+    DOF_x_fixed[1] = 0;
+
+    // DOF of fixed u_y, velocity and pressure
+    vector<int> DOF_y_fixed (2 * spaceDim + 2, 1); 
+    DOF_y_fixed[0] = 0;
+
+    // DOF of fixed x, y, velocity and pressure
+    vector<int> DOF_xy_fixed (2 * spaceDim + 2 ,1);
+
+    // Default DOF
+    vector<int> DOF_default (2 * spaceDim + 2, 1);
+    DOF_default[0] = 0;
+    DOF_default[1] = 0;
+
+    // Mass Density and Body force.
+    double massDensity = 1.0;
+    vector<double> bodyForce  = {0.0, 0.0};
+    
+    // Upper subzone nodes
+    upperNodes.resize(myGeometry->nOfNodes);
+    int nodeID = 0;
+    int nodeID_in_set = 0;
+    vector<double> thisXYZ(spaceDim);
+    vector<double> initialS(spaceDim * 2 + 2, 0.);
+    // First y
+    for (int j = 0; j < myGeometry->yNodeNum; j++) {
+        // Then x
+        for (int i = 0; i < myGeometry->xNodeNum; i++) {
+            // Reset the coordinates
+            thisXYZ[0] = i * edgeSize[0];
+            thisXYZ[1] = j * edgeSize[1];
+            massDensity = thisXYZ[0] + thisXYZ[1];
+            // upper surface, put the nodal forces into initialS;
+            if (j == myGeometry->yNodeNum - 1 ) {
+                if (i == 0 || i == myGeometry->xNodeNum - 1) {
+                    initialS[1] = -1.0;
+                }
+                else {
+                    initialS[1] = -2.0;
+                }
+            }
+            else {
+                initialS[1] = 0.0;
+            }
+
+            // Initialize a node
+            upperNodes[nodeID_in_set] = 
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, 
+                         massDensity, 
+                         &bodyForce, 
+                         lambda, 
+                         shearModulus, 
+                         biotAlpha, 
+                         biotMp, 
+                         fluidMobility, 
+                         fluidViscosity);
+            if (j == 0) // Lower surface
+                upperNodes[nodeID_in_set]->setDOF(DOF_y_fixed);
+            if (i == 0) // Left surface
+                upperNodes[nodeID_in_set]->setDOF(DOF_x_fixed);
+            if (i == 0 && j == 0) // Fixed point
+                upperNodes[nodeID_in_set]->setDOF(DOF_xy_fixed);
+            upperNodes[nodeID_in_set]->initializeS(initialS);
+            nodeID += 1;
+            nodeID_in_set += 1;
+        }
+    }
+    
+    _totalNofNodes = nodeID;
+    ofstream myFile;
+    myFile.open("Testlog_Elastic.txt");
+    myFile << "=================== NodeInfoBefore ======================================" << "\n";
+    for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    myFile.close();
+};
+
+// Assign global ID for each DOF
+void Problem::assignNodalDOFElastic() {
+    // Pointer to currentDOF
+    _totalDOF = 0;
+    
+    // Assign upperzone
+    for (int i = 0; i < upperNodes.size(); i++) {
+        for (int j = 0; j < upperNodes[i]->getDOF().size(); j++) {
+            if (upperNodes[i]->getDOF(j) == 0) {
+                upperNodes[i]->setDOF(j, _totalDOF);
+                _totalDOF += 1;
+            }
+            else {
+                upperNodes[i]->setDOF(j, -1); 
+            }
+        }
+    }
+
+    // Output to log file
+    ofstream myFile;
+    myFile.open("Testlog_Elastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== NodeInfoAfter ======================================" << "\n";
+
+    for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    myFile.close();
+};
+
+// TEST Try push to globalF, load only pushes the upper surface force
+void Problem::testPushGlobalFElastic() {
+    // Set size of global F
+    VecCreate(PETSC_COMM_WORLD, &globalF);
+    VecSetSizes(globalF, PETSC_DECIDE, _totalDOF);
+    VecSetFromOptions(globalF);
+
+    // Upper zone
+    for (Node* node : upperNodes) {
+        node->pushS(globalF);
+    }
+    
+    // Output the global F
+    cout << "TEST: Global F\n";
+    VecView(globalF, PETSC_VIEWER_STDOUT_SELF);
+}
+
+// TEST Try push to globalJF, load only pushes the upper surface force
+void Problem::testPushGlobalJFElastic() {
+    // Set size of global JF
+    MatCreate(PETSC_COMM_WORLD, &globalJF);
+    MatSetSizes(globalJF, PETSC_DECIDE, PETSC_DECIDE, _totalDOF, _totalDOF);
+    MatSetFromOptions(globalJF);
+    MatSetUp(globalJF);
+
+    // Upper zone
+    for (ElementQ4* element : upperElements) {
+        element->JF(globalJF, 0);
+    }
+
+    // Assemble globalJF
+    MatAssemblyBegin(globalJF, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalJF, MAT_FINAL_ASSEMBLY);
+
+    // Output the global F
+    cout << "TEST: Global JF\n";
+    MatView(globalJF, PETSC_VIEWER_STDOUT_SELF);
+}
+
+// Initialization of Elastic Elements
+void Problem::initializeElementsElastic() {
+    // Using the NID to assign values to each element
+    vector<Node*> NID(4, NULL);
+    
+    // Subzone ElementQ4s
+    upperElements.resize(myGeometry->nOfElements, NULL);
+
+    for (int i = 0; i < myGeometry->xEdgeNum; i++) {
+        for (int j = 0; j < myGeometry->yEdgeNum; j++) {
+            // Setting NID for upper subzone
+            NID = {upperNodes[j * myGeometry->xNodeNum + i], 
+                   upperNodes[j * myGeometry->xNodeNum + i + 1], 
+                   upperNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
+                   upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
+
+            upperElements[j * myGeometry->xEdgeNum + i] = 
+                new ElementQ4(j * myGeometry->xEdgeNum + i, NID);            
+        }
+    }
+    ofstream myFile;
+    myFile.open("Testlog_Elastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
+    for (ElementQ4* thisElement : upperElements) thisElement->outputInfo(myFile);
+    for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
+    for (ElementQ4Cohesive* thisElement : cohesiveElements) thisElement->outputInfo(myFile);
+    myFile.close();
+};
+
+/** Linearly solve Ks = F for elastic problems */
+void Problem::solveElastic() {
+    // Set size of global S
+    VecCreate(PETSC_COMM_WORLD, &globalS);
+    VecSetSizes(globalS, PETSC_DECIDE, _totalDOF);
+    VecSetFromOptions(globalS);
+
+    /** Initialize KSP */
+    // Linear solver
+    KSP ksp;
+
+    // Preconditioner
+    PC pc;                 
+    KSPCreate(PETSC_COMM_WORLD, &ksp);
+
+    // Set operators
+    KSPSetOperators(ksp, globalJF, globalJF);
+    KSPGetPC(ksp, &pc);
+    PCSetType(pc, PCJACOBI);
+    KSPSetTolerances(ksp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);
+    KSPSetFromOptions(ksp);
+
+    // Solve globalJF * globalS = globalF
+    KSPSolve(ksp, globalF, globalS);
+
+    // Destroy KSP
+    KSPDestroy(&ksp);
+};
+
+/** Get back result from globalS */
+void Problem::testFetchGlobalSElastic() {
+    // Read results into each s
+    for (Node* node : upperNodes) {
+        node->fetchS_t(globalS);
+    }
+
+    // Output to log file
+    ofstream myFile;
+    myFile.open("Testlog_Elastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== NodeInfoAfterSolving ======================================" << "\n";
+
+    for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    myFile.close();
+};

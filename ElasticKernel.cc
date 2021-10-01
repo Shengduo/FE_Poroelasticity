@@ -4,35 +4,15 @@
 #include "ElasticKernel.hh"
 
 //======= The Residuals =================================================================================   
-/** Left hand side residual 
- * F0(t, \dot{s}, s)
- */
-void ElasticKernel::F0(vector<double> &F0,         // stores the result
-                       int spaceDim,               // stores the dim of space
-                       const vector<double> &s,    // solution vector s
-                       const vector<double> &s_x,  // gradient of s
-                       const vector<double> &s_t,  // time derivative of s
-                       double s_tshift,            // sigma of tshift due to the time-derivative
-                       const vector<double> &sOff, // offset of each solution field
-                       const vector<double> &a,    // auxiliary fields
-                       const vector<double> &aOff  // auxiliary fields offset
-) const {
 
-};
-
+//======= The Jacobians ================================================================================= 
 /** Left hand side Jacobian
  * Jf3(t, s)
  */
 void ElasticKernel::Jf3(vector<double> &Jf3,        // stores the result
                         int spaceDim,               // stores the dim of space
-                        const vector<double> &s,    // solution vector s
-                        const vector<double> &s_x,  // gradient of s
-                        const vector<double> &s_t,  // time derivative of s
-                        double s_tshift,            // sigma of tshift due to the time-derivative
-                        const vector<double> &sOff, // offset of each solution field
-                        const vector<double> &a,    // auxiliary fields
-                        const vector<double> &aOff  // auxiliary fields offset
-) const {
+                        const vector<double> &a    // auxiliary fields
+) {
     // Check size of Jf3
     if (Jf3.size() != spaceDim * spaceDim * (2 * spaceDim + 2) * (2 * spaceDim + 2)) throw "Jf3 size not compatible for ElasticKernel!";
     // First clear Jf3uu
@@ -46,7 +26,6 @@ void ElasticKernel::Jf3(vector<double> &Jf3,        // stores the result
     // Elastic Cijkl
     // Only needs lambda and G
     // Does not depend on s, s_x, s_t, s_tshift, aOff
-    int spaceDim = 2;
     int i_lambda = 3;
     int i_shearModulus = 4;
     double lambda = a[i_lambda];
