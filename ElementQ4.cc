@@ -37,6 +37,22 @@ vector<double> ElementQ4::N(double ksi, double eta) {
     return N;
 };
 
+/** Shape function N, vector of 4 on 4 nodes, 
+ * evaluated in base space (ksi, eta)
+ * at i, j of elemental shape matrix
+ */
+double ElementQ4::N(const vector<double> & Nvector, int i, int j) const {
+    // Number of Nodes
+    int nOfDofs = _NID[0]->getDOF().size();
+    double res = 0.;
+    
+    if (i == j % nOfDofs) {
+        res = Nvector[j / nOfDofs];
+    }
+
+    return res;
+};
+
 // Gradient of shape function N at (ksi, eta)
 vector<double> ElementQ4::B(double ksi, double eta) {
     vector<double> B(8, 0.); 
@@ -78,10 +94,7 @@ double ElementQ4::B_x(const vector<double> & Bvector, int i, int j) const {
     // [\partial N[0] / \partial \ksi, \partial N[0] / \partial \eta, \partial N[1] / \partial \ksi...]
     // Some constants
     int spaceDim = 2;
-    int nOfNodes = 4;
     int nOfDofs = 2 * spaceDim + 2;
-    int nRows = spaceDim * nOfDofs;
-    int nCols = nOfNodes * nOfDofs;
     double res = 0.;
     if (i / spaceDim == j % nOfDofs) {
         res = Bvector[j / nOfDofs * spaceDim + i % spaceDim];
@@ -243,38 +256,62 @@ void ElementQ4::IntegratorNf(vector<vector<double>> & res,
     }
 };
 
-/** IntegratorNfN, integrates a vector input inside an element, both sides using shape function
- * first-dim: vector of nodes^2, second-dim: values (vector)
+/** IntegratorNfN, integrates a vector input inside an element, 
+ * both sides using shape function (nOfDofs, nOfDofs * nOfNodes)
+ * first-dim: vector of nodes, second-dim: values (vector, (nOfDofs, nOfDofs))
  */
-void ElementQ4::IntegratorNfN(vector<vector<double>> & res, const vector<vector<double>> & NodeValues) const {
+void ElementQ4::IntegratorNfN(vector<double> & res, const vector<vector<double>> & NodeValues) const {
     // Some constants
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
-    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    int nOfDofs = getNID()[0]->getDOF().size();
+    int nOfColsRes = nOfNodes * nOfDofs;
+
+    if (res.size() != nOfColsRes * nOfColsRes) res.resize(nOfColsRes * nOfColsRes);
     if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorNfN!";
-    int nOfFields = NodeValues[0].size();
-    double pointValue = 0.;
+    if (NodeValues[0].size() != nOfDofs * nOfDofs) throw "Mass matrix size not compatible with Element Q4 IntegratorNfN!";
+    
 
     // Set res to all 0;
     for (int i = 0; i < res.size(); i++) {
-        for (int j = 0; j < res[i].size(); j++) res[i][j] = 0.;
+        res[i] = 0.;
     }
-
-    for (int f = 0; f < nOfFields; f++) {
-        // Calculate res[i,j][f]
-        for (int i = 0; i < nOfNodes; i++) {
-            for (int j = 0; j < nOfNodes; j++) {
-                for (int k = 0; k < nOfIntPts; k++) {
-                    for (int l = 0; l < nOfIntPts; l++) {
-                        pointValue = 0.;
-                        for (int p = 0; p < nOfNodes; p++) pointValue += NodeValues[p][f] * N(IntPos[k], IntPos[l])[p];
-                        res[nOfNodes * i + j][f] += 
-                            N(IntPos[k], IntPos[l])[i] * N(IntPos[k], IntPos[l])[j] * IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]) * pointValue;
-                    }
-                }                
-            }
+    
+    // Pre-calculate and store some values
+    vector<double> pointValue(nOfIntPts * nOfIntPts, 0.);
+    vector<vector<double>> pointM(nOfIntPts * nOfIntPts);
+    vector<vector<double>> Nvector(nOfIntPts * nOfIntPts);
+    int intPtIndex;
+    for (int i = 0; i < nOfIntPts; i++) {
+        for (int j = 0; j < nOfIntPts; j++) {
+            intPtIndex = nOfIntPts * i + j;
+            pointValue[intPtIndex] = IntWs[i] * IntWs[j] * J(IntPos[i], IntPos[j]);
+            evaluateF(pointM[intPtIndex], IntPos[i], IntPos[j], NodeValues);
+            Nvector[intPtIndex] = N(IntPos[i], IntPos[j]);
         }
     }
+
+    int resIJindex;
+    // Calculate res[i,j] = N_{pi} M_{pq} N_{qj}
+    for (int i = 0; i < nOfColsRes; i++) {
+        for (int j = 0; j < nOfColsRes; j++) {
+            resIJindex = nOfColsRes * i + j;
+            for (int k = 0; k < nOfIntPts; k++) {
+                for (int l = 0; l < nOfIntPts; l++) {
+                    intPtIndex = nOfIntPts * k + l;
+                    for (int p = 0; p < nOfDofs; p++) {
+                        for (int q = 0; q < nOfDofs; q++) {
+                            res[resIJindex] += N(Nvector[intPtIndex], p, i) 
+                                               * pointM[intPtIndex][p * nOfDofs + q] 
+                                               * N(Nvector[intPtIndex], q, j)
+                                               * pointValue[intPtIndex];
+                        }
+                    }
+                }
+            }                
+        }
+    }
+    
 };
 
 /** IntegratorBfB, integrates a vector input inside an element, 
@@ -352,44 +389,65 @@ void ElementQ4::IntegratorBfB(vector<double> & res,
 };
 
 /** IntegratorBfN, integrates a vector input inside an element, 
- * both sides using gradient of shape function
- * first-dim: vector of nodes^2, second-dim: values (vector)
- * NODEVALUES, first dim: nodes, second dim: spaceDim by 1 matrix, stored as a vector
+ * left gradient of shape function, 
+ * right shape function
+ * RES: first-dim: vector of nOfDof^2
+ * NODEVALUES: first dim: spaceDim * nOfDof, 
+ * second dim: nOfDof
  */
 void ElementQ4::IntegratorBfN(vector<double> & res,
                               const vector<vector<double>> & NodeValues) const {
     // Some constants
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
-    int spaceDim = this->getNID()[0]->getSpaceDim(); 
-    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    int spaceDim = this->getNID()[0]->getSpaceDim();
+    int nOfDofs = this->getNID()[0]->getDOF().size();
+    int nRowsF = spaceDim * nOfDofs;
+    int nColsF = nOfDofs;
+    int nColsRes = nOfDofs * nOfNodes; 
+    if (res.size() != nColsRes * nColsRes) res.resize(nColsRes * nColsRes);
     if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorBfN!";
-    if (NodeValues[0].size() != spaceDim * 1) throw "Nodal matrix provided not compatible with IntegratorBfN!";
-    
-    // Temp values and vectors
-    double pointValue = 0.;
-    vector<double> pointVector(NodeValues[0].size(), 0.);
+    if (NodeValues[0].size() != nRowsF * nColsF) throw "Nodal matrix provided not compatible with IntegratorBfN!";
 
     // Set res to all 0;
     for (int i = 0; i < res.size(); i++) {
         res[i] = 0.;
     }
 
+    // Pre-calculate and store some values
+    vector<double> pointValue(nOfIntPts * nOfIntPts, 0.);
+    vector<vector<double>> pointF(nOfIntPts * nOfIntPts);
+    vector<vector<double>> Nvector(nOfIntPts * nOfIntPts);
+    vector<vector<double>> Bvector(nOfIntPts * nOfIntPts);
+    int intPtIndex;
+    for (int i = 0; i < nOfIntPts; i++) {
+        for (int j = 0; j < nOfIntPts; j++) {
+            intPtIndex = nOfIntPts * i + j;
+            pointValue[intPtIndex] = IntWs[i] * IntWs[j] * J(IntPos[i], IntPos[j]);
+            evaluateF(pointF[intPtIndex], IntPos[i], IntPos[j], NodeValues);
+            Nvector[intPtIndex] = N(IntPos[i], IntPos[j]);
+            Bvector[intPtIndex] = B_x(IntPos[i], IntPos[j]);
+        }
+    }
+
+    // Stores IJ index in the vector
+    int resIJindex;
     // Calculate res[i,j]
     // In the integral (B^T F N)_{i,j} = B_pi F_pq N qj
-    for (int i = 0; i < nOfNodes; i++) {
-        for (int j = 0; j < nOfNodes; j++) {
+    for (int i = 0; i < nColsRes; i++) {
+        for (int j = 0; j < nColsRes; j++) {
+            resIJindex = i * nColsRes + j;
+            // Loop through integration points
             for (int k = 0; k < nOfIntPts; k++) {
                 for (int l = 0; l < nOfIntPts; l++) {
                     // Constants for the integral
-                    pointValue = IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]);
-                    evaluateF(pointVector, IntPos[k], IntPos[l], NodeValues); 
-                    for (int p = 0; p < spaceDim; p++) {
-                        for (int q = 0; q < 1; q++) {
-                            res[i * nOfNodes + j] += pointValue 
-                                                     * B(IntPos[k], IntPos[l])[p + spaceDim * i] 
-                                                     * pointVector[1 * p + q] 
-                                                     * N(IntPos[k], IntPos[l])[q + j]; 
+                    intPtIndex = nOfIntPts * k + l;
+                    for (int p = 0; p < nRowsF; p++) {
+                        for (int q = 0; q < nColsF; q++) {
+                            res[resIJindex] += pointValue[intPtIndex] 
+                                               * B_x(Bvector[intPtIndex], p, i)
+                                               * pointF[intPtIndex][p * nColsF + q]
+                                               * N(Nvector[intPtIndex], q, j);
                         }
                     }                   
                 }
@@ -399,44 +457,65 @@ void ElementQ4::IntegratorBfN(vector<double> & res,
 };
 
 /** IntegratorNfB, integrates a vector input inside an element, 
- * both sides using gradient of shape function
- * first-dim: vector of nodes^2, second-dim: values (vector)
- * NODEVALUES, first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
+ * left gradient of shape function, 
+ * right shape function
+ * RES: first-dim: vector of nOfDof^2
+ * NODEVALUES: first dim: nOfDof, 
+ * second dim: spaceDim * nOfDof
  */
 void ElementQ4::IntegratorNfB(vector<double> & res,
                    const vector<vector<double>> & NodeValues) const {
     // Some constants
     int nOfNodes = this->getNID().size();
     int nOfIntPts = IntPos.size();
-    int spaceDim = this->getNID()[0]->getSpaceDim(); 
-    if (res.size() != nOfNodes * nOfNodes) res.resize(nOfNodes * nOfNodes);
+    int spaceDim = this->getNID()[0]->getSpaceDim();
+    int nOfDofs = this->getNID()[0]->getDOF().size();
+    int nRowsF = nOfDofs;
+    int nColsF = spaceDim * nOfDofs;
+    int nColsRes = nOfDofs * nOfNodes; 
+    if (res.size() != nColsRes * nColsRes) res.resize(nColsRes * nColsRes);
     if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorNfB!";
-    if (NodeValues[0].size() != 1 * spaceDim) throw "Nodal matrix provided not compatible with IntegratorNfB!";
-    
-    // Temp values and vectors
-    double pointValue = 0.;
-    vector<double> pointVector(NodeValues[0].size(), 0.);
+    if (NodeValues[0].size() != nRowsF * nColsF) throw "Nodal matrix provided not compatible with IntegratorNfB!";
 
     // Set res to all 0;
     for (int i = 0; i < res.size(); i++) {
         res[i] = 0.;
     }
 
+    // Pre-calculate and store some values
+    vector<double> pointValue(nOfIntPts * nOfIntPts, 0.);
+    vector<vector<double>> pointF(nOfIntPts * nOfIntPts);
+    vector<vector<double>> Nvector(nOfIntPts * nOfIntPts);
+    vector<vector<double>> Bvector(nOfIntPts * nOfIntPts);
+    int intPtIndex;
+    for (int i = 0; i < nOfIntPts; i++) {
+        for (int j = 0; j < nOfIntPts; j++) {
+            intPtIndex = nOfIntPts * i + j;
+            pointValue[intPtIndex] = IntWs[i] * IntWs[j] * J(IntPos[i], IntPos[j]);
+            evaluateF(pointF[intPtIndex], IntPos[i], IntPos[j], NodeValues);
+            Nvector[intPtIndex] = N(IntPos[i], IntPos[j]);
+            Bvector[intPtIndex] = B_x(IntPos[i], IntPos[j]);
+        }
+    }
+
+    // Stores IJ index in the vector
+    int resIJindex;
     // Calculate res[i,j]
     // In the integral (N^T F B)_{i,j} = N_pi F_pq B qj
-    for (int i = 0; i < nOfNodes; i++) {
-        for (int j = 0; j < nOfNodes; j++) {
+    for (int i = 0; i < nColsRes; i++) {
+        for (int j = 0; j < nColsRes; j++) {
+            resIJindex = i * nColsRes + j;
+            // Loop through integration points
             for (int k = 0; k < nOfIntPts; k++) {
                 for (int l = 0; l < nOfIntPts; l++) {
                     // Constants for the integral
-                    pointValue = IntWs[k] * IntWs[l] * J(IntPos[k], IntPos[l]);
-                    evaluateF(pointVector, IntPos[k], IntPos[l], NodeValues); 
-                    for (int p = 0; p < 1; p++) {
-                        for (int q = 0; q < spaceDim; q++) {
-                            res[i * nOfNodes + j] += pointValue 
-                                                     * N(IntPos[k], IntPos[l])[p + i] 
-                                                     * pointVector[p + q * 1] 
-                                                     * B(IntPos[k], IntPos[l])[q + spaceDim * j]; 
+                    intPtIndex = nOfIntPts * k + l;
+                    for (int p = 0; p < nRowsF; p++) {
+                        for (int q = 0; q < nColsF; q++) {
+                            res[resIJindex] += pointValue[intPtIndex] 
+                                                * N(Nvector[intPtIndex], p, i)
+                                                * pointF[intPtIndex][p * nColsF + q]
+                                                * B_x(Bvector[intPtIndex], q, j);
                         }
                     }                   
                 }
@@ -532,7 +611,6 @@ void ElementQ4::JFPush(Mat & globalJF, const vector<double> & JF) const {
     int nOfNodes = this->getNID().size();
     int spaceDim = this->getNID()[0]->getSpaceDim();
     int nOfDofs = this->getNID()[0]->getDOF().size();
-    int nCols = spaceDim * nOfDofs;
     int nColsJF = nOfDofs * nOfNodes;
     
     // Stores global and local index

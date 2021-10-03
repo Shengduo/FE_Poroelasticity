@@ -531,314 +531,423 @@ void Problem::testEvaluateF_x() const {
 /** Test integratorNfN */
 void Problem::testIntegratorNfN() const {
     // Set mass density
-    double massDensity = 1.0;
+    
+    int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
+    int nOfNodes = upperElements[0]->getNID().size();
+    int eleMassCols = nOfDofs * nOfNodes;
+    int &NVCols = nOfDofs;
+    vector<double> massDensity(pow(NVCols, 2), 0.);
+    for (int i = 0; i < NVCols; i++) {
+        massDensity[i * NVCols + i] = 1.;
+    }
 
     // Initialize some results
-    vector<double> globalMassMatrix(_totalNofNodes * _totalNofNodes, 0.0);
-    vector<vector<double>> eleMassMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), vector<double>(1, 0.));
-    vector<vector<double>> nodalValues(upperElements[0]->getNID().size(), vector<double>(1, massDensity));
+    vector<double> globalMassMatrix(_totalDOF * _totalDOF, 0.0);
+    vector<double> eleMassMatrix;
+    vector<vector<double>> nodalValues(nOfNodes, massDensity);
 
     // The global i, j indices
     int I, J;
     // Loop through upper Elements
     for (ElementQ4 *element : upperElements) {
         // Set nodal values to nodal density
-        for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
        
         // Calculate the nodal values
         element->IntegratorNfN(eleMassMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalMassMatrix[_totalNofNodes * I + J] 
-                    += eleMassMatrix[k * nodalValues.size() + l][0];
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalMassMatrix[_totalDOF * I + J] 
+                            += eleMassMatrix[(n1 * nOfDofs + k) * eleMassCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
     
-   // Loop through lower Elements
+    // Loop through lower Elements
     for (ElementQ4 *element : lowerElements) {
-        // Set nodal values to nodal density
-        for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
-       
         // Calculate the nodal values
-        element->IntegratorNfN(eleMassMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalMassMatrix[_totalNofNodes * I + J] 
-                    += eleMassMatrix[k * nodalValues.size() + l][0];
+        element->IntegratorNfN(eleMassMatrix, nodalValues);        
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalMassMatrix[_totalDOF * I + J] 
+                            += eleMassMatrix[(n1 * nOfDofs + k) * eleMassCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        } 
     }
     
+    // Set mass density
+    nOfDofs = cohesiveElements[0]->getNID()[0]->getDOF().size(); 
+    nOfNodes = cohesiveElements[0]->getNID().size();
+    eleMassCols = nOfDofs * nOfNodes;
+    // int &NVCols = nOfDofs;
+    massDensity.resize(pow(NVCols, 2), 0.);
+    fill(massDensity.begin(), massDensity.end(), 0.);
+    for (int i = 0; i < NVCols; i++) {
+        massDensity[i * NVCols + i] = 1.;
+    }
     // Loop through cohesive Elements
-    eleMassMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
-    nodalValues.resize(cohesiveElements[0]->getNID().size());
+    eleMassMatrix.resize(pow(eleMassCols, 2));
+    nodalValues.resize(nOfNodes);
+    fill(nodalValues.begin(), nodalValues.end(), massDensity);
     // Loop through cohesive Elements
     for (ElementQ4Cohesive *element : cohesiveElements) {
-        // Set nodal values to nodal density
-        for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
-       
         // Calculate the nodal values
-        element->IntegratorNfN(eleMassMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalMassMatrix[_totalNofNodes * I + J] 
-                    += eleMassMatrix[k * nodalValues.size() + l][0];
+        element->IntegratorNfN(eleMassMatrix, nodalValues);        
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalMassMatrix[_totalDOF * I + J] 
+                            += eleMassMatrix[(n1 * nOfDofs + k) * eleMassCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        } 
     }
 
     // Printout the matrix
     ofstream myFile;
     myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
-    myFile << "\n" << "=================== Global Mass Matrix ======================================" << "\n";
-    printMatrix(myFile, globalMassMatrix, _totalNofNodes, _totalNofNodes);
+    myFile << "\n" << "=================== GlobalNfNMatrix ======================================" << "\n";
+    printMatrix(myFile, globalMassMatrix, _totalDOF, _totalDOF);
     myFile.close();
 };
 
 /** Test integratorBfB */
 void Problem::testIntegratorBfB() const {
     // Set Nodal stiffness matrix
-    double massDensity = 1.0;
-    vector<double> nodalD = {1., 0., 0., 1.};
-    vector<vector<double>> nodalValues(4, nodalD);
+    int spaceDim = upperElements[0]->getNID()[0]->getSpaceDim();
+    int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
+    int nOfNodes = upperElements[0]->getNID().size();
+    int eleStiffCols = nOfDofs * nOfNodes;
+    int NVCols = nOfDofs * spaceDim;
 
+    vector<double> pointStiff(pow(NVCols, 2), 0.);
+    for (int i = 0; i < NVCols; i++) {
+        pointStiff[i * NVCols + i] = 1.;
+    }
     // Initialize some results
-    vector<double> globalStiffMatrix(_totalNofNodes * _totalNofNodes, 0.0);
-    vector<double> eleStiffMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), 0.);
+    vector<double> globalStiffMatrix(_totalDOF * _totalDOF, 0.0);
+    vector<double> eleStiffMatrix(pow(eleStiffCols, 2), 0.);
+
+    // Set nodal values to Identity
+    vector<vector<double>> nodalValues(nOfNodes, pointStiff);
 
     // The global i, j indices
     int I, J;
     // Loop through upper Elements
     for (ElementQ4 *element : upperElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
        
         // Calculate the nodal values
         element->IntegratorBfB(eleStiffMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalStiffMatrix[_totalNofNodes * I + J] 
-                    += eleStiffMatrix[k * nodalValues.size() + l];
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalStiffMatrix[_totalDOF * I + J] 
+                            += eleStiffMatrix[(n1 * nOfDofs + k) * eleStiffCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
     
     // Loop through lower Elements
     for (ElementQ4 *element : lowerElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
        
         // Calculate the nodal values
         element->IntegratorBfB(eleStiffMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalStiffMatrix[_totalNofNodes * I + J] 
-                    += eleStiffMatrix[k * nodalValues.size() + l];                
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalStiffMatrix[_totalDOF * I + J] 
+                            += eleStiffMatrix[(n1 * nOfDofs + k) * eleStiffCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
     
     // Loop through cohesive Elements
-    eleStiffMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
-    nodalValues.resize(cohesiveElements[0]->getNID().size());
-    for (int i = 0; i < nodalValues.size(); i++) nodalValues[i].resize(1, 1.);
+    // Set mass density
+    nOfDofs = cohesiveElements[0]->getNID()[0]->getDOF().size(); 
+    nOfNodes = cohesiveElements[0]->getNID().size();
+    eleStiffCols = nOfDofs * nOfNodes;
+    NVCols = nOfDofs * spaceDim;
+    pointStiff.resize(pow(NVCols, 2), 0.);
+    fill(pointStiff.begin(), pointStiff.end(), 0.);
+    for (int i = 0; i < NVCols; i++) {
+        pointStiff[i * NVCols + i] = 1.;
+    }
+    // Loop through cohesive Elements
+    eleStiffMatrix.resize(pow(eleStiffCols, 2));
+    nodalValues.resize(nOfNodes);
+    fill(nodalValues.begin(), nodalValues.end(), pointStiff);
     // Loop through cohesive Elements
     for (ElementQ4Cohesive *element : cohesiveElements) {
-        // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
-       
-        // Calculate the nodal values
         element->IntegratorBfB(eleStiffMatrix, nodalValues);
-
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalStiffMatrix[_totalNofNodes * I + J] 
-                    += eleStiffMatrix[k * nodalValues.size() + l];
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalStiffMatrix[_totalDOF * I + J] 
+                            += eleStiffMatrix[(n1 * nOfDofs + k) * eleStiffCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
 
     // Printout the matrix
     ofstream myFile;
     myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
-    myFile << "\n" << "=================== GlobalStiffMatrix ======================================" << "\n";
-    printMatrix(myFile, globalStiffMatrix, _totalNofNodes, _totalNofNodes); 
+    myFile << "\n" << "=================== GlobalBfBMatrix ======================================" << "\n";
+    printMatrix(myFile, globalStiffMatrix, _totalDOF, _totalDOF); 
     myFile.close();
 };
 
 /** Test integratorBfN */
 void Problem::testIntegratorBfN() const {
-    // Set Nodal BfN matrix
-    double massDensity = 1.0;
-    vector<double> nodalD = {1., 0.};
-    vector<vector<double>> nodalValues(upperElements[0]->getNID().size(), nodalD);
+    // Set Nodal stiffness matrix
+    int spaceDim = upperElements[0]->getNID()[0]->getSpaceDim();
+    int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
+    int nOfNodes = upperElements[0]->getNID().size();
+    int eleBfNCols = nOfDofs * nOfNodes;
+    int fCols = nOfDofs;
+    int fRows = nOfDofs * spaceDim;
 
+    vector<double> pointF(fRows * fCols, 1.);
     // Initialize some results
-    vector<double> globalBfNMatrix(_totalNofNodes * _totalNofNodes, 0.0);
-    vector<double> eleBfNMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), 0.);
+    vector<double> globalBfNMatrix(pow(_totalDOF, 2), 0.);
+    vector<double> eleBfNMatrix(pow(eleBfNCols, 2), 0.);
+
+    // Set nodal values to Identity
+    vector<vector<double>> nodalValues(nOfNodes, pointF);
 
     // The global i, j indices
     int I, J;
     // Loop through upper Elements
     for (ElementQ4 *element : upperElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
        
         // Calculate the nodal values
         element->IntegratorBfN(eleBfNMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalBfNMatrix[_totalNofNodes * I + J] 
-                    += eleBfNMatrix[k * nodalValues.size() + l];
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalBfNMatrix[_totalDOF * I + J] 
+                            += eleBfNMatrix[(n1 * nOfDofs + k) * eleBfNCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
     
     // Loop through lower Elements
     for (ElementQ4 *element : lowerElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
-       
         // Calculate the nodal values
         element->IntegratorBfN(eleBfNMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalBfNMatrix[_totalNofNodes * I + J] 
-                    += eleBfNMatrix[k * nodalValues.size() + l];                
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalBfNMatrix[_totalDOF * I + J] 
+                            += eleBfNMatrix[(n1 * nOfDofs + k) * eleBfNCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
     
     // Loop through cohesive Elements
-    eleBfNMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
-    nodalValues.resize(cohesiveElements[0]->getNID().size());
-    for (int i = 0; i < nodalValues.size(); i++) nodalValues[i].resize(1, 1.);
+    nOfDofs = cohesiveElements[0]->getNID()[0]->getDOF().size(); 
+    nOfNodes = cohesiveElements[0]->getNID().size();
+    eleBfNCols = nOfDofs * nOfNodes;
+    fRows = nOfDofs * spaceDim;
+    fCols = nOfDofs;
+    pointF.resize(fCols * fRows, 0.);
+    fill(pointF.begin(), pointF.end(), 1.);
+
+    // Loop through cohesive Elements
+    eleBfNMatrix.resize(pow(eleBfNCols, 2));
+    nodalValues.resize(nOfNodes);
+    fill(nodalValues.begin(), nodalValues.end(), pointF);
     // Loop through cohesive Elements
     for (ElementQ4Cohesive *element : cohesiveElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
-       
         // Calculate the nodal values
         element->IntegratorBfN(eleBfNMatrix, nodalValues);
-
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalBfNMatrix[_totalNofNodes * I + J] 
-                    += eleBfNMatrix[k * nodalValues.size() + l];
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalBfNMatrix[_totalDOF * I + J] 
+                            += eleBfNMatrix[(n1 * nOfDofs + k) * eleBfNCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
 
     // Printout the matrix
     ofstream myFile;
     myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
     myFile << "\n" << "=================== GlobalBfNMatrix ======================================" << "\n";
-    printMatrix(myFile, globalBfNMatrix, _totalNofNodes, _totalNofNodes); 
+    printMatrix(myFile, globalBfNMatrix, _totalDOF, _totalDOF); 
     myFile.close();
 };
 
 /** Test integratorNfB */
 void Problem::testIntegratorNfB() const {
-    // Set Nodal NfB matrix
-    double massDensity = 1.0;
-    vector<double> nodalD = {1., 0.};
-    vector<vector<double>> nodalValues(upperElements[0]->getNID().size(), nodalD);
+    // Set Nodal stiffness matrix
+    int spaceDim = upperElements[0]->getNID()[0]->getSpaceDim();
+    int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
+    int nOfNodes = upperElements[0]->getNID().size();
+    int eleNfBCols = nOfDofs * nOfNodes;
+    int fRows = nOfDofs;
+    int fCols = nOfDofs * spaceDim;
 
+    vector<double> pointF(fRows * fCols, 1.);
     // Initialize some results
-    vector<double> globalNfBMatrix(_totalNofNodes * _totalNofNodes, 0.0);
-    vector<double> eleNfBMatrix(upperElements[0]->getNID().size() * upperElements[0]->getNID().size(), 0.);
+    vector<double> globalNfBMatrix(pow(_totalDOF, 2), 0.);
+    vector<double> eleNfBMatrix(pow(eleNfBCols, 2), 0.);
+
+    // Set nodal values to Identity
+    vector<vector<double>> nodalValues(nOfNodes, pointF);
 
     // The global i, j indices
     int I, J;
     // Loop through upper Elements
     for (ElementQ4 *element : upperElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
        
         // Calculate the nodal values
         element->IntegratorNfB(eleNfBMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalNfBMatrix[_totalNofNodes * I + J] 
-                    += eleNfBMatrix[k * nodalValues.size() + l];
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalNfBMatrix[_totalDOF * I + J] 
+                            += eleNfBMatrix[(n1 * nOfDofs + k) * eleNfBCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
     
     // Loop through lower Elements
     for (ElementQ4 *element : lowerElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
-       
         // Calculate the nodal values
         element->IntegratorNfB(eleNfBMatrix, nodalValues);
-        
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalNfBMatrix[_totalNofNodes * I + J] 
-                    += eleNfBMatrix[k * nodalValues.size() + l];                
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalNfBMatrix[_totalDOF * I + J] 
+                            += eleNfBMatrix[(n1 * nOfDofs + k) * eleNfBCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
     
     // Loop through cohesive Elements
-    eleNfBMatrix.resize(cohesiveElements[0]->getNID().size() * cohesiveElements[0]->getNID().size());
-    nodalValues.resize(cohesiveElements[0]->getNID().size());
-    for (int i = 0; i < nodalValues.size(); i++) nodalValues[i].resize(1, 1.);
+    // Set mass density
+    nOfDofs = cohesiveElements[0]->getNID()[0]->getDOF().size(); 
+    nOfNodes = cohesiveElements[0]->getNID().size();
+    eleNfBCols = nOfDofs * nOfNodes;
+    fRows = nOfDofs;
+    fCols = nOfDofs * spaceDim;
+    pointF.resize(fCols * fRows, 0.);
+    fill(pointF.begin(), pointF.end(), 1.);
+
+    // Loop through cohesive Elements
+    eleNfBMatrix.resize(pow(eleNfBCols, 2));
+    nodalValues.resize(nOfNodes);
+    fill(nodalValues.begin(), nodalValues.end(), pointF);
     // Loop through cohesive Elements
     for (ElementQ4Cohesive *element : cohesiveElements) {
         // Set nodal values to nodal density
-        // for (int n = 0; n < nodalValues.size(); n++) nodalValues[n] = {element->getNID()[n]->getMassDensity()};
-       
         // Calculate the nodal values
         element->IntegratorNfB(eleNfBMatrix, nodalValues);
-
-        for (int k = 0; k < element->getNID().size(); k++) {
-            for (int l = 0; l < element->getNID().size(); l++) {
-                I = element->getNID()[k]->getID();
-                J = element->getNID()[l]->getID();
-                globalNfBMatrix[_totalNofNodes * I + J] 
-                    += eleNfBMatrix[k * nodalValues.size() + l];
+        for (int n1 = 0; n1 < nOfNodes; n1++) {
+            for (int n2 = 0; n2 < nOfNodes; n2++) {
+                for (int k = 0; k < nOfDofs; k++) {
+                    for (int l = 0; l < nOfDofs; l++) {
+                        I = element->getNID()[n1]->getDOF(k);
+                        if (I == -1) continue;
+                        J = element->getNID()[n2]->getDOF(l);
+                        if (J == -1) continue;
+                        globalNfBMatrix[_totalDOF * I + J] 
+                            += eleNfBMatrix[(n1 * nOfDofs + k) * eleNfBCols + (n2 * nOfDofs + l)];
+                    }
+                }
             }
-        }
+        }        
     }
 
     // Printout the matrix
     ofstream myFile;
     myFile.open("Testlog.txt", std::fstream::in | std::fstream::out | std::fstream::app);
     myFile << "\n" << "=================== GlobalNfBMatrix ======================================" << "\n";
-    printMatrix(myFile, globalNfBMatrix, _totalNofNodes, _totalNofNodes); 
+    printMatrix(myFile, globalNfBMatrix, _totalDOF, _totalDOF); 
     myFile.close();
 };
 

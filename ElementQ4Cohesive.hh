@@ -21,10 +21,24 @@ private:
      */
     static vector<double> N(double ksi);
 
+    /** Shape function N, vector of 4 on 4 nodes, 
+     * evaluated in base space (ksi)
+     * at i, j of elemental shape matrix
+     */
+    double N(const vector<double> & Nvector, int i, int j) const;
+
     /** Gradient of shape function B, vector of 2 * 1 on 2 nodes, 
      * evaluated in base space (ksi)
      */
     static vector<double> B(double ksi);
+    
+    /** Gradient of shape function B, vector of 2 * 2 on 2 nodes, 2 spaceDims, 
+     * evaluated in physical space 
+     */
+    vector<double> B_x(double ksi) const;
+
+    /** Gradient of shape function B_x[i, j] at (ksi) */
+    double B_x(const vector<double> & Bvector, int i, int j) const;
 
     /** Jacobian at any given location in base space (ksi, eta), J = dx / d ksi */
     double J(double ksi) const;
@@ -69,31 +83,39 @@ public:
                       const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorNfN, integrates a vector input inside an element, 
-     * both sides using shape function
-     * first-dim: vector of nodes^2, second-dim: values (vector)
+     * both sides using shape function (nOfDofs, nOfDofs * nOfNodes)
+     * first-dim: vector of nodes, second-dim: values (vector, (nOfDofs, nOfDofs))
      */
-    void IntegratorNfN(vector<vector<double>> & res,
+    void IntegratorNfN(vector<double> & res,
                        const vector<vector<double>> & NodeValues) const;
 
-    /** IntegratorBfB, integrates a vector input inside an element, 
+    /*** IntegratorBfB, integrates a vector input inside an element, 
      * both sides using gradient of shape function
-     * first-dim: vector of nodes^2, second-dim: values (vector)
+     * RES:
+     * first-dim: vector of nodes^2, 
+     * NODEVALUES:
+     * first-dim vector of nodes, 
+     * second-dim (spaceDim * nDof) ^ 2 matrix.
      */
     void IntegratorBfB(vector<double> & res,
                        const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorBfN, integrates a vector input inside an element, 
-     * left side gradient of shape function, right side shape function
-     * RES, first-dim: vector of nodes^2, second-dim: values (vector)
-     * NODEVALUES, first dim: nodes, second dim: spaceDim by 1 matrix, stored as a vector
+     * left gradient of shape function, 
+     * right shape function
+     * RES: first-dim: vector of nOfDof^2
+     * NODEVALUES: first dim: spaceDim * nOfDof, 
+     * second dim: nOfDof
      */
     void IntegratorBfN(vector<double> & res,
                        const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorNfB, integrates a vector input inside an element, 
-     * left side shape function, right side gradient of shape function, 
-     * RES, first-dim: vector of nodes^2, second-dim: values (vector)
-     * NODEVALUES, first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
+     * left gradient of shape function, 
+     * right shape function
+     * RES: first-dim: vector of nOfDof^2
+     * NODEVALUES: first dim: nOfDof, 
+     * second dim: spaceDim * nOfDof
      */
     void IntegratorNfB(vector<double> & res,
                        const vector<vector<double>> & NodeValues) const;

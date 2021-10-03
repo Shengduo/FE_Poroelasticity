@@ -11,12 +11,12 @@ int main(int argc, char **argv) {
     // Initialize problem
     PetscErrorCode ierr = PetscInitialize(&argc, &argv, NULL, help);
     if (ierr) return ierr;
-    vector<double> spaceDomain = {6.0, 3.0};
-    vector<int> nOfEdges = {6, 3};
+    vector<double> spaceDomain = {1.0, 1.0}; 
+    vector<int> nOfEdges = {1, 1};
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
-        myProblem->initializeElastic(spaceDomain, nOfEdges);
+        myProblem->initialize(spaceDomain, nOfEdges);
     }
     catch (const char* msg) {
         cerr << msg << endl;

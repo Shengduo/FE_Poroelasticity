@@ -29,6 +29,12 @@ private:
      */
     static vector<double> N(double ksi, double eta);
 
+    /** Shape function N, vector of 4 on 4 nodes, 
+     * evaluated in base space (ksi, eta)
+     * at i, j of elemental shape matrix
+     */
+    double N(const vector<double> & Nvector, int i, int j) const;
+
     /** Gradient of shape function B, vector of 4 * 2 on 4 nodes, 2 directions, 
      * evaluated in base space (ksi, eta)
      */
@@ -104,11 +110,11 @@ public:
                       const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorNfN, integrates a vector input inside an element, 
-     * both sides using shape function
-     * first-dim: vector of nodes^2, second-dim: values (vector)
+     * both sides using shape function (nOfDofs, nOfDofs * nOfNodes)
+     * first-dim: vector of nodes, second-dim: values (vector, (nOfDofs, nOfDofs))
      */
-    void IntegratorNfN(vector<vector<double>> & res,
-                      const vector<vector<double>> & NodeValues) const;
+    void IntegratorNfN(vector<double> & res,
+                       const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorBfB, integrates a vector input inside an element, 
      * both sides using shape function
@@ -118,9 +124,11 @@ public:
                       const vector<vector<double>> & NodeValues) const;
     
     /** IntegratorBfN, integrates a vector input inside an element, 
-     * left side gradient of shape function, right side shape function
-     * RES, first-dim: vector of nodes^2, second-dim: values (vector)
-     * NODEVALUES, first dim: nodes, second dim: spaceDim by 1 matrix, stored as a vector
+     * left gradient of shape function, 
+     * right shape function
+     * RES: first-dim: vector of nOfDof^2
+     * NODEVALUES: first dim: spaceDim * nOfDof, 
+     * second dim: nOfDof
      */
     void IntegratorBfN(vector<double> & res,
                        const vector<vector<double>> & NodeValues) const;
