@@ -6,6 +6,7 @@
 // Constructor
 Problem::Problem(int spaceDim) {
     _spaceDim = spaceDim;
+    nodeTime = 0.;
 };
 
 // Destructor
@@ -20,6 +21,14 @@ Problem::~Problem() {
 
     // Destroy global vectors and matrices
     VecDestroy(&globalF);
+    VecDestroy(&globalS);
+    VecDestroy(&globalS_t);
+
+    // Mat destroy
+    MatDestroy(&globalJF);
+
+    // Delete rows
+    delete [] globalRows;
 };
 
 // General initialization
@@ -61,7 +70,7 @@ void Problem::initializeNodes() {
     // Parameters for bulk Nodes
     double lambda = 1.;
     double shearModulus = 1.;
-    double biotAlpha = 1.;
+    double biotAlpha = 0.5;
     double biotMp = 1.;
     double fluidMobility = 1.;
     double fluidViscosity = 1.;
@@ -248,10 +257,10 @@ void Problem::testPushGlobalF() {
     for (CohesiveNode* node : cohesiveNodes) {
         node->pushS(globalF);
     }
-    
+    // Debug lines
     // Output the global F
-    cout << "TEST: Global F\n";
-    VecView(globalF, PETSC_VIEWER_STDOUT_SELF);
+    //cout << "TEST: Global F\n";
+    // VecView(globalF, PETSC_VIEWER_STDOUT_SELF);
 };
 
 // TEST Try Fetching from globalF
@@ -361,6 +370,7 @@ void Problem::deleteElements() {
 
 // Calculate Nodal bodyForces, NOW for TESTING INTEGRATORS
 void Problem::computeBodyForces() {
+    /** 
     vector<vector<double>> eleBodyForces(4, vector<double> (_spaceDim, 0.));
     vector<vector<double>> nodalValues(4, vector<double> (_spaceDim, 0.));
 
@@ -435,6 +445,7 @@ void Problem::computeBodyForces() {
     for (Node* node : lowerNodes) node->outputInfo(myFile, true);
     for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
     myFile.close();
+    */
 };
 
 // Test all integrators
@@ -443,7 +454,7 @@ void:: Problem::testIntegrators() {
     computeBodyForces();
 
     // Test: test gradient function
-    testEvaluateF_x();
+    // testEvaluateF_x();
 
     // Test: global mass matrix
     testIntegratorNfN();
@@ -466,12 +477,13 @@ void Problem::testEvaluateF_x() const {
     
     // Loop through upper elements
     for (ElementQ4 *element : upperElements) {
-        cout <<"Element No." << setw(10) << element->getID() << " " << "\n";
+        // cout <<"Element No." << setw(10) << element->getID() << " " << "\n";
         for (int i = 0; i < element->getNID().size(); i++) {
             NodeValues[i][0] = element->getNID()[i]->getMassDensity();
             NodeValues[i][1] = element->getNID()[i]->getBodyForce()[0];
             NodeValues[i][2] = element->getNID()[i]->getBodyForce()[1];
         }
+        
         for (int i = 0; i < IntPos.size(); i++) {
             for (int j = 0; j < IntPos.size(); j++) {
                 element->evaluateF_x(res, IntPos[i], IntPos[j], NodeValues);
@@ -487,12 +499,14 @@ void Problem::testEvaluateF_x() const {
 
     // Loop through upper elements
     for (ElementQ4 *element : lowerElements) {
-        cout <<"Element No." << setw(10) << element->getID() << " " << "\n";
+        // cout <<"Element No." << setw(10) << element->getID() << " " << "\n";
         for (int i = 0; i < element->getNID().size(); i++) {
             NodeValues[i][0] = element->getNID()[i]->getMassDensity();
             NodeValues[i][1] = element->getNID()[i]->getBodyForce()[0];
             NodeValues[i][2] = element->getNID()[i]->getBodyForce()[1];
         }
+
+        // Debug lines
         for (int i = 0; i < IntPos.size(); i++) {
             for (int j = 0; j < IntPos.size(); j++) {
                 element->evaluateF_x(res, IntPos[i], IntPos[j], NodeValues);
@@ -531,7 +545,7 @@ void Problem::testEvaluateF_x() const {
 /** Test integratorNfN */
 void Problem::testIntegratorNfN() const {
     // Set mass density
-    
+    /** 
     int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
     int nOfNodes = upperElements[0]->getNID().size();
     int eleMassCols = nOfDofs * nOfNodes;
@@ -630,10 +644,12 @@ void Problem::testIntegratorNfN() const {
     myFile << "\n" << "=================== GlobalNfNMatrix ======================================" << "\n";
     printMatrix(myFile, globalMassMatrix, _totalDOF, _totalDOF);
     myFile.close();
+    */
 };
 
 /** Test integratorBfB */
 void Problem::testIntegratorBfB() const {
+    /** 
     // Set Nodal stiffness matrix
     int spaceDim = upperElements[0]->getNID()[0]->getSpaceDim();
     int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
@@ -738,10 +754,12 @@ void Problem::testIntegratorBfB() const {
     myFile << "\n" << "=================== GlobalBfBMatrix ======================================" << "\n";
     printMatrix(myFile, globalStiffMatrix, _totalDOF, _totalDOF); 
     myFile.close();
+    */
 };
 
 /** Test integratorBfN */
 void Problem::testIntegratorBfN() const {
+    /** 
     // Set Nodal stiffness matrix
     int spaceDim = upperElements[0]->getNID()[0]->getSpaceDim();
     int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
@@ -843,10 +861,12 @@ void Problem::testIntegratorBfN() const {
     myFile << "\n" << "=================== GlobalBfNMatrix ======================================" << "\n";
     printMatrix(myFile, globalBfNMatrix, _totalDOF, _totalDOF); 
     myFile.close();
+    */
 };
 
 /** Test integratorNfB */
 void Problem::testIntegratorNfB() const {
+    /** 
     // Set Nodal stiffness matrix
     int spaceDim = upperElements[0]->getNID()[0]->getSpaceDim();
     int nOfDofs = upperElements[0]->getNID()[0]->getDOF().size(); 
@@ -949,7 +969,67 @@ void Problem::testIntegratorNfB() const {
     myFile << "\n" << "=================== GlobalNfBMatrix ======================================" << "\n";
     printMatrix(myFile, globalNfBMatrix, _totalDOF, _totalDOF); 
     myFile.close();
+    */
 };
+
+/** Non-zeros per row in global matrices */
+void Problem::getNNZPerRow(PetscInt *nnz) {
+    // First clear nnz
+    for (int i = 0; i < _totalDOF; i++) {
+        nnz[i] = 0;
+    }
+
+    // Store non-zero entries
+    vector<int> nonZeros(pow(_totalDOF, _spaceDim), 0);
+    globalRows = new PetscInt [_totalDOF];
+
+    // Some constants
+    int nOfNodes;
+    int nOfDofs;
+    int nColsJF;
+    
+    // Stores global and local index
+    int I, J;
+    
+    // Upper elements non-zeros
+    for (ElementQ4 *element : upperElements) {
+        // First node
+        for (int n1 = 0; n1 < nOfNodes; n1++)
+        {
+            nOfNodes = element->getNID().size();
+            nOfDofs = element->getNID()[0]->getDOF().size();
+            nColsJF = nOfDofs * nOfNodes;
+            // cout << "\n";
+            // Then row of local JF3
+            for (int i = 0; i < nOfDofs; i++)
+            {
+                I = element->getNID()[n1]->getDOF()[i];
+                if (I == -1)
+                    continue;
+                // Then node
+                for (int n2 = 0; n2 < nOfNodes; n2++)
+                {
+                    // Then col of local JF3
+                    for (int j = 0; j < nOfDofs; j++)
+                    {
+                        J = element->getNID()[n2]->getDOF()[j];
+                        if (J == -1)
+                            continue;  
+                        nonZeros[I * _totalDOF + J] = 1;                      
+                    }
+                }
+            }
+        }
+    }
+    
+    // Calculate all non-zeros
+    for (int i = 0; i < _totalDOF; i++) {
+        globalRows[i] = i;
+        for (int j = 0; j < _totalDOF; j++) {
+            nnz[i] += nonZeros[i * _totalDOF + j];
+        }
+    }
+}
 
 /** Printout a matrix */
 void Problem::printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const {
@@ -960,6 +1040,21 @@ void Problem::printMatrix(ofstream & myFile, const vector<double>& Matrix, int n
         myFile << "\n";
     }
     myFile << "\n";
+
+    if (nRows == nCols) {
+        myFile << "Matrix is Square!" << "\n";
+        double err = 0.;
+        double sum = 0.;
+        for (int i = 0; i < nRows; i++) {
+            for (int j = 0; j < nCols; j++) {
+                err += abs(Matrix[i * nCols + j] - Matrix[j * nCols + i]);
+                sum += Matrix[i * nCols + j]; 
+            }
+        }
+        myFile << "Error from Symmetric: " << setw(12) << err << "\n";
+        myFile << "Sum of all entries: " << setw(12) << sum << "\n";
+        myFile << "\n";
+    }    
 };
 
 // ============= Test Elastic Solution ============================================================
@@ -1135,6 +1230,7 @@ void Problem::testPushGlobalFElastic() {
 
 // TEST Try push to globalJF, load only pushes the upper surface force
 void Problem::testPushGlobalJFElastic() {
+    /**
     // Set size of global JF
     MatCreate(PETSC_COMM_WORLD, &globalJF);
     MatSetSizes(globalJF, PETSC_DECIDE, PETSC_DECIDE, _totalDOF, _totalDOF);
@@ -1153,7 +1249,8 @@ void Problem::testPushGlobalJFElastic() {
     // Output the global F
     cout << "TEST: Global JF\n";
     MatView(globalJF, PETSC_VIEWER_STDOUT_SELF);
-}
+    */
+};
 
 // Initialization of Elastic Elements
 void Problem::initializeElementsElastic() {
@@ -1227,4 +1324,507 @@ void Problem::testFetchGlobalSElastic() {
 
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
     myFile.close();
+};
+
+// ============= Test PoroelasticElastic Solution ============================================================
+/** Only has 1 block upperNodes and upperElements
+ * Test Petsc, Mat, Vec, KSP solver, integratorBfB
+ */
+// Initialization of poroelastic problem
+void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime, double dt) {
+    // Initialize geometry2D
+    if (_spaceDim == 2) initializeGeometry2D(xRanges, edgeNums);
+    
+    // Initialize nodes
+    initializeNodesPoroElastic();
+    
+    // Assign Nodal DOFs
+    assignNodalDOFPoroElastic();
+        
+    // Initialize elements
+    initializeElementsPoroElastic();
+    
+    // Initialize Mats and Vecs, Mats and TS
+    initializePetsc();
+
+    // Non-Linear solver
+    solvePoroElastic(endingTime, dt);
+};
+
+// Initialization of Nodes
+void Problem::initializeNodesPoroElastic() {
+    // Some input geometrical values
+    int spaceDim = _spaceDim;
+
+    // Number of elements and nodes
+    // Parameters for bulk Nodes
+    // Mass Density and Body force.
+    double massDensity = 1.0;
+    vector<double> bodyForce  = {0.0, 0.0};
+    double lambda = 1.;
+    double shearModulus = 1.;
+    double biotAlpha = 1.;
+    double biotMp = 1.;
+    double fluidMobility = 1.;
+    double fluidViscosity = 1.;
+    double fluidDensity = 1.;
+    double porosity = 0.;
+    vector<double> fluidBodyForce = {0.0, 0.0};
+    double source = 0.;
+    // double activesource = 1.0;
+
+    // Element size
+    vector<double> edgeSize (spaceDim);
+    edgeSize[0] = myGeometry->xRange / myGeometry->xEdgeNum;
+    edgeSize[1] = myGeometry->yRange / myGeometry->yEdgeNum;
+    
+    
+
+    /** First test a case with fixed displacement
+     * p, u, trace_strain to vary and see if the diffusion makes sense
+     */  
+    // Default DOF
+    vector<int> DOF_default (2 * spaceDim + 2, 0); 
+    DOF_default[spaceDim] = 1;
+    DOF_default[spaceDim + 1] = 1;
+
+    // x fixed DOF -- fix only displacement in x direction
+    vector<int> DOF_x_fixed (2 * spaceDim + 2, 0);
+    DOF_x_fixed[spaceDim] = 1;
+    DOF_x_fixed[spaceDim + 1] = 1;
+    DOF_x_fixed[0] = 1;
+
+    // y fixed DOF -- fix only displacement in y direction
+    vector<int> DOF_y_fixed (2 * spaceDim + 2, 0);
+    DOF_y_fixed[spaceDim] = 1;
+    DOF_y_fixed[spaceDim + 1] = 1;
+    DOF_y_fixed[1] = 1;
+
+    // xy fixed DOF -- fix displacement in x AND y direction
+    vector<int> DOF_xy_fixed (2 * spaceDim + 2, 0);
+    DOF_xy_fixed[spaceDim] = 1;
+    DOF_xy_fixed[spaceDim + 1] = 1;
+    DOF_xy_fixed[0] = 1;
+    DOF_xy_fixed[1] = 1;
+
+    // Upper subzone nodes
+    upperNodes.resize(myGeometry->nOfNodes);
+    int nodeID = 0;
+    int nodeID_in_set = 0;
+    vector<double> thisXYZ(spaceDim);
+    vector<double> initialS(spaceDim * 2 + 2, 0.);
+    // First y
+    for (int j = 0; j < myGeometry->yNodeNum; j++) {
+        // Then x
+        for (int i = 0; i < myGeometry->xNodeNum; i++) {
+            // Reset the coordinates
+            thisXYZ[0] = i * edgeSize[0];
+            thisXYZ[1] = j * edgeSize[1];
+            // massDensity = thisXYZ[0] + thisXYZ[1];
+            
+            // upper surface, put pressure = 1 into initialS;
+            if (j == myGeometry->yNodeNum - 1 ) {
+                initialS[2 * spaceDim] = 1.0;
+            }
+            // lower surface, put pressure = 0 into initialS;
+            else if (j == 0) {
+                initialS[2 * spaceDim] = -1.0;
+            }
+            else {
+                initialS[2 * spaceDim] = 0.0;
+            }
+
+            // Initialize a node
+            upperNodes[nodeID_in_set] = 
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, 
+                         massDensity, 
+                         &bodyForce, 
+                         lambda, 
+                         shearModulus, 
+                         biotAlpha, 
+                         biotMp, 
+                         fluidMobility, 
+                         fluidViscosity, 
+                         fluidDensity, 
+                         porosity,
+                         &fluidBodyForce, 
+                         source);
+            // For testing the source, don't block the lower and upper surface
+            /**
+            if (j == 0) // Lower surface
+                upperNodes[nodeID_in_set]->setDOF(DOF_all_fixed);
+            if (j == myGeometry->yNodeNum - 1) // Upper surface
+                upperNodes[nodeID_in_set]->setDOF(DOF_all_fixed);
+            */
+            // For testing the source, impose source at a single node
+            if (j == myGeometry->yNodeNum - 1 || j == 0) {
+                // Fix p
+                upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
+            }
+            if (j == myGeometry->yNodeNum / 2) {
+                // Fix y
+                upperNodes[nodeID_in_set]->setDOF(1, 1);
+                if (i == myGeometry->xNodeNum / 2) {
+                    // Further fix x
+                    upperNodes[nodeID_in_set]->setDOF(0, 1);
+                    // upperNodes[nodeID_in_set]->setSource(4.0);
+                }
+            }
+
+            upperNodes[nodeID_in_set]->initializeS(initialS);
+            nodeID += 1;
+            nodeID_in_set += 1;
+        }
+    }
+    
+    _totalNofNodes = nodeID;
+    ofstream myFile;
+    myFile.open("Testlog_PoroElastic.txt");
+    myFile << "=================== NodeInfoBefore ======================================" << "\n";
+    for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    myFile.close();
+};
+
+// Assign global ID for each DOF
+void Problem::assignNodalDOFPoroElastic() {
+    // Pointer to currentDOF
+    _totalDOF = 0;
+    
+    // Assign upperzone
+    for (int i = 0; i < upperNodes.size(); i++) {
+        for (int j = 0; j < upperNodes[i]->getDOF().size(); j++) {
+            if (upperNodes[i]->getDOF(j) == 0) {
+                upperNodes[i]->setDOF(j, _totalDOF);
+                _totalDOF += 1;
+            }
+            else {
+                upperNodes[i]->setDOF(j, -1); 
+            }
+        }
+    }
+
+    // Output to log file
+    ofstream myFile;
+    myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== NodeInfoAfter ======================================" << "\n";
+
+    for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    myFile.close();
+};
+
+// Initialize Vec F, S, S_t, Mat JF
+void Problem::initializePetsc() {
+    // Set size of global F
+    VecCreate(PETSC_COMM_WORLD, &globalF);
+    VecSetSizes(globalF, PETSC_DECIDE, _totalDOF);
+    VecSetFromOptions(globalF);
+    VecSetOption(globalF, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+
+    // Initialize globalS
+    VecCreate(PETSC_COMM_WORLD, &globalS);
+    VecSetSizes(globalS, PETSC_DECIDE, _totalDOF);
+    VecSetFromOptions(globalS);
+    VecSetOption(globalS, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+
+    // Initialize globalS_t
+    VecCreate(PETSC_COMM_WORLD, &globalS_t);
+    VecSetSizes(globalS_t, PETSC_DECIDE, _totalDOF);
+    VecSetFromOptions(globalS_t);
+    VecSetOption(globalS_t, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+    
+    // Initialize globalJF
+    PetscInt *globalJF_nnz = new PetscInt [_totalDOF];
+    getNNZPerRow(globalJF_nnz);
+
+    MatCreateSeqAIJ(PETSC_COMM_WORLD, _totalDOF, _totalDOF, 0, globalJF_nnz, &globalJF);
+    // MatSetSizes(globalJF, PETSC_DECIDE, PETSC_DECIDE, _totalDOF, _totalDOF);
+    delete [] globalJF_nnz;
+
+    MatSetFromOptions(globalJF);
+    MatSetOption(globalJF, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
+    MatSetUp(globalJF);
+
+    // Zero the system Vecs and Mats
+    VecZeroEntries(globalS);
+    VecZeroEntries(globalS_t);
+    VecZeroEntries(globalF);
+
+    // Set initial conditions by pushing to globalS
+    for (Node* node : upperNodes) {
+        node->pushS(globalS);
+    }
+}
+
+
+// Initialization of Elastic Elements
+void Problem::initializeElementsPoroElastic() {
+    // Using the NID to assign values to each element
+    vector<Node*> NID(4, NULL);
+    
+    // Upperzone ElementQ4s
+    upperElements.resize(myGeometry->nOfElements, NULL);
+
+    for (int i = 0; i < myGeometry->xEdgeNum; i++) {
+        for (int j = 0; j < myGeometry->yEdgeNum; j++) {
+            // Setting NID for upper subzone
+            NID = {upperNodes[j * myGeometry->xNodeNum + i], 
+                   upperNodes[j * myGeometry->xNodeNum + i + 1], 
+                   upperNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
+                   upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
+
+            upperElements[j * myGeometry->xEdgeNum + i] = 
+                new ElementQ4(j * myGeometry->xEdgeNum + i, NID);            
+        }
+    }
+    ofstream myFile;
+    myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
+    for (ElementQ4* thisElement : upperElements) thisElement->outputInfo(myFile);
+    for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
+    for (ElementQ4Cohesive* thisElement : cohesiveElements) thisElement->outputInfo(myFile);
+    myFile.close();
+};
+
+/** TS (SNES) solver for linear poroelastic problems */
+void Problem::solvePoroElastic(double endingTime, double dt) {
+    /** Initialize TS */
+    // Non-linear time-dependent solver
+    TS ts;
+
+    /** Create timestepping solver context */
+    TSCreate(PETSC_COMM_WORLD, & ts);    
+    TSSetProblemType(ts, TS_NONLINEAR);
+
+    /** Set Implicit Function and Implicit Jacobian */
+    TSSetIFunction(ts, globalF, IFunction, this);
+    TSSetIJacobian(ts, globalJF, globalJF, IJacobian, this);
+
+    /** Set final time */
+    TSSetMaxTime(ts, endingTime);
+    
+    TSSetTimeStep(ts, dt);
+    TSSetExactFinalTime(ts, TS_EXACTFINALTIME_STEPOVER);
+
+    /** Set the solution */
+    TSSetSolution(ts, globalS);
+
+    /** Set TS parameters from user options */
+    TSSetFromOptions(ts);
+    
+    /** Set tolerances */
+    PetscReal rtol = 1e-10;
+    PetscReal atol = 1e-15;
+    TSSetTolerances(ts, atol, NULL, rtol, NULL);
+    SNES snes;
+    TSGetSNES(ts, &snes);
+    KSP ksp;
+    SNESGetKSP(snes, &ksp);
+    
+    SNESSetTolerances(snes, atol, rtol, rtol, 1000, 1000);     // Default values for the ints
+    // SNESLineSearch sneslinesearch;
+    // SNESGetLineSearch(snes, &sneslinesearch);
+    // SNESLineSearchSetTolerances(sneslinesearch, PETSC_DEFAULT, 1000, rtol, atol, rtol, 1000); 
+    KSPSetTolerances(ksp, rtol, atol, 1.1, 1000);   // 
+
+    /** Solve TS */
+    TSSolve(ts, globalS);
+    // TSView(ts, PETSC_VIEWER_STDOUT_SELF);
+};
+
+/** Calculating TSIFunction from the current ts and timestep t,
+ * given global solution vector s
+ * and global solution vector time derivative s_t,
+ * stores the result in Vec F
+ */
+PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, void *ctx) {
+    PetscErrorCode ierr;
+    // Convert the pointer
+    Problem *myProblem = (Problem*) ctx;
+    
+    // Clear the vector
+    ierr = VecZeroEntries(F);
+    
+    // Write vtk file
+    if (t > myProblem->nodeTime) {
+        // Debug lines
+        cout << "IFunction t = " << t << "\n";
+        ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
+        myProblem->writeVTK("PDiff_ACC");
+        myProblem->nodeTime = t;
+    }
+
+    // Fetch all s into the nodes
+    for (Node* node : myProblem->upperNodes) {
+        node->fetchS(s);
+        node->fetchS_t(s_t);
+    }
+    
+    // Set localF
+    int localFSize = myProblem->upperElements[0]->getElementDOF();
+    double *localF = new double [localFSize];
+
+    // Loop through all elements in upperElements
+    for (ElementQ4 *element : myProblem->upperElements) {
+        // Calculate F within the element
+        element->elementF(F, localF, localFSize, 1, 0.);
+    }
+
+    
+    // Assemble the global residual function
+    ierr = VecAssemblyBegin(F);
+    ierr = VecAssemblyEnd(F);
+
+    // DEBUG LINES
+    /**
+    cout << "s: \n";
+    VecView(s, PETSC_VIEWER_STDOUT_SELF);
+    cout << "\n";
+    cout << "s_t: \n";
+    VecView(s_t, PETSC_VIEWER_STDOUT_SELF);
+    cout << "\n";
+    cout << "F: \n";
+    VecView(F, PETSC_VIEWER_STDOUT_SELF);
+    cout << "\n";
+    */
+    
+    delete [] localF;
+    return ierr;
+}
+
+/** Calculating TSIJacobian from the current ts and timestep t,
+ * given global solution vector s
+ * and global solution vector time derivative s_t,
+ * stores the result in Mat Amat and Mat Pmat
+ */
+PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal s_tshift, Mat Amat, Mat Pmat, void *ctx) {
+    // DEBUG LINES
+    // cout << "IJacobian t = " << t << "\n";
+    // cout << "IJacobian s_tshift = " << s_tshift << "\n";
+    // Convert the pointer
+    Problem *myProblem = (Problem*) ctx;
+    PetscErrorCode ierr;
+    // Clear the matrix
+    PetscBool isAssembled;
+    
+    ierr = MatAssembled(Pmat, &isAssembled);
+    if (isAssembled) {
+        // cout << "View Pmat before zeroing: \n";
+        // ierr = MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
+        ierr = MatZeroRows(Pmat, myProblem->_totalDOF, myProblem->globalRows, 0.0, NULL, NULL);
+        // cout << "View Pmat after zeroing: \n";
+        // ierr = MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
+    }
+
+    // Fetch all s into the nodes
+    for (Node* node : myProblem->upperNodes) {
+        node->fetchS(s);
+        node->fetchS_t(s_t);
+    }
+    myProblem->nodeTime = t;
+    
+    // Initialize local JF and JFSize
+    int localJFSize = pow(myProblem->upperElements[0]->getElementDOF(), 2);
+    double *localJF = new double [localJFSize];
+
+    // Loop through all elements in upperElements
+    for (ElementQ4 *element : myProblem->upperElements) {
+        // Calculate F within the element
+        element->JF(Pmat, localJF, localJFSize, 1, s_tshift);
+    }
+
+    // Assemble the global Jacobian matrix
+    ierr = MatAssemblyBegin(Pmat, MAT_FINAL_ASSEMBLY);
+    ierr = MatAssemblyEnd(Pmat, MAT_FINAL_ASSEMBLY);
+
+    if (Amat != Pmat) {
+        ierr = MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY);
+        ierr = MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY);
+    }
+    /**
+    cout << "View Pmat: \n";
+    MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
+
+    cout << "View Amat: \n";
+    MatView(Amat, PETSC_VIEWER_STDOUT_SELF);
+    */
+
+    delete [] localJF;
+    return ierr;
+};
+
+/** Write VTK files
+ * Write into vtk nodal and cell connection values
+ * At each timestep write a different file
+ */
+void Problem::writeVTK(string prefix) {
+    string path = "./output/" + prefix + to_string(stepNumber) + ".vtk";
+    ofstream myFile(path);
+
+    // Head lines
+    myFile << "# vtk DataFile Version 2.0\n";        // version info
+    myFile << "Time step " << stepNumber << "\n";    // title
+    myFile << "ASCII"<< "\n";                        // File Format
+    myFile << "DATASET UNSTRUCTURED_GRID" << "\n";   // structure type
+
+    // Output node XYZs
+    myFile << "POINTS " << _totalNofNodes << " double" << "\n";
+    myFile << scientific;
+    for (Node* node : upperNodes) {
+        myFile << node->getXYZ()[0] << " " << node->getXYZ()[1] << " " << "0.0" << "\n";
+    }
+    
+    
+    // Output Elements
+    myFile << "CELLS " << upperElements.size() << " " << 5 * upperElements.size() << "\n";
+    for (ElementQ4 *element : upperElements) {        
+        myFile << "4 " << element->getNID()[0]->getID() << " " 
+                       << element->getNID()[1]->getID() << " " 
+                       << element->getNID()[2]->getID() << " " 
+                       << element->getNID()[3]->getID() << "\n";        
+    }
+
+    int I_u = 0;
+    int I_v = I_u + _spaceDim;
+    int I_p = I_v + _spaceDim;
+    int I_e = I_p + 1;
+
+    // Output cell type
+    myFile << "CELL_TYPES " << upperElements.size() << "\n" ;
+    for (int i = 0; i < upperElements.size(); i++) myFile << "9\n";
+
+
+    // Output displacement
+    myFile << "POINT_DATA " << _totalNofNodes << "\n";
+    myFile << "VECTORS displacement double\n";
+    for (Node *node : upperNodes) {
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_u + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+
+    // Output velocity
+    myFile << "VECTORS velocity double\n";
+    for (Node *node : upperNodes) {
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_v + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+
+    // Output pore fluid pressure
+    myFile << "SCALARS pressure double 1" << "\n";
+    myFile << "LOOKUP_TABLE default" << "\n";
+    for (Node *node : upperNodes) {
+        myFile << node->s[I_p] << "\n";
+    }
+
+    // Output volumetric strain
+    myFile << "SCALARS trace_strain double 1" << "\n";
+    myFile << "LOOKUP_TABLE default" << "\n";
+    for (Node *node : upperNodes) {
+        myFile << node->s[I_e] << "\n";
+    }
 };

@@ -28,18 +28,22 @@ Node::Node(int ID, int spaceDim) {
 };
 
 // Constructor 2
-Node::Node(int ID, 
-           const vector<double> & XYZ, 
-           const vector<int> & DOF, 
-           int spaceDim, 
-           double density, 
-           const vector<double>* bodyForce, 
-           double lambda, 
-           double shearModulus, 
-           double biotAlpha, 
-           double biotMp, 
-           double fluidMobility, 
-           double fluidViscosity) {
+Node::Node(int ID,
+           const vector<double> &XYZ,
+           const vector<int> &DOF,
+           int spaceDim,
+           double density,
+           const vector<double> *bodyForce,
+           double lambda,
+           double shearModulus,
+           double biotAlpha,
+           double biotMp,
+           double fluidMobility,
+           double fluidViscosity,
+           double fluidDensity,
+           double porosity,
+           const vector<double> *fluidBodyForce,
+           double source) {
     _ID = ID;
     _spaceDim = spaceDim;
     _nodalXYZ.resize(_spaceDim, 0.);
@@ -50,6 +54,9 @@ Node::Node(int ID,
     // Nodal body force reset
     _nodalBodyForce.resize(_spaceDim, 0.);
 
+    // Reset _nodalProperties.
+    _nodalProperties.resize(14, 0.);
+    
     // Set nodal coordinates and degree of freedom
     this->setXYZ(XYZ);
     this->setDOF(DOF);
@@ -61,6 +68,10 @@ Node::Node(int ID,
     this->setBiotMp(biotMp);
     this->setFluidMobility(fluidMobility);
     this->setFluidViscosity(fluidViscosity);
+    this->setFluidDensity(fluidDensity);
+    this->setPorosity(porosity);
+    this->setFluidBodyForce(fluidBodyForce);
+    this->setSource(source);
 };
 
 // Destructor
@@ -211,6 +222,9 @@ void Node::outputInfo(ofstream & myFile, bool outputElse) const {
         myFile << "Node Forces: ";
         for (int i = 0; i < _nodalBodyForce.size(); i++)
             myFile << setw(12) << _nodalBodyForce[i] << " ";
+        myFile << "S: ";
+        for (int i = 0; i < s.size(); i++)
+            myFile << setw(12) << s[i] << " "; 
         myFile << "S_t: ";
         for (int i = 0; i < s_t.size(); i++)
             myFile << setw(12) << s_t[i] << " "; 

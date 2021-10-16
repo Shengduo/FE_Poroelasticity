@@ -11,12 +11,14 @@ int main(int argc, char **argv) {
     // Initialize problem
     PetscErrorCode ierr = PetscInitialize(&argc, &argv, NULL, help);
     if (ierr) return ierr;
-    vector<double> spaceDomain = {1.0, 1.0}; 
-    vector<int> nOfEdges = {1, 1};
+    vector<double> spaceDomain = {4, 6}; 
+    vector<int> nOfEdges = {4, 6};
+    double endingTime = 5.0;
+    double dt = 0.1;
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
-        myProblem->initialize(spaceDomain, nOfEdges);
+        myProblem->initializePoroElastic(spaceDomain, nOfEdges, endingTime, dt);
     }
     catch (const char* msg) {
         cerr << msg << endl;

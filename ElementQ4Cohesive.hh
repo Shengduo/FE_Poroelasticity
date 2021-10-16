@@ -76,10 +76,20 @@ public:
     void evaluateF_x(vector<double> & res, double ksi,
                    const vector<vector<double>> & NodeValues) const;
 
-    /** Integrator, integrates a vector input inside an element, 
-     * first-dim: vector of nodes, second-dim: values (vector)
+    /** IntegratorNf, integrates a vector input inside an element, 
+     * left side using shape function
+     * RES: nOfNodes * nOfDofs
+     * NODEVALUES: dim 1, nOfNodes; dim 2, nOfDofs
      */
-    void IntegratorNf(vector<vector<double>> & res, 
+    void IntegratorNf(vector<double> & res, 
+                      const vector<vector<double>> & NodeValues) const;
+    
+    /** IntegratorBf, integrates a vector input inside an element, 
+     * left side using shape function
+     * RES: nOfNodes * nOfDofs
+     * NODEVALUES: dim 1, nOfNodes; dim 2, nOfDofs * spaceDim
+     */
+    void IntegratorBf(vector<double> & res, 
                       const vector<vector<double>> & NodeValues) const;
 
     /** IntegratorNfN, integrates a vector input inside an element, 

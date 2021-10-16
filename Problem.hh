@@ -26,6 +26,15 @@ private:
     // Cohesive nodes
     vector<CohesiveNode*> cohesiveNodes;
 
+    // Row numbers
+    PetscInt *globalRows;
+    
+    // Node info time
+    double nodeTime;
+
+    // Step number
+    int stepNumber;
+    
     // Upper half subzone elements
     vector<ElementQ4*> upperElements;
 
@@ -43,9 +52,12 @@ private:
     
     // Global residual vector
     Vec globalF;
-
+    
     // Global solution vector
     Vec globalS;
+
+    // Global time-derivative 
+    Vec globalS_t;
 
     // Global JF
     Mat globalJF;
@@ -111,6 +123,9 @@ private:
     // TestGradient 
     void testEvaluateF_x() const;
 
+    // Non-zeros per row in global matrices
+    void getNNZPerRow(PetscInt *nnz);
+
     // Print matrix
     void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;
 
@@ -145,6 +160,42 @@ private:
 
     // Get back result from globalS
     void testFetchGlobalSElastic();
+
+// ============= Test Poroelastic Solution ============================================================
+/** Only has 1 block upperNodes and upperElements
+ * Test Petsc, Mat, Vec, SNES TS solver, integratorBfB
+ */
+// PUBLIC METHODS
+public:
+    // Initialize elastic problem
+    void initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime = 1.0, double dt = 0.01);
+
+// PRIVATE METHODS
+private:
+    // Initialization of Nodes
+    void initializeNodesPoroElastic();
+
+    // Assign global ID for each DOF
+    void assignNodalDOFPoroElastic();
+
+    // Initialization of Elements
+    void initializeElementsPoroElastic();
+
+    // Initialize the Vecs and Mats and TS
+    void initializePetsc();
+
+    // TS solver
+    void solvePoroElastic(double endingTime = 1.0, double dt = 0.01);
+
+    // Residual function
+    static PetscErrorCode IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, void *ctx = NULL);
+    
+    // Jacobian function
+    static PetscErrorCode IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal s_tshift, Mat Amat, Mat Pmat, void *ctx = NULL);
+
+    // Write VTK files
+    void writeVTK(string prefix);
+    
 // NOT IMPLEMENTED
 private:
     // Copy Constructor

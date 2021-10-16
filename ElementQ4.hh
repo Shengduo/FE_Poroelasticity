@@ -2,6 +2,7 @@
  * Head file for class ElementQ4 and corresponding cohesive class ElementQ4Cohesive
  * for 2D upper/lower subzone bodies.
  */
+#pragma once
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -10,6 +11,7 @@
 #include <fstream>
 #include "Node.hh"
 #include "ElasticKernel.hh"
+#include "PoroelasticKernel.hh"
 using namespace std;
 
 /** Class ElementQ4
@@ -50,6 +52,33 @@ private:
      */
     vector<double> B_x(double ksi, double eta) const;
 
+    /** Pre-calculate all B_x vectors at 4 integration points
+     * since everything is calculated in reference config
+     */
+    vector<vector<double>> Bvector;
+
+    /** Pre-calculate all N vectors at 4 integration points
+     * since everything is calculated in reference config
+     */
+    vector<vector<double>> Nvector;
+
+    /** Element DOF number
+     * used to pre-allocate other matrices / vectors
+     */
+    PetscInt elementDOF;
+
+    /** Pre-calculate the local->global indices, 
+     * can call when assemblying global Jacobian and vector.
+     */
+    PetscInt *localGlobalIndices;
+
+    /** Pre-calculate pointValue = w_i w_j J(i, j)
+     * Used in integrators
+     * Since element reference state does not change,
+     * this can be pre-stored.
+     */
+    vector<double> pointValue;
+
     /** Jacobian at any given location in base space (ksi, eta), 
      * J = det(\partial (x,y) / \partial (ksi, eta))
      */
@@ -77,12 +106,16 @@ public:
     /** Destructor */
     ~ElementQ4();
     
+    
     /** Set element ID */
     void setID(int ID);
 
     /** Get element ID */
     int getID() const;
     
+    /** Get elementDOF */
+    PetscInt getElementDOF() const;
+
     /** Set element NID */
     void setNID(const vector<Node*> & NID);
 
@@ -102,26 +135,56 @@ public:
     void evaluateF_x(vector<double> & res, double ksi, double eta, 
                    const vector<vector<double>> & NodeValues) const;   
 
+//================ Integrators for ElementQ4 ==================================
     /** IntegratorNf, integrates a vector input inside an element, 
-     * both sides using shape function
-     * first-dim: vector of nodes, second-dim: values (vector)
+     * left side using shape function
+     * RES: nOfNodes * nOfDofs
+     * NODEVALUES: dim 1, nOfNodes; dim 2, nOfDofs
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorNf(vector<vector<double>> & res,
-                      const vector<vector<double>> & NodeValues) const;
+    void IntegratorNf(double *res,
+                      int resSize, 
+                      const vector<vector<double>> & NodeValues, 
+                      int flag = 0) const;
+
+    /** IntegratorBf, integrates a vector input inside an element, 
+     * left side using shape function
+     * RES: nOfNodes * nOfDofs
+     * NODEVALUES: dim 1, nOfNodes; dim 2, nOfDofs * spaceDim
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
+     */
+    void IntegratorBf(double *res,
+                      int resSize,
+                      const vector<vector<double>> & NodeValues, 
+                      int flag = 0) const;
 
     /** IntegratorNfN, integrates a vector input inside an element, 
      * both sides using shape function (nOfDofs, nOfDofs * nOfNodes)
      * first-dim: vector of nodes, second-dim: values (vector, (nOfDofs, nOfDofs))
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorNfN(vector<double> & res,
-                       const vector<vector<double>> & NodeValues) const;
+    void IntegratorNfN(double *res,
+                       int resSize,
+                       const vector<vector<double>> & NodeValues, 
+                       int flag = 0) const;
 
     /** IntegratorBfB, integrates a vector input inside an element, 
-     * both sides using shape function
-     * first-dim: vector of nodes^2, second-dim: values (vector)
+     * both sides using gradient of shape function
+     * RES:
+     * first-dim: vector of nodes^2, 
+     * NODEVALUES:
+     * first-dim vector of nodes, 
+     * second-dim (spaceDim * nDof) ^ 2 matrix.
+     * FLAG: 0 - nodevalues are given at nodes
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorBfB(vector<double> & res,
-                      const vector<vector<double>> & NodeValues) const;
+    void IntegratorBfB(double *res,
+                       int resSize, 
+                       const vector<vector<double>> & NodeValues, 
+                       int flag = 0) const;
     
     /** IntegratorBfN, integrates a vector input inside an element, 
      * left gradient of shape function, 
@@ -129,17 +192,25 @@ public:
      * RES: first-dim: vector of nOfDof^2
      * NODEVALUES: first dim: spaceDim * nOfDof, 
      * second dim: nOfDof
+     * FLAG: 0 - nodevalues are given at nodes
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorBfN(vector<double> & res,
-                       const vector<vector<double>> & NodeValues) const;
+    void IntegratorBfN(double *res,
+                       int resSize, 
+                       const vector<vector<double>> & NodeValues, 
+                       int flag = 0) const;
 
     /** IntegratorNfB, integrates a vector input inside an element, 
      * left side shape function, right side gradient of shape function, 
-     * RES, first-dim: vector of nodes^2, second-dim: values (vector)
-     * NODEVALUES, first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
+     * RES: first-dim: vector of nodes^2, second-dim: values (vector)
+     * NODEVALUES: first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorNfB(vector<double> & res,
-                       const vector<vector<double>> & NodeValues) const;
+    void IntegratorNfB(double *res,
+                       int resSize, 
+                       const vector<vector<double>> & NodeValues, 
+                       int flag = 0) const;
 
     /** Output element info */
     void outputInfo(ofstream & myFile) const;
@@ -148,12 +219,18 @@ public:
 // PUBLIC MEMBERS
 public: 
     /** Calculate element jacobian JF */
-    void JF(Mat & globalJF, int Kernel) const;
+    void JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift = 0.) const;
+
+    /** Calculate element residual F */
+    void elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift) const;
 
 // PRIVATE MEMBERS
 private:
     /** Push local Jf to global Jf */
-    void JFPush(Mat & globalJF, const vector<double> & JF) const;
+    void JFPush(Mat & globalJF, double *elementJF, int elementJFSize) const;
+
+    /** Push elementF to globalF */
+    void elementFPush(Vec & globalF, double *elementF, int elementFSize) const;
 
 // NOT IMPLEMENTED
 private:

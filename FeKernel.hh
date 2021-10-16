@@ -2,7 +2,9 @@
  * Define a virtual base class FeKernel
  * Allow detailed implementation of jacobian, residual functions in derived classes
  */
+#pragma once
 #include <vector>
+#include <iostream>
 using namespace std;
 
 /** Class FeKernel,

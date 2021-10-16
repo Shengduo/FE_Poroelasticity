@@ -1,6 +1,7 @@
 /** @file Node.hh
  * Declaration of class Node and class CohesiveNode
  */
+#pragma once
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -9,6 +10,7 @@
 #include <fstream>
 #include "petsc.h"
 #include "petscksp.h"
+#include "petscts.h"
 using namespace std;
 
 //------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -46,15 +48,13 @@ protected:
      * 6 - Biot modulus M_p;
      * 7 - Fluid mobility \kappa;
      * 8 - Fluid viscosity \mu;
+     * 9 - fluid density
+     * 10 - reference porosity
+     * 11, 12 - fluid body force (force per unit volume)
+     * 13 - fluid source density (/s) 
      * ...)
      */
     vector<double> _nodalProperties;
-
-    /** Current vector [displacement, velocity, pressure, tracestrain] */
-    vector<double> s;
-    
-    /** Current vector time derivative d/dt [displacement, velocity, pressure, tracestrain] */
-    vector<double> s_t;
     
 // PUBLIC MEMBERS
 public:
@@ -62,6 +62,12 @@ public:
      * Change this nodalBodyForce to private, currently for debugging purpose..
      */
     vector<double> _nodalBodyForce;
+    
+    /** Current vector [displacement, velocity, pressure, tracestrain] */
+    vector<double> s;
+    
+    /** Current vector time derivative d/dt [displacement, velocity, pressure, tracestrain] */
+    vector<double> s_t;
     
     // Default Constructor
     Node();
@@ -81,7 +87,11 @@ public:
          double biotAlpha = 0., 
          double biotMp = 0., 
          double fluidMobility = 0., 
-         double fluidViscosity = 0.);
+         double fluidViscosity = 0.,
+         double fluidDensity = 1., 
+         double porosity = 0., 
+         const vector<double> *fluidBodyForce = NULL, 
+         double source = 0.);
 
     // Destructor
     ~Node();
@@ -143,6 +153,39 @@ public:
         _nodalProperties[8] = fluidViscosity;
     };
 
+    // Set fluid density
+    void setFluidDensity(double fluidDensity) {
+        if (_nodalProperties.size() < 10) _nodalProperties.resize(10);
+        _nodalProperties[9] = fluidDensity;
+    };
+
+    // Set porosity
+    void setPorosity(double porosity) {
+        if (_nodalProperties.size() < 10) _nodalProperties.resize(11);
+        _nodalProperties[10] = porosity;
+    };
+
+    // Set body force
+    void setFluidBodyForce(const vector<double> *fluidBodyForce) {
+        if (_nodalProperties.size() < 13) _nodalProperties.resize(13);
+        if (fluidBodyForce) {
+            for (int i = 0; i < _spaceDim; i++) {
+                _nodalProperties[11 + i] = (*fluidBodyForce)[i];
+            }
+        }
+        else {
+            for (int i = 0; i < _spaceDim; i++) {
+                _nodalProperties[11 + i] = 0.;
+            }
+        }
+    };
+
+    // Set fluid source
+    void setSource(double source) {
+        if (_nodalProperties.size() < 14) _nodalProperties.resize(14);
+        _nodalProperties[13] = source;
+    };
+
     // Get spaceDim
     int getSpaceDim() const;
 
@@ -166,38 +209,64 @@ public:
 
     // Get lambda
     double getLambda() const {
-        if (_nodalProperties.size() < 4) throw("Lambda not initialized!");
+        if (_nodalProperties.size() < 4) throw "Lambda not initialized!";
         return _nodalProperties[3];
     };
 
     // Get shear modulus
     double getShearModulus() const {
-        if (_nodalProperties.size() < 5) throw("Shear modulus not initialized!");
+        if (_nodalProperties.size() < 5) throw "Shear modulus not initialized!";
         return _nodalProperties[4];
     };
 
     // Get Biot coefficient alpha
     double getBiotAlpha() const {
-        if (_nodalProperties.size() < 6) throw("Biot Alpha not initialized!");
+        if (_nodalProperties.size() < 6) throw "Biot Alpha not initialized!";
         return _nodalProperties[5];
     };
 
-    // Set Biot modulus M_p
+    // Get Biot modulus M_p
     double getBiotMp() const {
-        if (_nodalProperties.size() < 7) throw("Biot Mp not initialized!");
+        if (_nodalProperties.size() < 7) throw "Biot Mp not initialized!";
         return _nodalProperties[6];
     };
 
-    // Set fluid mobility kappa
+    // Get fluid mobility kappa
     double getFluidMobility() const {
-        if (_nodalProperties.size() < 8) throw("Fluid mobility not initialized!");
+        if (_nodalProperties.size() < 8) throw "Fluid mobility not initialized!";
         return _nodalProperties[7];
     };
 
-    // Set fluid viscosity mu
+    // Get fluid viscosity mu
     double getFluidViscosity() const {
-        if (_nodalProperties.size() < 9) throw("Fluid viscosity not initialized!");
+        if (_nodalProperties.size() < 9) throw "Fluid viscosity not initialized!";
         return _nodalProperties[8];
+    };
+
+    // Get fluid density
+    double getFluidDensity() const {
+        if (_nodalProperties.size() < 10) throw "Fluid density not initialized!";
+        return _nodalProperties[9];
+    };
+
+    // Get porosity
+    double getPorosity() const {
+        if (_nodalProperties.size() < 10) throw "Porosity not initialized!";
+        return _nodalProperties[10];
+    };
+
+    // Get fluid body force
+    vector<double> getFluidBodyForce() const {
+        if (_nodalProperties.size() < 13) 
+            throw "Fluid bodyforce not initialized!";
+        vector<double> res = {_nodalProperties[11], _nodalProperties[12]};
+        return res;
+    };
+
+    // Get fluid source
+    double getSource(double source) {
+        if (_nodalProperties.size() < 14) throw "Fluid source not initialized!";
+        return _nodalProperties[13];
     };
 
     // Get _nodalProperties
