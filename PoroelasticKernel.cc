@@ -201,82 +201,157 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
                             double s_tshift,            // sigma of tshift due to the time-derivative
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
-                            const vector<double> &aOff  // auxiliary fields offset
+                            const vector<double> &aOff, // auxiliary fields offset
+                            bool isAssembled            // if assembled, only calculate the time-dependent parts
 ) {
-    // Check size of Jf0
-    if (Jf0.size() != (2 * spaceDim + 2) * (2 * spaceDim + 2)) 
-        Jf0.resize((2 * spaceDim + 2) * (2 * spaceDim + 2));
+    if (!isAssembled) {
+        // Check size of Jf0
+        if (Jf0.size() != (2 * spaceDim + 2) * (2 * spaceDim + 2)) 
+            Jf0.resize((2 * spaceDim + 2) * (2 * spaceDim + 2));
 
-    // First clear every entry
-    int nCols = (2 * spaceDim + 2);
-    for (int i = 0; i < nCols; i++) {
-        for (int j = 0; j < nCols; j++)
-            Jf0[i * nCols + j] = 0.;
+        // First clear every entry
+        int nCols = (2 * spaceDim + 2);
+        for (int i = 0; i < nCols; i++) {
+            for (int j = 0; j < nCols; j++)
+                Jf0[i * nCols + j] = 0.;
+        }
+        // ==================== constants ==============================
+        /** Nodal properties values (
+         * 0 - mass density; 
+         * 1,2 - body force (force per unit volume); 
+         * 3 - \lambda (drained);
+         * 4 - shear modulus G;
+         * 5 - Biot coefficient \alpha;
+         * 6 - Biot modulus M_p;
+         * 7 - Fluid mobility \kappa;
+         * 8 - Fluid viscosity \mu;
+         * 9 - fluid density
+         * 10 - reference porosity
+         * 11, 12 - fluid body force (force per unit volume)
+         * 13 - fluid source density (/s) 
+         * ...)
+         */
+        //int i_lambda = 3;
+        //int i_shearModulus = 4;
+        int i_alpha = 5;
+        int i_Mp = 6;
+        //int i_kappa = 7;
+        //int i_viscosity = 8;
+        //double lambda = a[i_lambda];
+        //double shearModulus = a[i_shearModulus];
+        double alpha = a[i_alpha];
+        double Mp = a[i_Mp];
+        //double kappa = a[i_kappa];
+        //double viscosity = a[i_viscosity];
+
+        // ================ Jf0pp ======================================
+        // Jf0pp = s_tshift / M_p
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_p = 4;
+        Jf0[I_p * nCols + I_p] = s_tshift / Mp;
+
+        // DEBUG LINES
+        // cout << "Jf0pp = " << Jf0[I_p * nCols + I_p] << "\n";
+
+        // ================ Jf0pe ======================================
+        // Jf0pe = s_tshift * alpha
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_e = 5;
+        Jf0[I_p * nCols + I_e] = s_tshift * alpha;
+
+        // ================ Jf0ee ======================================
+        // Jf0pp = -1
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        Jf0[I_e * nCols + I_e] = -1.;
     }
-    // ==================== constants ==============================
-    /** Nodal properties values (
-     * 0 - mass density; 
-     * 1,2 - body force (force per unit volume); 
-     * 3 - \lambda (drained);
-     * 4 - shear modulus G;
-     * 5 - Biot coefficient \alpha;
-     * 6 - Biot modulus M_p;
-     * 7 - Fluid mobility \kappa;
-     * 8 - Fluid viscosity \mu;
-     * 9 - fluid density
-     * 10 - reference porosity
-     * 11, 12 - fluid body force (force per unit volume)
-     * 13 - fluid source density (/s) 
-     * ...)
-     */
-    //int i_lambda = 3;
-    //int i_shearModulus = 4;
-    int i_alpha = 5;
-    int i_Mp = 6;
-    //int i_kappa = 7;
-    //int i_viscosity = 8;
-    //double lambda = a[i_lambda];
-    //double shearModulus = a[i_shearModulus];
-    double alpha = a[i_alpha];
-    double Mp = a[i_Mp];
-    //double kappa = a[i_kappa];
-    //double viscosity = a[i_viscosity];
+    else {
+        // Check size of Jf0
+        if (Jf0.size() != (2 * spaceDim + 2) * (2 * spaceDim + 2)) 
+            Jf0.resize((2 * spaceDim + 2) * (2 * spaceDim + 2));
 
-    // ================ Jf0pp ======================================
-    // Jf0pp = s_tshift / M_p
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    int I_p = 4;
-    Jf0[I_p * nCols + I_p] = s_tshift / Mp;
+        // First clear every entry
+        int nCols = (2 * spaceDim + 2);
+        for (int i = 0; i < nCols; i++) {
+            for (int j = 0; j < nCols; j++)
+                Jf0[i * nCols + j] = 0.;
+        }
+        // ==================== constants ==============================
+        /** Nodal properties values (
+         * 0 - mass density; 
+         * 1,2 - body force (force per unit volume); 
+         * 3 - \lambda (drained);
+         * 4 - shear modulus G;
+         * 5 - Biot coefficient \alpha;
+         * 6 - Biot modulus M_p;
+         * 7 - Fluid mobility \kappa;
+         * 8 - Fluid viscosity \mu;
+         * 9 - fluid density
+         * 10 - reference porosity
+         * 11, 12 - fluid body force (force per unit volume)
+         * 13 - fluid source density (/s) 
+         * ...)
+         */
+        //int i_lambda = 3;
+        //int i_shearModulus = 4;
+        int i_alpha = 5;
+        int i_Mp = 6;
+        //int i_kappa = 7;
+        //int i_viscosity = 8;
+        //double lambda = a[i_lambda];
+        //double shearModulus = a[i_shearModulus];
+        double alpha = a[i_alpha];
+        double Mp = a[i_Mp];
+        //double kappa = a[i_kappa];
+        //double viscosity = a[i_viscosity];
 
-    // DEBUG LINES
-    // cout << "Jf0pp = " << Jf0[I_p * nCols + I_p] << "\n";
+        // ================ Jf0pp ======================================
+        // Jf0pp = s_tshift / M_p
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_p = 4;
+        Jf0[I_p * nCols + I_p] = s_tshift / Mp;
 
-    // ================ Jf0pe ======================================
-    // Jf0pe = s_tshift * alpha
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    int I_e = 5;
-    Jf0[I_p * nCols + I_e] = s_tshift * alpha;
+        // DEBUG LINES
+        // cout << "Jf0pp = " << Jf0[I_p * nCols + I_p] << "\n";
 
-    // ================ Jf0ee ======================================
-    // Jf0pp = -1
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    Jf0[I_e * nCols + I_e] = -1.;
+        // ================ Jf0pe ======================================
+        // Jf0pe = s_tshift * alpha
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_e = 5;
+        Jf0[I_p * nCols + I_e] = s_tshift * alpha;
+    }
 };
+
+/** The elements of Jf0 that requires re-assemble after the first iteration
+ * non-zeros are Jf0pe, Jf0ee and Jf0pp
+ * only Jf0pe, Jf0pp are time dependent
+ */
+const static vector<int> Jf0_entries = {28, 29, 35};
+const static vector<int> Jf0_timedependent = {28, 29}; 
 
 /** Left hand side Jacobian
  * Jf1(t, s), uses integrator NfB
@@ -289,62 +364,70 @@ void PoroelasticKernel::Jf1(vector<double> &Jf1,        // stores the result
                             double s_tshift,            // sigma of tshift due to the time-derivative
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
-                            const vector<double> &aOff  // auxiliary fields offset
+                            const vector<double> &aOff, // auxiliary fields offset
+                            bool isAssembled            // if assembled, only calculate the time-dependent parts
 ) {
-    // Check size of Jf1
-    
-    int nCols = (2 * spaceDim + 2) * spaceDim;
-    int nRows = (2 * spaceDim + 2);
-    if (Jf1.size() != nRows * nCols) 
-        Jf1.resize(nCols * nRows);
+    if (!isAssembled) {
+        // Check size of Jf1    
+        int nCols = (2 * spaceDim + 2) * spaceDim;
+        int nRows = (2 * spaceDim + 2);
+        if (Jf1.size() != nRows * nCols) 
+            Jf1.resize(nCols * nRows);
 
-    // First clear every entry
-    for (int i = 0; i < nRows; i++) {
-        for (int j = 0; j < nCols; j++)
-            Jf1[i * nCols + j] = 0.;
+        // First clear every entry
+        for (int i = 0; i < nRows; i++) {
+            for (int j = 0; j < nCols; j++)
+                Jf1[i * nCols + j] = 0.;
+        }
+        // ==================== constants ==============================
+        /** Nodal properties values (
+         * 0 - mass density; 
+         * 1,2 - body force (force per unit volume); 
+         * 3 - \lambda (drained);
+         * 4 - shear modulus G;
+         * 5 - Biot coefficient \alpha;
+         * 6 - Biot modulus M_p;
+         * 7 - Fluid mobility \kappa;
+         * 8 - Fluid viscosity \mu;
+         * 9 - fluid density
+         * 10 - reference porosity
+         * 11, 12 - fluid body force (force per unit volume)
+         * 13 - fluid source density (/s) 
+         * ...)
+         */
+        // int i_lambda = 3;
+        // int i_shearModulus = 4;
+        // int i_alpha = 5;
+        // int i_Mp = 6;
+        // int i_kappa = 7;
+        // int i_viscosity = 8;
+        // double lambda = a[i_lambda];
+        // double shearModulus = a[i_shearModulus];
+        // double alpha = a[i_alpha];
+        // double Mp = a[i_Mp];
+        // double kappa = a[i_kappa];
+        // double viscosity = a[i_viscosity];
+
+        // ================ Jf1eu ======================================
+        // Jf0pp = s_ts
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_e = 5;
+        int I_u = 0;
+        Jf1[I_e * nCols + I_u * spaceDim] = 1.;
+        Jf1[I_e * nCols + (I_u + 1) * spaceDim + 1] = 1.;
     }
-    // ==================== constants ==============================
-    /** Nodal properties values (
-     * 0 - mass density; 
-     * 1,2 - body force (force per unit volume); 
-     * 3 - \lambda (drained);
-     * 4 - shear modulus G;
-     * 5 - Biot coefficient \alpha;
-     * 6 - Biot modulus M_p;
-     * 7 - Fluid mobility \kappa;
-     * 8 - Fluid viscosity \mu;
-     * 9 - fluid density
-     * 10 - reference porosity
-     * 11, 12 - fluid body force (force per unit volume)
-     * 13 - fluid source density (/s) 
-     * ...)
-     */
-    // int i_lambda = 3;
-    // int i_shearModulus = 4;
-    // int i_alpha = 5;
-    // int i_Mp = 6;
-    // int i_kappa = 7;
-    // int i_viscosity = 8;
-    // double lambda = a[i_lambda];
-    // double shearModulus = a[i_shearModulus];
-    // double alpha = a[i_alpha];
-    // double Mp = a[i_Mp];
-    // double kappa = a[i_kappa];
-    // double viscosity = a[i_viscosity];
-
-    // ================ Jf1eu ======================================
-    // Jf0pp = s_ts
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    int I_e = 5;
-    int I_u = 0;
-    Jf1[I_e * nCols + I_u * spaceDim] = 1.;
-    Jf1[I_e * nCols + (I_u + 1) * spaceDim + 1] = 1.;
 };
+
+/** The elements of Jf0 that requires re-assemble after the first iteration
+ * non-zeros are Jf1eu (2 terms)
+ * nothing in JF1 is time dependent
+ */
+const static vector<int> Jf1_entries = {60, 63};
 
 /** Left hand side Jacobian
  * Jf2(t, s), uses integrator BfN
@@ -357,70 +440,79 @@ void PoroelasticKernel::Jf2(vector<double> &Jf2,        // stores the result
                             double s_tshift,            // sigma of tshift due to the time-derivative
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
-                            const vector<double> &aOff  // auxiliary fields offset
+                            const vector<double> &aOff, // auxiliary fields offset
+                            bool isAssembled            // if assembled, only calculate the time-dependent parts
 ) {
-    // Check size of Jf2
-    
-    int nRows = (2 * spaceDim + 2) * spaceDim;
-    int nCols = (2 * spaceDim + 2);
-    if (Jf2.size() != nRows * nCols) 
-        Jf2.resize(nRows * nCols);
+    // If first assemble
+    if (!isAssembled) {
+        // Check size of Jf2    
+        int nRows = (2 * spaceDim + 2) * spaceDim;
+        int nCols = (2 * spaceDim + 2);
+        if (Jf2.size() != nRows * nCols) 
+            Jf2.resize(nRows * nCols);
 
-    // First clear every entry
-    for (int i = 0; i < nRows; i++) {
-        for (int j = 0; j < nCols; j++)
-            Jf2[i * nCols + j] = 0.;
+        // First clear every entry
+        for (int i = 0; i < nRows; i++) {
+            for (int j = 0; j < nCols; j++)
+                Jf2[i * nCols + j] = 0.;
+        }
+        // ==================== constants ==============================
+        /** Nodal properties values (
+         * 0 - mass density; 
+         * 1,2 - body force (force per unit volume); 
+         * 3 - \lambda (drained);
+         * 4 - shear modulus G;
+         * 5 - Biot coefficient \alpha;
+         * 6 - Biot modulus M_p;
+         * 7 - Fluid mobility \kappa;
+         * 8 - Fluid viscosity \mu;
+         * ...)
+         */
+        int i_lambda = 3;
+        // int i_shearModulus = 4;
+        int i_alpha = 5;
+        // int i_Mp = 6;
+        // int i_kappa = 7;
+        // int i_viscosity = 8;
+        double lambda = a[i_lambda];
+        // double shearModulus = a[i_shearModulus];
+        double alpha = a[i_alpha];
+        // double Mp = a[i_Mp];
+        // double kappa = a[i_kappa];
+        // double viscosity = a[i_viscosity];
+
+        // ================ Jf2up ======================================
+        // Jf2up = \alpha \delta_{ij}
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_p = 4;
+        int I_u = 0;
+        Jf2[(I_u * spaceDim) * nCols + I_p] = alpha;
+        Jf2[((I_u + 1) * spaceDim + 1) * nCols + I_p] = alpha;
+
+        // ================ Jf2ue ======================================
+        // Jf2up = \alpha \delta_{ij}
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_e = 5;
+        Jf2[(I_u * spaceDim) * nCols + I_e] = - lambda;
+        Jf2[((I_u + 1) * spaceDim + 1) * nCols + I_e] = - lambda;
     }
-    // ==================== constants ==============================
-    /** Nodal properties values (
-     * 0 - mass density; 
-     * 1,2 - body force (force per unit volume); 
-     * 3 - \lambda (drained);
-     * 4 - shear modulus G;
-     * 5 - Biot coefficient \alpha;
-     * 6 - Biot modulus M_p;
-     * 7 - Fluid mobility \kappa;
-     * 8 - Fluid viscosity \mu;
-     * ...)
-     */
-    int i_lambda = 3;
-    // int i_shearModulus = 4;
-    int i_alpha = 5;
-    // int i_Mp = 6;
-    // int i_kappa = 7;
-    // int i_viscosity = 8;
-    double lambda = a[i_lambda];
-    // double shearModulus = a[i_shearModulus];
-    double alpha = a[i_alpha];
-    // double Mp = a[i_Mp];
-    // double kappa = a[i_kappa];
-    // double viscosity = a[i_viscosity];
-
-    // ================ Jf2up ======================================
-    // Jf2up = \alpha \delta_{ij}
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    int I_p = 4;
-    int I_u = 0;
-    Jf2[(I_u * spaceDim) * nCols + I_p] = alpha;
-    Jf2[((I_u + 1) * spaceDim + 1) * nCols + I_p] = alpha;
-
-    // ================ Jf2ue ======================================
-    // Jf2up = \alpha \delta_{ij}
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    int I_e = 5;
-    Jf2[(I_u * spaceDim) * nCols + I_e] = - lambda;
-    Jf2[((I_u + 1) * spaceDim + 1) * nCols + I_e] = - lambda;
 };
+
+/** The elements of Jf2 that requires re-assemble after the first iteration
+ * the nonzeros are Jf2up (2 terms) and Jf2ue (2 terms)
+ * nothing is dependent on time
+ */
+const static vector<int> Jf2_entries = {4, 22, 5, 23};
 
 /** Left hand side Jacobian
  * Jf3(t, s)
@@ -433,77 +525,85 @@ void PoroelasticKernel::Jf3(vector<double> &Jf3,        // stores the result
                             double s_tshift,            // sigma of tshift due to the time-derivative
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
-                            const vector<double> &aOff  // auxiliary fields offset
+                            const vector<double> &aOff, // auxiliary fields offset
+                            bool isAssembled            // if assembled, only calculate the time-dependent parts
 ) {
-    // Check size of Jf3
-    if (Jf3.size() != spaceDim * spaceDim * (2 * spaceDim + 2) * (2 * spaceDim + 2)) 
-        Jf3.resize(spaceDim * spaceDim * (2 * spaceDim + 2) * (2 * spaceDim + 2));
-    // First clear Jf3uu
-    int nCols = (2 * spaceDim + 2) * spaceDim;
-    for (int i = 0; i < spaceDim * spaceDim; i++) {
-        for (int j = 0; j < spaceDim * spaceDim; j++)
-            Jf3[i * nCols + j] = 0.;
+    if (!isAssembled) {
+        // Check size of Jf3
+        if (Jf3.size() != spaceDim * spaceDim * (2 * spaceDim + 2) * (2 * spaceDim + 2)) 
+            Jf3.resize(spaceDim * spaceDim * (2 * spaceDim + 2) * (2 * spaceDim + 2));
+        // First clear Jf3uu
+        int nCols = (2 * spaceDim + 2) * spaceDim;
+        for (int i = 0; i < spaceDim * spaceDim; i++) {
+            for (int j = 0; j < spaceDim * spaceDim; j++)
+                Jf3[i * nCols + j] = 0.;
+        }
+        // ==================== constants ==============================
+        /** Nodal properties values (
+         * 0 - mass density; 
+         * 1,2 - body force (force per unit volume); 
+         * 3 - \lambda (drained);
+         * 4 - shear modulus G;
+         * 5 - Biot coefficient \alpha;
+         * 6 - Biot modulus M_p;
+         * 7 - Fluid mobility \kappa;
+         * 8 - Fluid viscosity \mu;
+         * 9 - fluid density
+         * 10 - reference porosity
+         * 11, 12 - fluid body force (force per unit volume)
+         * 13 - fluid source density (/s) 
+         * ...)
+         */
+        // int i_lambda = 3;
+        int i_shearModulus = 4;
+        // int i_alpha = 5;
+        // int i_Mp = 6;
+        int i_kappa = 7;
+        int i_viscosity = 8;
+        // double lambda = a[i_lambda];
+        double shearModulus = a[i_shearModulus];
+        // double alpha = a[i_alpha];
+        // double Mp = a[i_Mp];
+        double kappa = a[i_kappa];
+        double viscosity = a[i_viscosity];
+
+        // ================ Jf3uu ======================================
+        // Poroelastic Cijkl, without lambda
+        // Only needs lambda and G
+        // Does not depend on s, s_x, s_t, s_tshift, aOff
+        
+
+        // Write down Cijkl
+        Jf3[0 * nCols + 0] = - 2. * shearModulus;
+        Jf3[3 * nCols + 3] = Jf3[0 * nCols + 0];
+
+        // Jf3[0 * nCols + 3] = lambda;  // 1122
+        // Jf3[3 * nCols + 0] = lambda;  // 2211
+
+        Jf3[1 * nCols + 1] = - shearModulus; // 1212
+        Jf3[2 * nCols + 2] = - shearModulus; // 2121
+        Jf3[1 * nCols + 2] = - shearModulus; // 1221
+        Jf3[2 * nCols + 1] = - shearModulus; // 2112
+
+        // ================ Jf3pp ======================================
+        // Jf3pp = \kappa / \mu * \delta_{kl} 
+        /** Solution vector
+         * 0, 1 - displacement
+         * 2, 3 - velocity
+         * 4 - pressure
+         * 5 - trace-strain
+         */
+        int I_p = 4 * spaceDim;
+        for (int i = 0; i < spaceDim; i++) {
+            Jf3[(I_p + i) * nCols + (I_p + i)] = kappa / viscosity;
+        }
     }
-    // ==================== constants ==============================
-    /** Nodal properties values (
-     * 0 - mass density; 
-     * 1,2 - body force (force per unit volume); 
-     * 3 - \lambda (drained);
-     * 4 - shear modulus G;
-     * 5 - Biot coefficient \alpha;
-     * 6 - Biot modulus M_p;
-     * 7 - Fluid mobility \kappa;
-     * 8 - Fluid viscosity \mu;
-     * 9 - fluid density
-     * 10 - reference porosity
-     * 11, 12 - fluid body force (force per unit volume)
-     * 13 - fluid source density (/s) 
-     * ...)
-     */
-    // int i_lambda = 3;
-    int i_shearModulus = 4;
-    // int i_alpha = 5;
-    // int i_Mp = 6;
-    int i_kappa = 7;
-    int i_viscosity = 8;
-    // double lambda = a[i_lambda];
-    double shearModulus = a[i_shearModulus];
-    // double alpha = a[i_alpha];
-    // double Mp = a[i_Mp];
-    double kappa = a[i_kappa];
-    double viscosity = a[i_viscosity];
-
-    // ================ Jf3uu ======================================
-    // Poroelastic Cijkl, without lambda
-    // Only needs lambda and G
-    // Does not depend on s, s_x, s_t, s_tshift, aOff
-    
-
-    // Write down Cijkl
-    Jf3[0 * nCols + 0] = - 2. * shearModulus;
-    Jf3[3 * nCols + 3] = Jf3[0 * nCols + 0];
-
-    // Jf3[0 * nCols + 3] = lambda;  // 1122
-    // Jf3[3 * nCols + 0] = lambda;  // 2211
-
-    Jf3[1 * nCols + 1] = - shearModulus; // 1212
-    Jf3[2 * nCols + 2] = - shearModulus; // 2121
-    Jf3[1 * nCols + 2] = - shearModulus; // 1221
-    Jf3[2 * nCols + 1] = - shearModulus; // 2112
-
-    // ================ Jf3pp ======================================
-    // Jf3pp = \kappa / \mu * \delta_{kl} 
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    int I_p = 4 * spaceDim;
-    for (int i = 0; i < spaceDim; i++) {
-        Jf3[(I_p + i) * nCols + (I_p + i)] = kappa / viscosity;
-    }
-
     // DEBUG LINES
     // cout << "Jf3pp = " << Jf3[(I_p) * nCols + (I_p)] << " " << Jf3[(I_p + 1) * nCols + (I_p + 1)] << "\n";
-}
+};
+
+/** The elements of Jf3 that requires re-assemble after the first iteration
+ * the non-zeros are only Jf3uu (4 terms), Jf3pp
+ * nothing is time dependent
+ */
+const static vector<int> Jf3_entries = {0, 39, 13, 14, 25, 26, 104, 117};

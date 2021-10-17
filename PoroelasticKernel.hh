@@ -52,8 +52,16 @@ public:
                     double s_tshift,            // sigma of tshift due to the time-derivative
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff  // auxiliary fields offset
+                    const vector<double> &aOff, // auxiliary fields offset
+                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts
     );
+
+    /** The elements of Jf0 that requires re-assemble after the first iteration
+     * non-zeros are Jf0pe, Jf0ee and Jf0pp
+     * only Jf0pe, Jf0pp are time dependent
+     */
+    const static vector<int> Jf0_entries;
+    const static vector<int> Jf0_timedependent; 
 
     /** Left hand side Jacobian
      * Jf1(t, s)
@@ -66,8 +74,16 @@ public:
                     double s_tshift,            // sigma of tshift due to the time-derivative
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff  // auxiliary fields offset
+                    const vector<double> &aOff, // auxiliary fields offset
+                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts 
     );
+
+    /** The elements of Jf0 that requires re-assemble after the first iteration
+     * non-zeros are Jf1eu
+     * nothing in JF1 is time dependent
+     */
+    const static vector<int> Jf1_entries;
+    const static vector<int> Jf1_timedependent;
 
     /** Left hand side Jacobian
      * Jf2(t, s)
@@ -80,8 +96,16 @@ public:
                     double s_tshift,            // sigma of tshift due to the time-derivative
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff  // auxiliary fields offset
+                    const vector<double> &aOff, // auxiliary fields offset
+                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts
     );
+
+    /** The elements of Jf2 that requires re-assemble after the first iteration
+     * the nonzeros are Jf2up (2 terms) and Jf2ue (2 terms)
+     * nothing is dependent on time
+     */
+    const static vector<int> Jf2_entries;
+    const static vector<int> Jf2_timedependent; 
 
     /** Left hand side Jacobian
      * Jf3(t, s)
@@ -94,8 +118,16 @@ public:
                     double s_tshift,            // sigma of tshift due to the time-derivative
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff  // auxiliary fields offset
+                    const vector<double> &aOff, // auxiliary fields offset
+                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts
     );
+
+    /** The elements of Jf3 that requires re-assemble after the first iteration
+     * the non-zeros are only Jf3uu (4 terms), Jf3pp
+     * nothing is time dependent
+     */
+    const static vector<int> Jf3_entries;
+    const static vector<int> Jf3_timedependent; 
 
     /** Default constructor */
     PoroelasticKernel() {};

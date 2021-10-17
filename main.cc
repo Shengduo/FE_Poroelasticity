@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     PetscLogDefaultBegin();
    
     vector<double> spaceDomain = {4, 6}; 
-    vector<int> nOfEdges = {40, 60};
+    vector<int> nOfEdges = {4, 6};
     double endingTime = 5.0;
     double dt = 0.1;
     // Get a handle of the problem
