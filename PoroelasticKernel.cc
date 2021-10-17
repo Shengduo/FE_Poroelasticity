@@ -23,7 +23,7 @@ void PoroelasticKernel::F0(vector<double> &F0,         // stores the result
                            const vector<double> &aOff  // auxiliary fields offset
 ) {
     // Check size of F0
-    if (F0.size() != 2 * spaceDim + 2) throw "F0 size not compatible for PoroelasticKernel!";
+    if (F0.size() != 2 * spaceDim + 2) F0.resize(2 * spaceDim + 2); 
 
     // Clear F0
     for (int i = 0; i < F0.size(); i++) F0[i] = 0.;
@@ -115,7 +115,7 @@ void PoroelasticKernel::F1(vector<double> &F1,         // stores the result
 ) {
     // Check size of F1
     if (F1.size() != (2 * spaceDim + 2) * spaceDim) 
-        throw "F1 size not compatible for PoroelasticKernel!";
+        F1.resize((2 * spaceDim + 2) * spaceDim);
 
     // Clear F1
     for (int i = 0; i < F1.size(); i++) F1[i] = 0.;

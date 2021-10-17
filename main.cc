@@ -9,10 +9,13 @@
 static char help[] = "VecXY interface routines. \n\n";
 int main(int argc, char **argv) {
     // Initialize problem
-    PetscErrorCode ierr = PetscInitialize(&argc, &argv, NULL, help);
-    if (ierr) return ierr;
+    PetscErrorCode ierr = PetscInitialize(&argc, &argv, NULL, help);  if (ierr) return ierr;
+
+    // Start the log
+    PetscLogDefaultBegin();
+   
     vector<double> spaceDomain = {4, 6}; 
-    vector<int> nOfEdges = {4, 6};
+    vector<int> nOfEdges = {40, 60};
     double endingTime = 5.0;
     double dt = 0.1;
     // Get a handle of the problem
@@ -23,6 +26,8 @@ int main(int argc, char **argv) {
     catch (const char* msg) {
         cerr << msg << endl;
     }
+
+    ierr  = PetscLogView(PETSC_VIEWER_STDOUT_SELF); if (ierr) return ierr;
 
     /** Try out some Petsc things,
      * Start from a vector.

@@ -1340,7 +1340,11 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     
     // Assign Nodal DOFs
     assignNodalDOFPoroElastic();
-        
+    
+    // Initialize the timer
+    timeConsumed.resize(4, 0.);
+    clocks.resize(timeConsumed.size() + 1);
+
     // Initialize elements
     initializeElementsPoroElastic();
     
@@ -1349,6 +1353,11 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
 
     // Non-Linear solver
     solvePoroElastic(endingTime, dt);
+
+    // Cout timeConsumed
+    for (int i = 0; i < timeConsumed.size(); i++) {
+        cout << "Time Consumed [" << i << "] is " << timeConsumed[i] << "\n";
+    }
 };
 
 // Initialization of Nodes
@@ -1573,7 +1582,7 @@ void Problem::initializeElementsPoroElastic() {
                    upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
 
             upperElements[j * myGeometry->xEdgeNum + i] = 
-                new ElementQ4(j * myGeometry->xEdgeNum + i, NID);            
+                new ElementQ4(j * myGeometry->xEdgeNum + i, NID, &clocks, &timeConsumed);            
         }
     }
     ofstream myFile;
@@ -1663,12 +1672,14 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     int localFSize = myProblem->upperElements[0]->getElementDOF();
     double *localF = new double [localFSize];
 
+    
+
     // Loop through all elements in upperElements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
         element->elementF(F, localF, localFSize, 1, 0.);
+        
     }
-
     
     // Assemble the global residual function
     ierr = VecAssemblyBegin(F);
@@ -1686,6 +1697,8 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
     */
+
+    
     
     delete [] localF;
     return ierr;
@@ -1700,9 +1713,11 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // DEBUG LINES
     // cout << "IJacobian t = " << t << "\n";
     // cout << "IJacobian s_tshift = " << s_tshift << "\n";
+    
     // Convert the pointer
     Problem *myProblem = (Problem*) ctx;
     PetscErrorCode ierr;
+   
     // Clear the matrix
     PetscBool isAssembled;
     
@@ -1726,11 +1741,16 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     int localJFSize = pow(myProblem->upperElements[0]->getElementDOF(), 2);
     double *localJF = new double [localJFSize];
 
+    // Clock on
+    // myProblem->clocks[0] = clock();
+
     // Loop through all elements in upperElements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
         element->JF(Pmat, localJF, localJFSize, 1, s_tshift);
     }
+
+    // myProblem->clocks[1] = clock();
 
     // Assemble the global Jacobian matrix
     ierr = MatAssemblyBegin(Pmat, MAT_FINAL_ASSEMBLY);
@@ -1740,13 +1760,19 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
         ierr = MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY);
         ierr = MatAssemblyEnd(Amat,MAT_FINAL_ASSEMBLY);
     }
+
+    // myProblem->clocks[2] = clock();
+    
     /**
     cout << "View Pmat: \n";
     MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-
+    
     cout << "View Amat: \n";
     MatView(Amat, PETSC_VIEWER_STDOUT_SELF);
     */
+    
+    // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
+    // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
 
     delete [] localJF;
     return ierr;

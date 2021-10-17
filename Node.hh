@@ -39,7 +39,20 @@ protected:
     // Nodal degree of freedom, 0 free, 1 fixed
     // displacement(spaceDim), velocity(spaceDim), pressure(1) 
     vector<int> _nodalDOF;
-
+    
+// PUBLIC MEMBERS
+public:
+    /** TO DO 
+     * Change this nodalBodyForce to private, currently for debugging purpose..
+     */
+    vector<double> _nodalBodyForce;
+    
+    /** Current vector [displacement, velocity, pressure, tracestrain] */
+    vector<double> s;
+    
+    /** Current vector time derivative d/dt [displacement, velocity, pressure, tracestrain] */
+    vector<double> s_t;
+    
     /** Nodal properties values (0 - mass density; 
      * 1,2 - body force (force per unit volume); 
      * 3 - \lambda (drained);
@@ -55,20 +68,7 @@ protected:
      * ...)
      */
     vector<double> _nodalProperties;
-    
-// PUBLIC MEMBERS
-public:
-    /** TO DO 
-     * Change this nodalBodyForce to private, currently for debugging purpose..
-     */
-    vector<double> _nodalBodyForce;
-    
-    /** Current vector [displacement, velocity, pressure, tracestrain] */
-    vector<double> s;
-    
-    /** Current vector time derivative d/dt [displacement, velocity, pressure, tracestrain] */
-    vector<double> s_t;
-    
+
     // Default Constructor
     Node();
 
@@ -268,11 +268,6 @@ public:
         if (_nodalProperties.size() < 14) throw "Fluid source not initialized!";
         return _nodalProperties[13];
     };
-
-    // Get _nodalProperties
-    const vector<double> & getNodalProperties() const {
-        return _nodalProperties;
-    }
 
     /** Initialize s = [displacement, velocity, pressure, trace_strain] */
     void initializeS(const vector<double> & initialS);

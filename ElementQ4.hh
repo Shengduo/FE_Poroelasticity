@@ -12,6 +12,7 @@
 #include "Node.hh"
 #include "ElasticKernel.hh"
 #include "PoroelasticKernel.hh"
+
 using namespace std;
 
 /** Class ElementQ4
@@ -89,6 +90,44 @@ private:
      */
     bool InvJ(vector<double> & res, double ksi, double eta) const;
 
+// ================== Constants and structures used for JF and elementF evaluation =======
+    /** Number of nodes */
+    int nOfNodes;
+
+    /** Space dimension */
+    int spaceDim;
+
+    /** Number of degree of freedom */
+    int nOfDofs;
+
+    /** Number of integration points */
+    int nOfIntPts;
+
+    /** For evaluation at each integration point, pre-allocate */
+    vector<double> ss;
+    vector<double> s_xs;
+    vector<double> s_ts;
+    vector<double> as;
+
+    /** For collecting nodal data, pre-allocate */
+    vector<vector<double> *> nodalSs;
+    vector<vector<double> *> nodalS_ts;
+    vector<vector<double> *> nodalAs;
+
+    /** Pre-allocate for jacobians */
+    vector<vector<double>> Jf0s;
+    vector<vector<double>> Jf1s;
+    vector<vector<double>> Jf2s;
+    vector<vector<double>> Jf3s;
+
+    /** Pre-allocate for residuals */
+    vector<vector<double>> F0s;
+    vector<vector<double>> F1s;
+
+    /** Pointer to the entire problem timer so that can call computing time */
+    vector<clock_t> *clocks;
+    vector<double> *timeConsumed;
+
 // SHARED WITH COHESIVE CLASS
 protected:
     /** Constants for 2-point gaussian integral */
@@ -101,7 +140,7 @@ public:
     ElementQ4();
 
     /** Constructor */
-    ElementQ4(int ID, const vector<Node*> & NID);
+    ElementQ4(int ID, const vector<Node*> & NID, vector<clock_t> *clocks = NULL, vector<double> *timeConsumed = NULL);
 
     /** Destructor */
     ~ElementQ4();
@@ -126,6 +165,12 @@ public:
      * Calculated by using shape function to map
      */
     void evaluateF(vector<double> & res, double ksi, double eta, 
+                   const vector<vector<double> *> & NodeValues) const;
+    
+    /** Evaluate vector at (ksi, eta) in logical space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF(vector<double> & res, double ksi, double eta, 
                    const vector<vector<double>> & NodeValues) const;
     
     /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi, eta) 
@@ -133,8 +178,14 @@ public:
      * Calculated by using shape function to map
      */
     void evaluateF_x(vector<double> & res, double ksi, double eta, 
-                   const vector<vector<double>> & NodeValues) const;   
+                     const vector<vector<double> *> & NodeValues) const;   
 
+    /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi, eta) 
+     * in LOGICAL space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF_x(vector<double> & res, double ksi, double eta, 
+                     const vector<vector<double>> & NodeValues) const;  
 //================ Integrators for ElementQ4 ==================================
     /** IntegratorNf, integrates a vector input inside an element, 
      * left side using shape function
@@ -219,10 +270,10 @@ public:
 // PUBLIC MEMBERS
 public: 
     /** Calculate element jacobian JF */
-    void JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift = 0.) const;
+    void JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift);
 
     /** Calculate element residual F */
-    void elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift) const;
+    void elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift);
 
 // PRIVATE MEMBERS
 private:

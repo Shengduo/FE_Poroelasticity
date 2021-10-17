@@ -2,8 +2,10 @@
  * Head file of class Problem
  * Initialize, solve and write the results.
  */
+#pragma once
 #include "Geometry2D.hh"
 #include "ElementQ4Cohesive.hh"
+#include <time.h>
 
 /** Class Problem
  * Define a problem and solves it
@@ -64,6 +66,10 @@ private:
 
 // PUBLIC MEMBERS
 public:
+    // Time consumed by Jacobian and the clocks
+    vector<double> timeConsumed;
+    vector<clock_t> clocks;
+    
     // Constructor
     Problem(int spaceDim = 2);
 
