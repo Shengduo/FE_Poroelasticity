@@ -115,6 +115,7 @@ private:
     vector<vector<double> *> nodalAs;
 
     /** Pre-allocate for jacobians */
+    PetscBool isJfAssembled;
     vector<vector<double>> Jf0s;
     vector<vector<double>> Jf1s;
     vector<vector<double>> Jf2s;
@@ -219,7 +220,9 @@ public:
      */
     void IntegratorNfN(double *res,
                        int resSize,
-                       const vector<vector<double>> & NodeValues, 
+                       const vector<vector<double>> & NodeValues,                         
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
                        int flag = 0) const;
 
     /** IntegratorBfB, integrates a vector input inside an element, 
@@ -235,6 +238,8 @@ public:
     void IntegratorBfB(double *res,
                        int resSize, 
                        const vector<vector<double>> & NodeValues, 
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
                        int flag = 0) const;
     
     /** IntegratorBfN, integrates a vector input inside an element, 
@@ -249,6 +254,8 @@ public:
     void IntegratorBfN(double *res,
                        int resSize, 
                        const vector<vector<double>> & NodeValues, 
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
                        int flag = 0) const;
 
     /** IntegratorNfB, integrates a vector input inside an element, 
@@ -260,7 +267,9 @@ public:
      */
     void IntegratorNfB(double *res,
                        int resSize, 
-                       const vector<vector<double>> & NodeValues, 
+                       const vector<vector<double>> & NodeValues,                         
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
                        int flag = 0) const;
 
     /** Output element info */

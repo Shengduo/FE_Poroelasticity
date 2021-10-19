@@ -202,7 +202,7 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
                             const vector<double> &aOff, // auxiliary fields offset
-                            bool isAssembled            // if assembled, only calculate the time-dependent parts
+                            PetscBool isAssembled            // if assembled, only calculate the time-dependent parts
 ) {
     if (!isAssembled) {
         // Check size of Jf0
@@ -254,7 +254,10 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
          */
         int I_p = 4;
         Jf0[I_p * nCols + I_p] = s_tshift / Mp;
-
+        
+        // Use Jf[0] to store current value of Jf0pp
+        // Since only (28, 29, 35) of Jf0 are used
+        Jf0[0] = s_tshift / Mp;
         // DEBUG LINES
         // cout << "Jf0pp = " << Jf0[I_p * nCols + I_p] << "\n";
 
@@ -268,6 +271,10 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
          */
         int I_e = 5;
         Jf0[I_p * nCols + I_e] = s_tshift * alpha;
+
+        // Use Jf[1] to store current value of Jf0pe
+        // Since only (28, 29, 35) of Jf0 are used
+        Jf0[1] = s_tshift * alpha;
 
         // ================ Jf0ee ======================================
         // Jf0pp = -1
@@ -283,13 +290,15 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
         // Check size of Jf0
         if (Jf0.size() != (2 * spaceDim + 2) * (2 * spaceDim + 2)) 
             Jf0.resize((2 * spaceDim + 2) * (2 * spaceDim + 2));
-
-        // First clear every entry
+        
         int nCols = (2 * spaceDim + 2);
+        /**
+        // First clear every entry
         for (int i = 0; i < nCols; i++) {
             for (int j = 0; j < nCols; j++)
                 Jf0[i * nCols + j] = 0.;
         }
+        */
         // ==================== constants ==============================
         /** Nodal properties values (
          * 0 - mass density; 
@@ -328,7 +337,8 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 5 - trace-strain
          */
         int I_p = 4;
-        Jf0[I_p * nCols + I_p] = s_tshift / Mp;
+        Jf0[I_p * nCols + I_p] = s_tshift / Mp - Jf0[0];
+        Jf0[0] = s_tshift / Mp;
 
         // DEBUG LINES
         // cout << "Jf0pp = " << Jf0[I_p * nCols + I_p] << "\n";
@@ -342,7 +352,8 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 5 - trace-strain
          */
         int I_e = 5;
-        Jf0[I_p * nCols + I_e] = s_tshift * alpha;
+        Jf0[I_p * nCols + I_e] = s_tshift * alpha - Jf0[1];
+        Jf0[1] = s_tshift * alpha;
     }
 };
 
@@ -350,8 +361,12 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
  * non-zeros are Jf0pe, Jf0ee and Jf0pp
  * only Jf0pe, Jf0pp are time dependent
  */
-const static vector<int> Jf0_entries = {28, 29, 35};
-const static vector<int> Jf0_timedependent = {28, 29}; 
+const vector<int> PoroelasticKernel::Jf0_entries = {28, 29, 35};
+const vector<int> PoroelasticKernel::Jf0_is = {4, 4, 5};
+const vector<int> PoroelasticKernel::Jf0_js = {4, 5, 5};
+const vector<int> PoroelasticKernel::Jf0_timedependent = {28, 29}; 
+const vector<int> PoroelasticKernel::Jf0_timedependent_is = {4, 4};
+const vector<int> PoroelasticKernel::Jf0_timedependent_js = {4, 5};
 
 /** Left hand side Jacobian
  * Jf1(t, s), uses integrator NfB
@@ -365,7 +380,7 @@ void PoroelasticKernel::Jf1(vector<double> &Jf1,        // stores the result
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
                             const vector<double> &aOff, // auxiliary fields offset
-                            bool isAssembled            // if assembled, only calculate the time-dependent parts
+                            PetscBool isAssembled            // if assembled, only calculate the time-dependent parts
 ) {
     if (!isAssembled) {
         // Check size of Jf1    
@@ -427,7 +442,12 @@ void PoroelasticKernel::Jf1(vector<double> &Jf1,        // stores the result
  * non-zeros are Jf1eu (2 terms)
  * nothing in JF1 is time dependent
  */
-const static vector<int> Jf1_entries = {60, 63};
+const vector<int> PoroelasticKernel::Jf1_entries = {60, 63};
+const vector<int> PoroelasticKernel::Jf1_is = {5, 5};
+const vector<int> PoroelasticKernel::Jf1_js = {0, 3};
+const vector<int> PoroelasticKernel::Jf1_timedependent = {}; 
+const vector<int> PoroelasticKernel::Jf1_timedependent_is = {};
+const vector<int> PoroelasticKernel::Jf1_timedependent_js = {};
 
 /** Left hand side Jacobian
  * Jf2(t, s), uses integrator BfN
@@ -441,7 +461,7 @@ void PoroelasticKernel::Jf2(vector<double> &Jf2,        // stores the result
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
                             const vector<double> &aOff, // auxiliary fields offset
-                            bool isAssembled            // if assembled, only calculate the time-dependent parts
+                            PetscBool isAssembled          // if assembled, only calculate the time-dependent parts
 ) {
     // If first assemble
     if (!isAssembled) {
@@ -512,7 +532,12 @@ void PoroelasticKernel::Jf2(vector<double> &Jf2,        // stores the result
  * the nonzeros are Jf2up (2 terms) and Jf2ue (2 terms)
  * nothing is dependent on time
  */
-const static vector<int> Jf2_entries = {4, 22, 5, 23};
+const vector<int> PoroelasticKernel::Jf2_entries = {4, 22, 5, 23};
+const vector<int> PoroelasticKernel::Jf2_is = {0, 3, 0, 3};
+const vector<int> PoroelasticKernel::Jf2_js = {4, 4, 5, 5};
+const vector<int> PoroelasticKernel::Jf2_timedependent = {}; 
+const vector<int> PoroelasticKernel::Jf2_timedependent_is = {};
+const vector<int> PoroelasticKernel::Jf2_timedependent_js = {};
 
 /** Left hand side Jacobian
  * Jf3(t, s)
@@ -526,7 +551,7 @@ void PoroelasticKernel::Jf3(vector<double> &Jf3,        // stores the result
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
                             const vector<double> &aOff, // auxiliary fields offset
-                            bool isAssembled            // if assembled, only calculate the time-dependent parts
+                            PetscBool isAssembled            // if assembled, only calculate the time-dependent parts
 ) {
     if (!isAssembled) {
         // Check size of Jf3
@@ -606,4 +631,9 @@ void PoroelasticKernel::Jf3(vector<double> &Jf3,        // stores the result
  * the non-zeros are only Jf3uu (4 terms), Jf3pp
  * nothing is time dependent
  */
-const static vector<int> Jf3_entries = {0, 39, 13, 14, 25, 26, 104, 117};
+const vector<int> PoroelasticKernel::Jf3_entries = {0, 39, 13, 14, 25, 26, 104, 117};
+const vector<int> PoroelasticKernel::Jf3_is = {0, 3, 1, 1, 2, 2, 8, 9};
+const vector<int> PoroelasticKernel::Jf3_js = {0, 3, 1, 2, 1, 2, 8, 9};
+const vector<int> PoroelasticKernel::Jf3_timedependent = {}; 
+const vector<int> PoroelasticKernel::Jf3_timedependent_is = {};
+const vector<int> PoroelasticKernel::Jf3_timedependent_js = {};

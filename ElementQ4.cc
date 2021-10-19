@@ -49,6 +49,7 @@ ElementQ4::ElementQ4(int ID, const vector<Node*> & NID, vector<clock_t> *clocks,
     nodalAs.resize(nOfNodes, NULL);
 
     // Jacobians and residuals
+    isJfAssembled = PETSC_FALSE;
     Jf0s.resize(pow(nOfIntPts, spaceDim));
     Jf1s.resize(pow(nOfIntPts, spaceDim));
     Jf2s.resize(pow(nOfIntPts, spaceDim));
@@ -483,7 +484,9 @@ void ElementQ4::IntegratorBf(double *res,
  */
 void ElementQ4::IntegratorNfN(double *res, 
                               int resSize, 
-                              const vector<vector<double>> & NodeValues, 
+                              const vector<vector<double>> & NodeValues,  
+                              const vector<int> & f_is, 
+                              const vector<int> & f_js, 
                               int flag) const {
     // Some constants
     // int nOfNodes = this->getNID().size();
@@ -497,7 +500,7 @@ void ElementQ4::IntegratorNfN(double *res,
     
     int intPtIndex;
     int resIJindex;
-
+    int p, q;
     if (flag == 1) {        
         // Calculate res[i,j] = N_{pi} M_{pq} N_{qj}
         for (int i = 0; i < nOfColsRes; i++) {
@@ -506,16 +509,15 @@ void ElementQ4::IntegratorNfN(double *res,
                 for (int k = 0; k < nOfIntPts; k++) {
                     for (int l = 0; l < nOfIntPts; l++) {
                         intPtIndex = nOfIntPts * k + l;
-                        for (int p = 0; p < nOfDofs; p++) {
-                            if (p != i % nOfDofs) continue;
-                            for (int q = 0; q < nOfDofs; q++) {
-                                if (q != j % nOfDofs) continue;
-                                res[resIJindex] += Nvector[intPtIndex][i / nOfDofs] 
-                                                * NodeValues[intPtIndex][p * nOfDofs + q] 
-                                                * Nvector[intPtIndex][j / nOfDofs]
-                                                * pointValue[intPtIndex];
-                            }
-                        }
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p != i % nOfDofs || q != j % nOfDofs) continue;
+                            res[resIJindex] += Nvector[intPtIndex][i / nOfDofs] 
+                                               * NodeValues[intPtIndex][p * nOfDofs + q] 
+                                               * Nvector[intPtIndex][j / nOfDofs]
+                                               * pointValue[intPtIndex];
+                        }                        
                     }
                 }                
             }
@@ -538,15 +540,14 @@ void ElementQ4::IntegratorNfN(double *res,
                 for (int k = 0; k < nOfIntPts; k++) {
                     for (int l = 0; l < nOfIntPts; l++) {
                         intPtIndex = nOfIntPts * k + l;
-                        for (int p = 0; p < nOfDofs; p++) {
-                            if (p != i % nOfDofs) continue;
-                            for (int q = 0; q < nOfDofs; q++) {
-                                if (q != j % nOfDofs) continue;
-                                res[resIJindex] += Nvector[intPtIndex][i / nOfDofs] 
-                                                   * pointM[intPtIndex][p * nOfDofs + q] 
-                                                   * Nvector[intPtIndex][j / nOfDofs]
-                                                   * pointValue[intPtIndex];
-                            }
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p != i % nOfDofs || q != j % nOfDofs) continue;
+                            res[resIJindex] += Nvector[intPtIndex][i / nOfDofs] 
+                                               * pointM[intPtIndex][p * nOfDofs + q] 
+                                               * Nvector[intPtIndex][j / nOfDofs]
+                                               * pointValue[intPtIndex];
                         }
                     }
                 }                
@@ -568,6 +569,8 @@ void ElementQ4::IntegratorNfN(double *res,
 void ElementQ4::IntegratorBfB(double *res,
                               int resSize, 
                               const vector<vector<double>> & NodeValues, 
+                              const vector<int> & f_is, 
+                              const vector<int> & f_js, 
                               int flag) const {
     // Some constants
     int nOfColsF = nOfDofs * spaceDim;
@@ -580,27 +583,30 @@ void ElementQ4::IntegratorBfB(double *res,
     
     if (NodeValues[0].size() != nOfColsF * nOfColsF) 
         throw "Input f is not compatible with nodal dofs in ElementQ4 IntegratorBfB!";
-
+    
+    // Some indices
+    int intPtIndex = 0;
+    int resIJindex = 0;
+    int p, q;
     // Pre-store integration constants at different points
     if (flag == 1) {
         // Calculate res[i,j]
         // In the integral (B^T D B)_{i,j} = B_pi D_pq B qj
-        int intPtIndex = 0;
         for (int i = 0; i < nOfColsRes; i++) {
             for (int j = 0; j < nOfColsRes; j++) {
+                resIJindex = i * nOfColsRes + j;
                 for (int k = 0; k < nOfIntPts; k++) {
                     for (int l = 0; l < nOfIntPts; l++) {
-                        for (int p = 0; p < nOfColsF; p++) {
-                            if (p / spaceDim != i % nOfDofs) continue;
-                            for (int q = 0; q < nOfColsF; q++) {
-                                if (q / spaceDim != j % nOfDofs) continue;
-                                intPtIndex = k * nOfIntPts + l;
-                                res[i * nOfColsRes + j] += pointValue[intPtIndex]
-                                                        * B_x(Bvector[intPtIndex], p, i)
-                                                        * NodeValues[intPtIndex][nOfColsF * p + q] 
-                                                        * B_x(Bvector[intPtIndex], q, j); 
-                            }
-                        }                   
+                        intPtIndex = k * nOfIntPts + l;
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p / spaceDim != i % nOfDofs || q / spaceDim != j % nOfDofs) continue;
+                            res[resIJindex] += Bvector[intPtIndex][i / nOfDofs * spaceDim + p % spaceDim] 
+                                               * NodeValues[intPtIndex][p * nOfColsF + q] 
+                                               * Bvector[intPtIndex][j / nOfDofs * spaceDim + q % spaceDim]
+                                               * pointValue[intPtIndex];
+                        }
                     }
                 }                
             }
@@ -618,22 +624,21 @@ void ElementQ4::IntegratorBfB(double *res,
 
         // Calculate res[i,j]
         // In the integral (B^T D B)_{i,j} = B_pi D_pq B qj
-        int intPtIndex = 0;
         for (int i = 0; i < nOfColsRes; i++) {
             for (int j = 0; j < nOfColsRes; j++) {
+                resIJindex = i * nOfColsRes + j;
                 for (int k = 0; k < nOfIntPts; k++) {
                     for (int l = 0; l < nOfIntPts; l++) {
-                        for (int p = 0; p < nOfColsF; p++) {
-                            if (p / spaceDim != i % nOfDofs) continue;
-                            for (int q = 0; q < nOfColsF; q++) {
-                                if (q / spaceDim != j % nOfDofs) continue;
-                                intPtIndex = k * nOfIntPts + l;
-                                res[i * nOfColsRes + j] += pointValue[intPtIndex]
-                                                        * B_x(Bvector[intPtIndex], p, i)
-                                                        * pointD[intPtIndex][nOfColsF * p + q] 
-                                                        * B_x(Bvector[intPtIndex], q, j); 
-                            }
-                        }                   
+                        intPtIndex = k * nOfIntPts + l;
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p / spaceDim != i % nOfDofs || q / spaceDim != j % nOfDofs) continue;
+                            res[resIJindex] += Bvector[intPtIndex][i / nOfDofs * spaceDim + p % spaceDim] 
+                                               * pointD[intPtIndex][p * nOfColsF + q] 
+                                               * Bvector[intPtIndex][j / nOfDofs * spaceDim + q % spaceDim]
+                                               * pointValue[intPtIndex];
+                        }           
                     }
                 }                
             }
@@ -652,7 +657,9 @@ void ElementQ4::IntegratorBfB(double *res,
  */
 void ElementQ4::IntegratorBfN(double *res,
                               int resSize, 
-                              const vector<vector<double>> & NodeValues, 
+                              const vector<vector<double>> & NodeValues,                                
+                              const vector<int> & f_is, 
+                              const vector<int> & f_js, 
                               int flag) const {
     // Some constants
     int nRowsF = spaceDim * nOfDofs;
@@ -667,6 +674,8 @@ void ElementQ4::IntegratorBfN(double *res,
     // Stores IJ index in the vector
     int resIJindex;
 
+    int p, q;
+
     if (flag == 1) {
         // Calculate res[i,j]
         // In the integral (B^T F N)_{i,j} = B_pi F_pq N qj
@@ -678,16 +687,15 @@ void ElementQ4::IntegratorBfN(double *res,
                     for (int l = 0; l < nOfIntPts; l++) {
                         // Constants for the integral
                         intPtIndex = nOfIntPts * k + l;
-                        for (int p = 0; p < nRowsF; p++) {
-                            if (p / spaceDim != i % nOfDofs) continue;
-                            for (int q = 0; q < nColsF; q++) {
-                                if (q != j % nOfDofs) continue;
-                                res[resIJindex] += pointValue[intPtIndex] 
-                                                * Bvector[intPtIndex][i / nOfDofs * spaceDim + p % spaceDim]
-                                                * NodeValues[intPtIndex][p * nColsF + q]
-                                                * Nvector[intPtIndex][j / nOfDofs];
-                            }
-                        }                   
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p / spaceDim != i % nOfDofs || q != j % nOfDofs) continue;
+                            res[resIJindex] += pointValue[intPtIndex] 
+                                               * Bvector[intPtIndex][i / nOfDofs * spaceDim + p % spaceDim]
+                                               * NodeValues[intPtIndex][p * nColsF + q]
+                                               * Nvector[intPtIndex][j / nOfDofs];
+                        }              
                     }
                 }                
             }
@@ -718,16 +726,15 @@ void ElementQ4::IntegratorBfN(double *res,
                     for (int l = 0; l < nOfIntPts; l++) {
                         // Constants for the integral
                         intPtIndex = nOfIntPts * k + l;
-                        for (int p = 0; p < nRowsF; p++) {
-                            if (p / spaceDim != i % nOfDofs) continue;
-                            for (int q = 0; q < nColsF; q++) {
-                                if (q != j % nOfDofs) continue;
-                                res[resIJindex] += pointValue[intPtIndex] 
-                                                * Bvector[intPtIndex][i / nOfDofs * spaceDim + p % spaceDim]
-                                                * pointF[intPtIndex][p * nColsF + q]
-                                                * Nvector[intPtIndex][j / nOfDofs];
-                            }
-                        }                   
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p / spaceDim != i % nOfDofs || q != j % nOfDofs) continue;
+                            res[resIJindex] += pointValue[intPtIndex] 
+                                               * Bvector[intPtIndex][i / nOfDofs * spaceDim + p % spaceDim]
+                                               * pointF[intPtIndex][p * nColsF + q]
+                                               * Nvector[intPtIndex][j / nOfDofs];
+                        }              
                     }
                 }                
             }
@@ -744,7 +751,9 @@ void ElementQ4::IntegratorBfN(double *res,
  */
 void ElementQ4::IntegratorNfB(double *res,
                               int resSize, 
-                              const vector<vector<double>> & NodeValues, 
+                              const vector<vector<double>> & NodeValues,                               
+                              const vector<int> & f_is, 
+                              const vector<int> & f_js, 
                               int flag) const {
     // Some constants
     int nRowsF = nOfDofs;
@@ -759,7 +768,8 @@ void ElementQ4::IntegratorNfB(double *res,
 
     // Stores IJ index in the vector
     int resIJindex;
-    
+    int p, q;
+
     if (flag == 1) {
         // Calculate res[i,j]
         // In the integral (N^T F B)_{i,j} = N_pi F_pq B qj
@@ -771,16 +781,15 @@ void ElementQ4::IntegratorNfB(double *res,
                     for (int l = 0; l < nOfIntPts; l++) {
                         // Constants for the integral
                         intPtIndex = nOfIntPts * k + l;
-                        for (int p = 0; p < nRowsF; p++) {
-                            if (p != i % nOfDofs) continue;
-                            for (int q = 0; q < nColsF; q++) {
-                                if (q / spaceDim != j % nOfDofs) continue;
-                                res[resIJindex] += pointValue[intPtIndex] 
-                                                    * Nvector[intPtIndex][i / nOfDofs]
-                                                    * NodeValues[intPtIndex][p * nColsF + q]
-                                                    * Bvector[intPtIndex][j / nOfDofs * spaceDim + q % spaceDim];
-                            }
-                        }                   
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p != i % nOfDofs || q / spaceDim != j % nOfDofs) continue;
+                            res[resIJindex] += pointValue[intPtIndex] 
+                                               * Nvector[intPtIndex][i / nOfDofs]
+                                               * NodeValues[intPtIndex][p * nColsF + q]
+                                               * Bvector[intPtIndex][j / nOfDofs * spaceDim + q % spaceDim];
+                        }    
                     }
                 }                
             }
@@ -806,16 +815,15 @@ void ElementQ4::IntegratorNfB(double *res,
                     for (int l = 0; l < nOfIntPts; l++) {
                         // Constants for the integral
                         intPtIndex = nOfIntPts * k + l;
-                        for (int p = 0; p < nRowsF; p++) {
-                            if (p != i % nOfDofs) continue;
-                            for (int q = 0; q < nColsF; q++) {
-                                if (q / spaceDim != j % nOfDofs) continue;
-                                res[resIJindex] += pointValue[intPtIndex] 
-                                                    * Nvector[intPtIndex][i / nOfDofs]
-                                                    * pointF[intPtIndex][p * nColsF + q]
-                                                    * Bvector[intPtIndex][j / nOfDofs * spaceDim + q % spaceDim];
-                            }
-                        }                   
+                        for (int temp = 0; temp < f_is.size(); temp++) {
+                            p = f_is[temp];
+                            q = f_js[temp];
+                            if (p != i % nOfDofs || q / spaceDim != j % nOfDofs) continue;
+                            res[resIJindex] += pointValue[intPtIndex] 
+                                               * Nvector[intPtIndex][i / nOfDofs]
+                                               * pointF[intPtIndex][p * nColsF + q]
+                                               * Bvector[intPtIndex][j / nOfDofs * spaceDim + q % spaceDim];
+                        }                
                     }
                 }                
             }
@@ -872,6 +880,7 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
     switch (Kernel) {
         // 2D Quasi-static linear elasticity
         case 0: {
+            /**
             int nCols = spaceDim * nOfDofs;
             vector<vector<double>> NodeJFs(this->getNID().size(), vector<double>(nCols * nCols, 0.));
 
@@ -885,6 +894,7 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
             
             // Assemble to globalJF
             JFPush(globalJF, localJF, localJFSize);      
+            */
 
             /** DEBUG LINES
             ofstream myFile;
@@ -905,6 +915,10 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
         
         // 2D Isotropic linear poroelasticity
         case 1: {
+            // MatAssembled(globalJF, &isJfAssembled);
+            // DEBUG LINES
+            // isJfAssembled = PETSC_FALSE;
+
             for (int n = 0; n < nOfNodes; n++) {
                 nodalSs[n] = &(_NID[n]->s);
                 nodalS_ts[n] = &(_NID[n]->s_t);
@@ -918,7 +932,8 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                     evaluateF_x(s_xs, IntPos[i], IntPos[j], nodalSs);
                     evaluateF(as, IntPos[i], IntPos[j], nodalAs);
                     evaluateF(s_ts, IntPos[i], IntPos[j], nodalS_ts);
-
+                    // DEBUG LINES
+                    // cout << "fuck!" << "\n";
                     PoroelasticKernel::Jf0(Jf0s[i * nOfIntPts + j],
                                            spaceDim,
                                            ss,
@@ -927,8 +942,9 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                                            s_tshift,
                                            as,
                                            as,
-                                           as);
-                    
+                                           as,
+                                           isJfAssembled);
+
                     PoroelasticKernel::Jf1(Jf1s[i * nOfIntPts + j],
                                            spaceDim,
                                            ss,
@@ -937,7 +953,8 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                                            s_tshift,
                                            as,
                                            as,
-                                           as);
+                                           as,
+                                           isJfAssembled);
 
                     PoroelasticKernel::Jf2(Jf2s[i * nOfIntPts + j],
                                            spaceDim,
@@ -947,7 +964,8 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                                            s_tshift,
                                            as,
                                            as,
-                                           as);
+                                           as,
+                                           isJfAssembled);
 
                     PoroelasticKernel::Jf3(Jf3s[i * nOfIntPts + j],
                                            spaceDim,
@@ -957,29 +975,77 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                                            s_tshift,
                                            as,
                                            as,
-                                           as);
+                                           as,
+                                           isJfAssembled);
+
                 }
             }
-            
-            
 
             // Integration
-            (*clocks)[0] = clock();
-            IntegratorNfN(localJF, localJFSize, Jf0s, 1);
-            (*clocks)[1] = clock();
-            IntegratorNfB(localJF, localJFSize, Jf1s, 1);
-            (*clocks)[2] = clock();
-            IntegratorBfN(localJF, localJFSize, Jf2s, 1);
-            (*clocks)[3] = clock();
-            IntegratorBfB(localJF, localJFSize, Jf3s, 1);
-            (*clocks)[4] = clock();
+            if (!isJfAssembled) {
+                // DEBUG LINES
+                // cout << "fuck!" << "\n";
+                (*clocks)[0] = clock();
+                IntegratorNfN(localJF, localJFSize, Jf0s, PoroelasticKernel::Jf0_is, PoroelasticKernel::Jf0_js, 1);
+                (*clocks)[1] = clock();
+                IntegratorNfB(localJF, localJFSize, Jf1s, PoroelasticKernel::Jf1_is, PoroelasticKernel::Jf1_js, 1);
+                (*clocks)[2] = clock();
+                IntegratorBfN(localJF, localJFSize, Jf2s, PoroelasticKernel::Jf2_is, PoroelasticKernel::Jf2_js, 1);
+                (*clocks)[3] = clock();
+                IntegratorBfB(localJF, localJFSize, Jf3s, PoroelasticKernel::Jf3_is, PoroelasticKernel::Jf3_js, 1);
+                (*clocks)[4] = clock();
+            }
+            else {
+                // DEBUG LINES
+                // double shit = 0.;
+                // cout << "local JF addition before integration: ";
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                (*clocks)[0] = clock();
+                IntegratorNfN(localJF, localJFSize, Jf0s, PoroelasticKernel::Jf0_timedependent_is, PoroelasticKernel::Jf0_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after NfN: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                (*clocks)[1] = clock();
+                IntegratorNfB(localJF, localJFSize, Jf1s, PoroelasticKernel::Jf1_timedependent_is, PoroelasticKernel::Jf1_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after NfB: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                (*clocks)[2] = clock();
+                IntegratorBfN(localJF, localJFSize, Jf2s, PoroelasticKernel::Jf2_timedependent_is, PoroelasticKernel::Jf2_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after BfN: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                (*clocks)[3] = clock();
+                IntegratorBfB(localJF, localJFSize, Jf3s, PoroelasticKernel::Jf3_timedependent_is, PoroelasticKernel::Jf3_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after BfB: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                (*clocks)[4] = clock();
+            }
             
-            
+            isJfAssembled = PETSC_TRUE;
 
             // Push to the global JF
             JFPush(globalJF, localJF, localJFSize);
-
-            
             
             for (int i = 0; i < timeConsumed->size(); i++) {
                 (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
@@ -1002,29 +1068,7 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
     // Switch kernel 0 - elastic (not implemented), 1 - poroelastic
     switch(Kernel) {
         // Linear poroelastic kernels
-        case 1: {
-            // Some constants
-            /**
-            int spaceDim = _NID[0]->getSpaceDim();
-            int nOfNodes = _NID.size();
-            int nOfDofs = _NID[0]->getDOF().size();
-            int nOfIntPts = IntPos.size();
-
-            // For each integration point
-            vector<vector<double>> F0s(pow(nOfIntPts, spaceDim), vector<double>(nOfDofs, 0.));
-            vector<vector<double>> F1s(pow(nOfIntPts, spaceDim), vector<double>(nOfDofs * spaceDim, 0.));
-            vector<double> ss(nOfDofs, 0.);
-            vector<double> s_xs(nOfDofs * spaceDim, 0.);
-            vector<double> s_ts(nOfDofs, 0.);
-            vector<double> as;
-            
-            
-            // Nodal values
-            vector<vector<double> *> nodalSs(nOfNodes);
-            vector<vector<double> *> nodalS_ts(nOfNodes);
-            vector<vector<double> *> nodalAs(nOfNodes);
-            */
-            
+        case 1: {            
             for (int n = 0; n < nOfNodes; n++) {
                 nodalSs[n] = &(_NID[n]->s);
                 nodalS_ts[n] = &(_NID[n]->s_t);
@@ -1117,70 +1161,6 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
 void ElementQ4::JFPush(Mat & globalJF, double *elementJF, int elementJFSize) const {
     // Push to global JF
     MatSetValues(globalJF, elementDOF, localGlobalIndices, elementDOF, localGlobalIndices, elementJF, ADD_VALUES);
-    /**
-    // Stores global and local index
-    int I, J, localI, localJ;
-    double this_value;
-    // Assemble to globalJF
-    // First node
-    for (int n1 = 0; n1 < nOfNodes; n1++)
-    {
-        // cout << "\n";
-        // Then row of local JF3
-        for (int i = 0; i < nOfDofs; i++)
-        {
-            I = this->getNID()[n1]->getDOF()[i];
-            if (I == -1)
-                continue;
-
-            localI = n1 * nOfDofs + i;
-            // Then node
-            for (int n2 = 0; n2 < nOfNodes; n2++)
-            {
-                // Then col of local JF3
-                for (int j = 0; j < nOfDofs; j++)
-                {
-                    J = this->getNID()[n2]->getDOF()[j];
-                    if (J == -1)
-                        continue;
-                    localJ = n2 * nOfDofs + j;
-                    this_value = JF[localI * nColsJF + localJ];
-                    if (abs(this_value) < 1e-15) continue;
-                    MatSetValues(globalJF, 1, &(I), 1, &(J), &(JF[localI * nColsJF + localJ]), ADD_VALUES);
-                }
-            }
-        }
-    }
-
-    // Debug Lines
-    ofstream myFile;
-    myFile.open("JF.txt");
-
-    // Element stiffness matrix
-    myFile << "Element ID : " << this->getID() <<"\n";
-    for (int n1 = 0; n1 < nOfNodes; n1++) {
-        for (int n2 = 0; n2 < nOfNodes; n2++) {
-            myFile << setw(12) << JF[n1 * nOfDofs * nColsJF+ n2 * nOfDofs] << " " 
-                << setw(12) << JF[n1 * nOfDofs * nColsJF + n2 * nOfDofs + 1] << " ";
-        }
-        myFile << "\n"; 
-        for (int n2 = 0; n2 < nOfNodes; n2++) {
-            myFile << setw(12) << JF[(n1 * nOfDofs + 1) * nColsJF+ n2 * nOfDofs] << " " 
-                << setw(12) << JF[(n1 * nOfDofs + 1) * nColsJF + n2 * nOfDofs + 1] << " ";
-        }
-        myFile << "\n"; 
-    }
-
-    // Element stiffness matrix including all
-    myFile << "\n" << "Global JF :" << "\n";
-    for (int i = 0; i < nColsJF; i++) {
-        for (int j = 0; j < nColsJF; j++) {
-            myFile << setw(12) << JF[i * nColsJF + j] - JF[j * nColsJF + i] << " ";
-        }
-        myFile << "\n";
-    }
-    myFile.close();
-    */
 };
 
 /** Push elementF to globalF */

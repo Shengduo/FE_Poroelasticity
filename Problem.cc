@@ -1658,7 +1658,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Debug lines
         cout << "IFunction t = " << t << "\n";
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTK("PDiff_ACC");
+        myProblem->writeVTK("Shit1");
         myProblem->nodeTime = t;
     }
 
@@ -1722,10 +1722,11 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     PetscBool isAssembled;
     
     ierr = MatAssembled(Pmat, &isAssembled);
+    // cout << "Assembled: " << isAssembled << "\n";
     if (isAssembled) {
         // cout << "View Pmat before zeroing: \n";
         // ierr = MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-        ierr = MatZeroRows(Pmat, myProblem->_totalDOF, myProblem->globalRows, 0.0, NULL, NULL);
+        // ierr = MatZeroRows(Pmat, myProblem->_totalDOF, myProblem->globalRows, 0.0, NULL, NULL);
         // cout << "View Pmat after zeroing: \n";
         // ierr = MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
     }
@@ -1755,6 +1756,7 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Assemble the global Jacobian matrix
     ierr = MatAssemblyBegin(Pmat, MAT_FINAL_ASSEMBLY);
     ierr = MatAssemblyEnd(Pmat, MAT_FINAL_ASSEMBLY);
+    
 
     if (Amat != Pmat) {
         ierr = MatAssemblyBegin(Amat,MAT_FINAL_ASSEMBLY);
@@ -1763,12 +1765,12 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
 
     // myProblem->clocks[2] = clock();
     
+    // DEBUG LINES
     /**
-    cout << "View Pmat: \n";
-    MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-    
-    cout << "View Amat: \n";
-    MatView(Amat, PETSC_VIEWER_STDOUT_SELF);
+    cout << "View Pmat Norm: ";
+    PetscReal norm;
+    MatNorm(Pmat, NORM_FROBENIUS, &norm);
+    cout << norm << "\n";
     */
     
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;

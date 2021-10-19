@@ -1,7 +1,9 @@
 /** @file PoroelasticKernel.hh
  * Declares the quasi-static linear poroelastic residuals and Jacobians
  */
+#pragma once
 #include "FeKernel.hh"
+#include "Node.hh"
 using namespace std;
 
 /** Class ElasticKernel
@@ -53,7 +55,7 @@ public:
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
                     const vector<double> &aOff, // auxiliary fields offset
-                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts
+                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts
     );
 
     /** The elements of Jf0 that requires re-assemble after the first iteration
@@ -61,7 +63,11 @@ public:
      * only Jf0pe, Jf0pp are time dependent
      */
     const static vector<int> Jf0_entries;
+    const static vector<int> Jf0_is;
+    const static vector<int> Jf0_js;
     const static vector<int> Jf0_timedependent; 
+    const static vector<int> Jf0_timedependent_is;
+    const static vector<int> Jf0_timedependent_js;
 
     /** Left hand side Jacobian
      * Jf1(t, s)
@@ -75,7 +81,7 @@ public:
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
                     const vector<double> &aOff, // auxiliary fields offset
-                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts 
+                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts 
     );
 
     /** The elements of Jf0 that requires re-assemble after the first iteration
@@ -83,7 +89,11 @@ public:
      * nothing in JF1 is time dependent
      */
     const static vector<int> Jf1_entries;
+    const static vector<int> Jf1_is;
+    const static vector<int> Jf1_js;
     const static vector<int> Jf1_timedependent;
+    const static vector<int> Jf1_timedependent_is;
+    const static vector<int> Jf1_timedependent_js;
 
     /** Left hand side Jacobian
      * Jf2(t, s)
@@ -97,7 +107,7 @@ public:
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
                     const vector<double> &aOff, // auxiliary fields offset
-                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts
+                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts
     );
 
     /** The elements of Jf2 that requires re-assemble after the first iteration
@@ -105,7 +115,11 @@ public:
      * nothing is dependent on time
      */
     const static vector<int> Jf2_entries;
+    const static vector<int> Jf2_is;
+    const static vector<int> Jf2_js;
     const static vector<int> Jf2_timedependent; 
+    const static vector<int> Jf2_timedependent_is;
+    const static vector<int> Jf2_timedependent_js;
 
     /** Left hand side Jacobian
      * Jf3(t, s)
@@ -119,7 +133,7 @@ public:
                     const vector<double> &sOff, // offset of each solution field
                     const vector<double> &a,    // auxiliary fields
                     const vector<double> &aOff, // auxiliary fields offset
-                    bool isAssembled = false    // if assembled, only calculate the time-dependent parts
+                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts
     );
 
     /** The elements of Jf3 that requires re-assemble after the first iteration
@@ -127,7 +141,11 @@ public:
      * nothing is time dependent
      */
     const static vector<int> Jf3_entries;
+    const static vector<int> Jf3_is;
+    const static vector<int> Jf3_js;
     const static vector<int> Jf3_timedependent; 
+    const static vector<int> Jf3_timedependent_is;
+    const static vector<int> Jf3_timedependent_js;
 
     /** Default constructor */
     PoroelasticKernel() {};
