@@ -216,6 +216,26 @@ bool ElementQ4::InvJ(vector<double> & res, double ksi, double eta) const {
     return true;
 };
 
+/** Evaluate a function F at (i, j)th integration point */
+void ElementQ4::evaluateF(vector<double> & res, int i, int j, 
+                          const vector<vector<double> *> & NodeValues) const {
+    // Make sure sizes match
+    if (NodeValues.size() != _NID.size()) throw "Not all nodal values are provided for evaluate";
+    
+    // Initialize result based on input
+    if (res.size() != NodeValues[0]->size()) res.resize(NodeValues[0]->size(), 0.);
+    for (int i = 0; i < res.size(); i++) res[i] = 0.;
+
+    // Loop through all fields
+    for (int f = 0; f < NodeValues[0]->size(); f++) {
+        // Loop through all nodes
+        for (int n = 0; n < NodeValues.size(); n++) {
+            res[f] += Nvector[i * nOfIntPts + j][n] * (*(NodeValues[n]))[f];
+        }
+    }
+};
+
+
 /** Evaluate a function F at (ksi, eta) */
 void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta, 
                           const vector<vector<double> *> & NodeValues) const {
@@ -235,6 +255,7 @@ void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta,
     }
 };
 
+
 /** Evaluate a function F at (ksi, eta) */
 void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta, 
                           const vector<vector<double>> & NodeValues) const {
@@ -250,6 +271,37 @@ void ElementQ4::evaluateF(vector<double> & res, double ksi, double eta,
         // Loop through all nodes
         for (int n = 0; n < NodeValues.size(); n++) {
             res[f] += N(ksi, eta)[n] * NodeValues[n][f];
+        }
+    }
+};
+
+/** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi, eta) 
+ * in LOGICAL space with given nodal values.
+ * Calculated by using shape function to map
+ */
+void ElementQ4::evaluateF_x(vector<double> & res, int i, int j, 
+                            const vector<vector<double> *> & NodeValues) const {
+    // Number of nodes
+    // int nOfNodes = this->getNID().size();
+    if (NodeValues.size() != nOfNodes) 
+        throw "In evaluateF_x, nodeValues do not match number of nodes!";
+    
+    // Space dim is 2 for Q4
+    // int spaceDim = 2;
+
+    // Set res to 0.;
+    if (res.size() != spaceDim * NodeValues[0]->size()) res.resize(spaceDim * NodeValues[0]->size());
+    fill(res.begin(), res.end(), 0.0);
+
+    // Loop through fields
+    for(int f = 0; f < NodeValues[0]->size(); f++) {
+        // Loop through nodes
+        for (int n = 0; n < NodeValues.size(); n++) {
+            // Loop through spaceDim
+            for (int d = 0; d < spaceDim; d++) {
+                // Calculate \partial F / \partial \ksi
+                res[d + f * spaceDim] += Bvector[i * nOfIntPts + j][n * spaceDim + d] * (*(NodeValues[n]))[f];
+            }
         }
     }
 };
@@ -925,13 +977,16 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                 nodalAs[n] = &(_NID[n]->_nodalProperties);
             }
             
+            // DEBUG LINES
+            // (*clocks)[0] = clock();
+
             // Calculate point values at integration points
             for (int i = 0; i < nOfIntPts; i++) {
                 for (int j = 0; j < nOfIntPts; j++) {
-                    evaluateF(ss, IntPos[i], IntPos[j], nodalSs);
-                    evaluateF_x(s_xs, IntPos[i], IntPos[j], nodalSs);
-                    evaluateF(as, IntPos[i], IntPos[j], nodalAs);
-                    evaluateF(s_ts, IntPos[i], IntPos[j], nodalS_ts);
+                    evaluateF(ss, i, j, nodalSs);
+                    evaluateF_x(s_xs, i, j, nodalSs);
+                    evaluateF(as, i, j, nodalAs);
+                    evaluateF(s_ts, i, j, nodalS_ts);
                     // DEBUG LINES
                     // cout << "fuck!" << "\n";
                     PoroelasticKernel::Jf0(Jf0s[i * nOfIntPts + j],
@@ -981,6 +1036,9 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                 }
             }
 
+            // DEBUG LINES
+            // (*clocks)[1] = clock();
+
             // Integration
             if (!isJfAssembled) {
                 // DEBUG LINES
@@ -1003,7 +1061,7 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                 // cout << shit << "\n";
 
                 
-                (*clocks)[0] = clock();
+                
                 IntegratorNfN(localJF, localJFSize, Jf0s, PoroelasticKernel::Jf0_timedependent_is, PoroelasticKernel::Jf0_timedependent_js, 1);
                 
                 // DEBUG LINES
@@ -1012,7 +1070,7 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                 // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
                 // cout << shit << "\n";
 
-                (*clocks)[1] = clock();
+                
                 IntegratorNfB(localJF, localJFSize, Jf1s, PoroelasticKernel::Jf1_timedependent_is, PoroelasticKernel::Jf1_timedependent_js, 1);
                 
                 // DEBUG LINES
@@ -1021,7 +1079,7 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                 // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
                 // cout << shit << "\n";
 
-                (*clocks)[2] = clock();
+                
                 IntegratorBfN(localJF, localJFSize, Jf2s, PoroelasticKernel::Jf2_timedependent_is, PoroelasticKernel::Jf2_timedependent_js, 1);
                 
                 // DEBUG LINES
@@ -1030,7 +1088,7 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                 // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
                 // cout << shit << "\n";
 
-                (*clocks)[3] = clock();
+                
                 IntegratorBfB(localJF, localJFSize, Jf3s, PoroelasticKernel::Jf3_timedependent_is, PoroelasticKernel::Jf3_timedependent_js, 1);
                 
                 // DEBUG LINES
@@ -1039,18 +1097,25 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                 // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
                 // cout << shit << "\n";
 
-                (*clocks)[4] = clock();
+               
             }
-            
+            // DEBUG LINES
+            // (*clocks)[2] = clock();
+
             isJfAssembled = PETSC_TRUE;
 
             // Push to the global JF
             JFPush(globalJF, localJF, localJFSize);
-            
+
+            // DEBUG LINES
+            (*clocks)[3] = clock();
+
+            // DEBUG LINES
+            /**
             for (int i = 0; i < timeConsumed->size(); i++) {
                 (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
             }
-
+            */
         }
         default:
             break;
@@ -1075,15 +1140,27 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
                 nodalAs[n] = &(_NID[n]->_nodalProperties);
             }
             
-            
             // Calculate point values at integration points
             for (int i = 0; i < nOfIntPts; i++) {
-                for (int j = 0; j < nOfIntPts; j++) {                    
-                    evaluateF(ss, IntPos[i], IntPos[j], nodalSs);
-                    evaluateF_x(s_xs, IntPos[i], IntPos[j], nodalSs);
-                    evaluateF(as, IntPos[i], IntPos[j], nodalAs);
-                    evaluateF(s_ts, IntPos[i], IntPos[j], nodalS_ts);                    
+                for (int j = 0; j < nOfIntPts; j++) {    
+                    // DEBUG LINES
+                    (*clocks)[0] = clock();        
+                    evaluateF(ss, i, j, nodalSs);
+                    
+                    // DEBUG LINES
+                    (*clocks)[1] = clock();
+                    evaluateF_x(s_xs, i, j, nodalSs);
 
+                    // DEBUG LINES
+                    (*clocks)[2] = clock();
+                    evaluateF(as, i, j, nodalAs);
+
+                    // DEBUG LINES
+                    (*clocks)[3] = clock();
+                    evaluateF(s_ts, i, j, nodalS_ts);                    
+                    
+                    // DEBUG LINES
+                    (*clocks)[4] = clock();
                     // DEBUG LINES
                     /**
                     if (_ID == 1) {
@@ -1095,6 +1172,8 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
                     */
                     // DEBUG LINES
                     // cout << "Fuck!" << "\n";
+                    
+
                     PoroelasticKernel::F0(F0s[i * nOfIntPts + j],
                                           spaceDim,
                                           ss,
@@ -1108,6 +1187,7 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
                     // DEBUG LINES
                     // cout << "Fuck!" << "\n";
                     
+
                     PoroelasticKernel::F1(F1s[i * nOfIntPts + j],
                                           spaceDim,
                                           ss,
@@ -1117,6 +1197,7 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
                                           as,
                                           as,
                                           as);
+                   
                     
                     // DEBUG LINES
                     /**
@@ -1124,14 +1205,22 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
                         cout << "f0p: " << F0s[i * nOfIntPts + j][4] << "\n";
                         cout << "f1p: " << F1s[i * nOfIntPts + j][8] << " " << F1s[i * nOfIntPts + j][9] << "\n";
                     }
-                    */               
+                    */      
+                    for (int i = 0; i < timeConsumed->size(); i++) {
+                        (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
+                    }         
                 }
             }
+            
+            
             // Integrate
             IntegratorNf(localF, localFSize, F0s, 1);
             
+            
 
             IntegratorBf(localF, localFSize, F1s, 1);
+            
+            
 
             // DEBUG LINES
             /**
@@ -1150,6 +1239,7 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
 
             // Push to globalF
             elementFPush(globalF, localF, localFSize);
+            
         }
         default :
             break;

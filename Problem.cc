@@ -19,6 +19,10 @@ Problem::~Problem() {
     // Release Elements
     deleteElements();
 
+    // Delete pre-allocated element residual and jacobian array.
+    if (localF) delete [] localF;
+    if (localJF) delete [] localJF;
+
     // Destroy global vectors and matrices
     VecDestroy(&globalF);
     VecDestroy(&globalS);
@@ -28,7 +32,7 @@ Problem::~Problem() {
     MatDestroy(&globalJF);
 
     // Delete rows
-    delete [] globalRows;
+    if (globalRows) delete [] globalRows;
 };
 
 // General initialization
@@ -1592,6 +1596,12 @@ void Problem::initializeElementsPoroElastic() {
     for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
     for (ElementQ4Cohesive* thisElement : cohesiveElements) thisElement->outputInfo(myFile);
     myFile.close();
+
+    // Allocate localF and localJF
+    localFSize = upperElements[0]->getElementDOF();
+    localJFSize = pow(localFSize, 2);
+    localF = new double [localFSize];
+    localJF = new double [localJFSize];
 };
 
 /** TS (SNES) solver for linear poroelastic problems */
@@ -1658,7 +1668,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Debug lines
         cout << "IFunction t = " << t << "\n";
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTK("Shit1");
+        myProblem->writeVTK("Shitfuck");
         myProblem->nodeTime = t;
     }
 
@@ -1667,17 +1677,13 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         node->fetchS(s);
         node->fetchS_t(s_t);
     }
-    
-    // Set localF
-    int localFSize = myProblem->upperElements[0]->getElementDOF();
-    double *localF = new double [localFSize];
 
     
 
     // Loop through all elements in upperElements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
-        element->elementF(F, localF, localFSize, 1, 0.);
+        element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
         
     }
     
@@ -1697,10 +1703,6 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
     */
-
-    
-    
-    delete [] localF;
     return ierr;
 }
 
@@ -1721,15 +1723,8 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Clear the matrix
     PetscBool isAssembled;
     
+    // Check if assembled
     ierr = MatAssembled(Pmat, &isAssembled);
-    // cout << "Assembled: " << isAssembled << "\n";
-    if (isAssembled) {
-        // cout << "View Pmat before zeroing: \n";
-        // ierr = MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-        // ierr = MatZeroRows(Pmat, myProblem->_totalDOF, myProblem->globalRows, 0.0, NULL, NULL);
-        // cout << "View Pmat after zeroing: \n";
-        // ierr = MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-    }
 
     // Fetch all s into the nodes
     for (Node* node : myProblem->upperNodes) {
@@ -1739,8 +1734,6 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     myProblem->nodeTime = t;
     
     // Initialize local JF and JFSize
-    int localJFSize = pow(myProblem->upperElements[0]->getElementDOF(), 2);
-    double *localJF = new double [localJFSize];
 
     // Clock on
     // myProblem->clocks[0] = clock();
@@ -1748,7 +1741,7 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Loop through all elements in upperElements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
-        element->JF(Pmat, localJF, localJFSize, 1, s_tshift);
+        element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);
     }
 
     // myProblem->clocks[1] = clock();
@@ -1775,8 +1768,6 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
-
-    delete [] localJF;
     return ierr;
 };
 

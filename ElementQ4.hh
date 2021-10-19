@@ -162,6 +162,10 @@ public:
     /** Get element NID */
     const vector<Node*> & getNID() const;
 
+    /** Evaluate a function F at (i, j)th integration point */
+    void evaluateF(vector<double> & res, int i, int j, 
+                   const vector<vector<double> *> & NodeValues) const;
+
     /** Evaluate vector at (ksi, eta) in logical space with given nodal values.
      * Calculated by using shape function to map
      */
@@ -174,6 +178,13 @@ public:
     void evaluateF(vector<double> & res, double ksi, double eta, 
                    const vector<vector<double>> & NodeValues) const;
     
+    /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at integration
+     * point i, j, in LOGICAL space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF_x(vector<double> & res, int i, int j, 
+                     const vector<vector<double> *> & NodeValues) const;
+
     /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi, eta) 
      * in LOGICAL space with given nodal values.
      * Calculated by using shape function to map

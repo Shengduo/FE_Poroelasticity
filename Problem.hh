@@ -64,6 +64,14 @@ private:
     // Global JF
     Mat globalJF;
 
+    // Local residual
+    double *localF;
+    int localFSize;
+
+    // Local Jacobian
+    double *localJF;
+    int localJFSize;
+    
 // PUBLIC MEMBERS
 public:
     // Time consumed by Jacobian and the clocks
