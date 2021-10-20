@@ -72,11 +72,14 @@ vpath %.cc ${SRCDIR}
 #
 all : ${EXE}
 
-${EXE} : Node.o ElementQ4.o ElementQ4Cohesive.o Problem.o main.o FeKernel.o
+${EXE} : Node.o ElementQ4.o ElementQ4Cohesive.o Problem.o main.o FeKernel.o ElasticKernel.o PoroelasticKernel.o
 	$(LINK.cc) -o $@ $^ $(LDLIBS)
 
 clean : 
 	rm -rf *.o *.txt ${EXE}
+
+cleanvtk:
+	rm -rf ./output/*.vtk
 
 run :
 	./${EXE}

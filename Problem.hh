@@ -71,7 +71,7 @@ private:
     // Local Jacobian
     double *localJF;
     int localJFSize;
-    
+
 // PUBLIC MEMBERS
 public:
     // Time consumed by Jacobian and the clocks
@@ -209,6 +209,9 @@ private:
 
     // Write VTK files
     void writeVTK(string prefix);
+
+    // Write VTU files
+    void writeVTU(string prefix);
     
 // NOT IMPLEMENTED
 private:

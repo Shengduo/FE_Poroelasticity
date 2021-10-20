@@ -1668,7 +1668,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Debug lines
         cout << "IFunction t = " << t << "\n";
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTK("Shitfuck");
+        myProblem->writeVTU("NewOutput");
         myProblem->nodeTime = t;
     }
 
@@ -1846,4 +1846,111 @@ void Problem::writeVTK(string prefix) {
     for (Node *node : upperNodes) {
         myFile << node->s[I_e] << "\n";
     }
+};
+
+/** Write VTU files
+ * Write into vtu nodal and cell connection values
+ * At each timestep write a different file
+ */
+void Problem::writeVTU(string prefix) {
+    string path = "./output/" + prefix + to_string(stepNumber) + ".vtu";
+    ofstream myFile(path);
+
+    // Head lines
+    myFile << "<?xml version=\"1.0\"?>" << "\n";        // version info
+    myFile << "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"BigEndian\">" << "\n";
+    myFile << "  <UnstructuredGrid>" << "\n";    // title
+    myFile << "    <Piece NumberOfPoints=\"" << _totalNofNodes << "\" NumberOfCells=\"" << upperElements.size() << "\">" << "\n";                        // File Format
+    
+    // Output node XYZs
+    myFile << "      <Points>" << "\n";
+    myFile << "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" Format=\"ascii\">" << "\n";
+    myFile << scientific;
+    for (Node* node : upperNodes) {
+        myFile << "        " << node->getXYZ()[0] << " " << node->getXYZ()[1] << " " << "0.0" << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+    myFile << "      </Points>" << "\n";    
+    
+    // Output Elements
+    myFile << "      <Cells>" << "\n";
+    myFile << "        <DataArray type=\"Int32\" Name=\"connectivity\" Format=\"ascii\">" << "\n";
+    for (ElementQ4 *element : upperElements) {
+        myFile << "        "
+               << element->getNID()[0]->getID() << " "
+               << element->getNID()[1]->getID() << " "
+               << element->getNID()[2]->getID() << " "
+               << element->getNID()[3]->getID() << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output offsets
+    myFile << "       <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">" << "\n";
+    myFile << "         ";
+    for (int i = 0; i < upperElements.size(); i++) myFile << 4 * (i + 1) << " ";
+    myFile << "\n" << "        </DataArray>" << "\n";
+
+    // Output cell type
+    myFile << "        <DataArray type=\"Int32\" Name=\"types\" Format=\"ascii\">" << "\n";
+    myFile << "        ";
+    for (int i = 0; i < upperElements.size(); i++) myFile << "9 ";
+    myFile << "\n" << "        </DataArray>" << "\n";
+    myFile << "      </Cells>" << "\n";
+
+    // ============================== Output Node results =================================
+    int I_u = 0;
+    int I_v = I_u + _spaceDim;
+    int I_p = I_v + _spaceDim;
+    int I_e = I_p + 1;
+    myFile << "      <PointData>" << "\n";
+    
+    // Global node ID
+    myFile << "        <DataArray type=\"Int32\" Name=\"GlobalNodeId\" format=\"ascii\">" << "\n";
+    myFile << "        ";
+    for (Node *node : upperNodes) {
+        myFile << node->getID() << " ";
+    }
+    myFile << "\n" << "        </DataArray>" << "\n";
+
+    // Nodal displacement
+    myFile << "        <DataArray type=\"Float64\" Name=\"Displacements\" NumberOfComponents=\"3\" ComponentName0=\"Ux\" ComponentName1=\"Uy\" ComponentName2=\"Uz\" Format=\"ascii\">" << "\n";
+    for (Node *node : upperNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_u + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output velocity
+    myFile << "        <DataArray type=\"Float64\" Name=\"Velocities\" NumberOfComponents=\"3\" ComponentName0=\"Vx\" ComponentName1=\"Vy\" ComponentName2=\"Vz\" Format=\"ascii\">" << "\n";
+    for (Node *node : upperNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_v + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output pore fluid pressure
+    myFile << "        <DataArray type=\"Float64\" Name=\"Pressure\" NumberOfComponents=\"1\" Format=\"ascii\">" << "\n";  
+    for (Node *node : upperNodes) {
+        myFile << "        " << node->s[I_p] << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output volumetric strain
+    myFile << "        <DataArray type=\"Float64\" Name=\"Trace strain\" NumberOfComponents=\"1\" Format=\"ascii\">" << "\n";  
+    for (Node *node : upperNodes) {
+        myFile << "        " << node->s[I_e] << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+    myFile << "      </PointData>" << "\n";
+    myFile << "    </Piece>" << "\n";
+    myFile << "  </UnstructuredGrid>" << "\n";
+    myFile << "</VTKFile>" << "\n";
 };
