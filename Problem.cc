@@ -1033,6 +1033,12 @@ void Problem::getNNZPerRow(PetscInt *nnz) {
             nnz[i] += nonZeros[i * _totalDOF + j];
         }
     }
+
+    _totalNonZeros = 0;
+    for (int i = 0; i < _totalDOF; i++) {
+        _totalNonZeros += nnz[i];
+    }
+    cout << "Total Non-zeros number in JF is: " << _totalNonZeros << "\n";
 }
 
 /** Printout a matrix */
@@ -1668,7 +1674,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Debug lines
         cout << "IFunction t = " << t << "\n";
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTU("NewOutput");
+        myProblem->writeVTU("NewOutputSingleCore");
         myProblem->nodeTime = t;
     }
 

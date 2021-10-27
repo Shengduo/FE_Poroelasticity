@@ -64,6 +64,9 @@ private:
     // Global JF
     Mat globalJF;
 
+    // Total non-zeros
+    int _totalNonZeros;
+    
     // Local residual
     double *localF;
     int localFSize;

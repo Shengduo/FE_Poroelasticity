@@ -16,8 +16,8 @@ int main(int argc, char **argv) {
    
     vector<double> spaceDomain = {4, 6}; 
     vector<int> nOfEdges = {4, 6};
-    double endingTime = 5.0;
-    double dt = 0.1;
+    double endingTime = 1.0;
+    double dt = 0.01;
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
