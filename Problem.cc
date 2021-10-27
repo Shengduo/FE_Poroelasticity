@@ -27,12 +27,27 @@ Problem::~Problem() {
     VecDestroy(&globalF);
     VecDestroy(&globalS);
     VecDestroy(&globalS_t);
+    
+    // VecDestroy(&seqGlobalF);
+    VecDestroy(&seqGlobalS);
+    VecDestroy(&seqGlobalS_t);
 
     // Mat destroy
     MatDestroy(&globalJF);
 
     // Delete rows
     if (globalRows) delete [] globalRows;
+    
+    // Delete scatter helpers
+    if (idx_from) delete idx_from;
+    if (idx_to) delete idx_to;
+
+    ISDestroy(&from); 
+    ISDestroy(&to);
+    VecScatterDestroy(&scatter);
+    
+    // Deallocate TS
+    TSDestroy(&ts);
 };
 
 // General initialization
@@ -976,16 +991,11 @@ void Problem::testIntegratorNfB() const {
     */
 };
 
-/** Non-zeros per row in global matrices */
-void Problem::getNNZPerRow(PetscInt *nnz) {
-    // First clear nnz
-    for (int i = 0; i < _totalDOF; i++) {
-        nnz[i] = 0;
-    }
-
-    // Store non-zero entries
-    vector<int> nonZeros(pow(_totalDOF, _spaceDim), 0);
-    globalRows = new PetscInt [_totalDOF];
+/** Initialize non-zeros in global matrices */
+void Problem::initializeNonZeros() {
+    // Non-zeros resize
+    cout << "Initializing Non-Zeros. " << "\n";
+    nonZeros.resize(pow(_totalDOF, 2), 0);
 
     // Some constants
     int nOfNodes;
@@ -994,15 +1004,16 @@ void Problem::getNNZPerRow(PetscInt *nnz) {
     
     // Stores global and local index
     int I, J;
-    
+    _totalNonZeros = 0;
+
     // Upper elements non-zeros
     for (ElementQ4 *element : upperElements) {
         // First node
-        for (int n1 = 0; n1 < nOfNodes; n1++)
-        {
-            nOfNodes = element->getNID().size();
-            nOfDofs = element->getNID()[0]->getDOF().size();
-            nColsJF = nOfDofs * nOfNodes;
+        nOfNodes = element->getNID().size();
+        nOfDofs = element->getNID()[0]->getDOF().size();
+        nColsJF = nOfDofs * nOfNodes;
+
+        for (int n1 = 0; n1 < nOfNodes; n1++) {            
             // cout << "\n";
             // Then row of local JF3
             for (int i = 0; i < nOfDofs; i++)
@@ -1025,18 +1036,65 @@ void Problem::getNNZPerRow(PetscInt *nnz) {
             }
         }
     }
+
+    for (int i = 0; i < nonZeros.size(); i++) _totalNonZeros += nonZeros[i];
+    ofstream myFile;
+    myFile.open("NonZeroMat.txt");
+    printMatrix(myFile, nonZeros, _totalDOF, _totalDOF);
+};
+
+/** Non-zeros per row in global matrices */
+void Problem::getNNZPerRow(PetscInt rowStart, PetscInt rowEnd, PetscInt nOfRows, PetscInt *dnnz, PetscInt *onnz) const {
+    // First clear nnz
+    for (int i = 0; i < nOfRows; i++) {
+        dnnz[i] = 0;
+        onnz[i] = 0;
+    }
     
-    // Calculate all non-zeros
-    for (int i = 0; i < _totalDOF; i++) {
-        globalRows[i] = i;
-        for (int j = 0; j < _totalDOF; j++) {
-            nnz[i] += nonZeros[i * _totalDOF + j];
+    // Calculate on-diagonal and off-diagonal non-zeros
+    for (PetscInt i = 0; i < nOfRows; i++) {
+        for (PetscInt j = 0; j < rowStart; j++) {
+            onnz[i] += nonZeros[i * _totalDOF + j];
+        }
+
+        for (PetscInt j = rowStart; j < rowEnd; j++) {
+            dnnz[i] += nonZeros[i * _totalDOF + j];
+        }
+
+        for (PetscInt j = rowEnd; j < _totalDOF; j++) {
+            onnz[i] += nonZeros[i * _totalDOF + j];
         }
     }
-}
+};
 
 /** Printout a matrix */
 void Problem::printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const {
+    for (int i = 0; i < nRows; i++) {
+        for (int j = 0; j < nCols; j++) {
+            myFile << setw(12) << Matrix[i * nCols + j] << " ";
+        }
+        myFile << "\n";
+    }
+    myFile << "\n";
+
+    if (nRows == nCols) {
+        myFile << "Matrix is Square!" << "\n";
+        double err = 0.;
+        double sum = 0.;
+        for (int i = 0; i < nRows; i++) {
+            for (int j = 0; j < nCols; j++) {
+                err += abs(Matrix[i * nCols + j] - Matrix[j * nCols + i]);
+                sum += Matrix[i * nCols + j]; 
+            }
+        }
+        myFile << "Error from Symmetric: " << setw(12) << err << "\n";
+        myFile << "Sum of all entries: " << setw(12) << sum << "\n";
+        myFile << "\n";
+    }    
+};
+
+/** Printout a matrix (int) */
+void Problem::printMatrix(ofstream & myFile, const vector<int>& Matrix, int nRows, int nCols) const {
     for (int i = 0; i < nRows; i++) {
         for (int j = 0; j < nCols; j++) {
             myFile << setw(12) << Matrix[i * nCols + j] << " ";
@@ -1335,7 +1393,7 @@ void Problem::testFetchGlobalSElastic() {
  * Test Petsc, Mat, Vec, KSP solver, integratorBfB
  */
 // Initialization of poroelastic problem
-void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime, double dt) {
+void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime, double dt, int nMatPartitions) {
     // Initialize geometry2D
     if (_spaceDim == 2) initializeGeometry2D(xRanges, edgeNums);
     
@@ -1352,8 +1410,9 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     // Initialize elements
     initializeElementsPoroElastic();
     
+    /**
     // Initialize Mats and Vecs, Mats and TS
-    initializePetsc();
+    initializePetsc(nMatPartitions);
 
     // Non-Linear solver
     solvePoroElastic(endingTime, dt);
@@ -1362,6 +1421,7 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     for (int i = 0; i < timeConsumed.size(); i++) {
         cout << "Time Consumed [" << i << "] is " << timeConsumed[i] << "\n";
     }
+    */
 };
 
 // Initialization of Nodes
@@ -1526,29 +1586,16 @@ void Problem::assignNodalDOFPoroElastic() {
 };
 
 // Initialize Vec F, S, S_t, Mat JF
-void Problem::initializePetsc() {
-    // Set size of global F
-    VecCreate(PETSC_COMM_WORLD, &globalF);
-    VecSetSizes(globalF, PETSC_DECIDE, _totalDOF);
-    VecSetFromOptions(globalF);
-    VecSetOption(globalF, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+PetscErrorCode Problem::initializePetsc(int argc, char **argv) {
+    PetscErrorCode ierr;
 
-    // Initialize globalS
-    VecCreate(PETSC_COMM_WORLD, &globalS);
-    VecSetSizes(globalS, PETSC_DECIDE, _totalDOF);
-    VecSetFromOptions(globalS);
-    VecSetOption(globalS, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
-
-    // Initialize globalS_t
-    VecCreate(PETSC_COMM_WORLD, &globalS_t);
-    VecSetSizes(globalS_t, PETSC_DECIDE, _totalDOF);
-    VecSetFromOptions(globalS_t);
-    VecSetOption(globalS_t, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+    
     
     // Initialize globalJF
-    PetscInt *globalJF_nnz = new PetscInt [_totalDOF];
-    getNNZPerRow(globalJF_nnz);
+    // PetscInt *globalJF_nnz = new PetscInt [_totalDOF];
+    // getNNZPerRow(globalJF_nnz);
 
+    /**
     MatCreateSeqAIJ(PETSC_COMM_WORLD, _totalDOF, _totalDOF, 0, globalJF_nnz, &globalJF);
     // MatSetSizes(globalJF, PETSC_DECIDE, PETSC_DECIDE, _totalDOF, _totalDOF);
     delete [] globalJF_nnz;
@@ -1556,8 +1603,101 @@ void Problem::initializePetsc() {
     MatSetFromOptions(globalJF);
     MatSetOption(globalJF, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
     MatSetUp(globalJF);
+    */
+
+    // Use Parallel Matrix for globalJF, Parallel Vector for globalF, globalS_t and globalS
+    PetscMPIInt rank, size, rowStart, rowEnd;
+    ierr = MatCreate(PETSC_COMM_WORLD, &globalJF); 
+    ierr = MatSetType(globalJF, MATMPIAIJ);
+    ierr = MatSetSizes(globalJF, PETSC_DECIDE, PETSC_DECIDE, _totalDOF, _totalDOF);
+    ierr = MatSetFromOptions(globalJF);
+    ierr = MatSetUp(globalJF);
+    if (ierr) return ierr;
+
+    // Initialize globalJF
+    ierr = MatGetOwnershipRange(globalJF, &rowStart, &rowEnd);
+    PetscInt nOfRows = rowEnd - rowStart;
+    PetscInt *onnz = new PetscInt [nOfRows];
+    PetscInt *dnnz = new PetscInt [nOfRows];
+    getNNZPerRow(rowStart, rowEnd, nOfRows, dnnz, onnz);
+
+    ierr = MatMPIAIJSetPreallocation(globalJF, 0, dnnz, 0, onnz);
+    if (ierr) return ierr;
+    
+    MatSetFromOptions(globalJF);
+    MatSetOption(globalJF, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
+    MatSetUp(globalJF);
+
+    // DEBUG LINES
+    
+    ierr = MatAssemblyBegin(globalJF, MAT_FLUSH_ASSEMBLY);
+    ierr = MatAssemblyEnd(globalJF, MAT_FLUSH_ASSEMBLY); if (ierr) return ierr;
+    /**
+    // Cout sizes
+    ierr = MatGetOwnershipRange(globalJF, &rowStart, &rowEnd);
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+    if (rank == 0) {
+        cout << "Rank: " << rank << "\n";
+        cout << "Row Start: " << rowStart << "\n";
+        cout << "Row End: " << rowEnd << "\n";
+        cout << "Total DOF: " << _totalDOF << "\n";
+        cout << "Diagonal and off-diagonal non-zeros: ";
+        for (int i = 0; i < nOfRows; i++) cout << dnnz[i] << " "; cout << "\n";
+        for (int i = 0; i < nOfRows; i++) cout << onnz[i] << " "; cout << "\n";
+    }
+    */
+    // Delete memory claimed on heaps
+    delete [] onnz, dnnz;
+
+    // Synchronize
+    MPI_Barrier(PETSC_COMM_WORLD);
+
+    // See whether pre-allocation is correct
+    MatInfo info;
+    MatGetInfo(globalJF, MAT_GLOBAL_SUM, &info);
+    PetscPrintf(PETSC_COMM_WORLD, "Allocated Nonzero number is: %6.4e\n", info.nz_allocated);
+    PetscPrintf(PETSC_COMM_WORLD, "Correct Nonzero number is: %6.4e\n", _totalNonZeros);
+    MatSetOption(globalJF, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+    // Initialize global F
+    MatCreateVecs(globalJF, NULL, &globalF);
+    VecSetOption(globalF, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+    // VecCreateSeq(PETSC_COMM_SELF, _totalDOF, &seqGlobalF);
+
+    // Initialize globalS
+    MatCreateVecs(globalJF, NULL, &globalS);
+    VecSetOption(globalS, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+    VecCreateSeq(PETSC_COMM_SELF, _totalDOF, &seqGlobalS);
+    // VecSetSizes(seqGlobalS, PETSC_DECIDE, _totalDOF);
+    
+    // Initialize globalS_t
+    MatCreateVecs(globalJF, NULL, &globalS_t);
+    VecSetOption(globalS_t, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
+    VecCreateSeq(PETSC_COMM_SELF, _totalDOF, &seqGlobalS_t);
+    // VecSetSizes(seqGlobalS_t, PETSC_DECIDE, _totalDOF);
+
+    // Initialize idx_from, idx_to
+    idx_from = new PetscInt [_totalDOF];
+    idx_to = new PetscInt [_totalDOF];
+    for (int i = 0; i < _totalDOF; i++) {
+        idx_from[i] = i; idx_to[i] = i;
+    }
+
+    // Create scatter environment
+    ISCreateGeneral(PETSC_COMM_SELF, _totalDOF, idx_from, PETSC_COPY_VALUES, &from);
+    ISCreateGeneral(PETSC_COMM_SELF, _totalDOF, idx_to, PETSC_COPY_VALUES, &to);
+    VecScatterCreate(globalS, from, seqGlobalS, to, &scatter);
+
+    // DEBUG LINES, view globalJF and globalF
+    // PetscPrintf(PETSC_COMM_WORLD, "View globalJF: \n");
+    // MatView(globalJF, PETSC_VIEWER_STDOUT_WORLD);
+    // PetscPrintf(PETSC_COMM_WORLD, "View globalF: \n");
+    // VecView(globalF, PETSC_VIEWER_STDOUT_WORLD);
+
+    // Output non-zeros;
 
     // Zero the system Vecs and Mats
+
+    /**
     VecZeroEntries(globalS);
     VecZeroEntries(globalS_t);
     VecZeroEntries(globalF);
@@ -1566,8 +1706,11 @@ void Problem::initializePetsc() {
     for (Node* node : upperNodes) {
         node->pushS(globalS);
     }
-}
+    */
 
+    // ierr = PetscFinalize(); 
+    return ierr;
+}
 
 // Initialization of Elastic Elements
 void Problem::initializeElementsPoroElastic() {
@@ -1602,13 +1745,14 @@ void Problem::initializeElementsPoroElastic() {
     localJFSize = pow(localFSize, 2);
     localF = new double [localFSize];
     localJF = new double [localJFSize];
+
+    // Initialize global non-zeros
+    initializeNonZeros();
 };
 
 /** TS (SNES) solver for linear poroelastic problems */
 void Problem::solvePoroElastic(double endingTime, double dt) {
     /** Initialize TS */
-    // Non-linear time-dependent solver
-    TS ts;
 
     /** Create timestepping solver context */
     TSCreate(PETSC_COMM_WORLD, & ts);    
@@ -1660,30 +1804,61 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     // Convert the pointer
     Problem *myProblem = (Problem*) ctx;
     
-    // Clear the vector
+    // Clear the vector at the positions to assemble to in this processor
     ierr = VecZeroEntries(F);
+    
+    // Set a Barrier so that F does not get zeroed by other processors
+    ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRMPI(ierr);
     
     // Write vtk file
     if (t > myProblem->nodeTime) {
         // Debug lines
         cout << "IFunction t = " << t << "\n";
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTU("NewOutput");
+        myProblem->writeVTU("SingleCoreOutput");
         myProblem->nodeTime = t;
     }
 
     // Fetch all s into the nodes
-    for (Node* node : myProblem->upperNodes) {
-        node->fetchS(s);
-        node->fetchS_t(s_t);
-    }
+    VecScatterBegin(myProblem->scatter, 
+                    s, 
+                    myProblem->seqGlobalS, 
+                    INSERT_VALUES, 
+                    SCATTER_FORWARD);
+
+    VecScatterEnd(myProblem->scatter,
+                  s,
+                  myProblem->seqGlobalS,
+                  INSERT_VALUES,
+                  SCATTER_FORWARD);
 
     
+    VecScatterBegin(myProblem->scatter, 
+                    s_t, 
+                    myProblem->seqGlobalS_t, 
+                    INSERT_VALUES, 
+                    SCATTER_FORWARD);
+                    
+    VecScatterEnd(myProblem->scatter,
+                  s_t,
+                  myProblem->seqGlobalS_t,
+                  INSERT_VALUES,
+                  SCATTER_FORWARD);
+    
+    for (Node* node : myProblem->upperNodes) {
+        node->fetchS(myProblem->seqGlobalS);
+        node->fetchS_t(myProblem->seqGlobalS_t);
+    }
+
+    // Add Parallelization
+    PetscInt size, rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+    MPI_Comm_size(PETSC_COMM_WORLD, &size);
 
     // Loop through all elements in upperElements
-    for (ElementQ4 *element : myProblem->upperElements) {
+    for (PetscInt i = rank; i < myProblem->upperElements.size(); i += size) {
         // Calculate F within the element
-        element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
+        myProblem->upperElements[i]->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
         
     }
     
@@ -1703,6 +1878,8 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
     */
+
+    ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRMPI(ierr);
     return ierr;
 }
 
@@ -1727,26 +1904,50 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     ierr = MatAssembled(Pmat, &isAssembled);
 
     // Fetch all s into the nodes
+    /**
     for (Node* node : myProblem->upperNodes) {
         node->fetchS(s);
         node->fetchS_t(s_t);
     }
     myProblem->nodeTime = t;
+    */
     
     // Initialize local JF and JFSize
 
     // Clock on
     // myProblem->clocks[0] = clock();
 
+    // See whether pre-allocation is correct
+    /**
+    MatInfo info;
+    MatGetInfo(myProblem->globalJF, MAT_GLOBAL_SUM, &info);
+    PetscPrintf(PETSC_COMM_WORLD, "Allocated Nonzero number is: %6.4e\n", info.nz_allocated);
+    PetscPrintf(PETSC_COMM_WORLD, "Correct Nonzero number is: %6.4e\n", myProblem->_totalNonZeros);
+    */
+    // Add parallelization
+    PetscInt size, rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+    MPI_Comm_size(PETSC_COMM_WORLD, &size);
+
     // Loop through all elements in upperElements
-    for (ElementQ4 *element : myProblem->upperElements) {
+    for (PetscInt i = rank; i < myProblem->upperElements.size(); i += size) {
+    // for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
-        element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);
+        myProblem->upperElements[i]->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);
     }
 
     // myProblem->clocks[1] = clock();
 
+    // DEBUG LINES
+    // Set a Barrier
+    // ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRMPI(ierr);
     // Assemble the global Jacobian matrix
+
+    // See whether pre-allocation is correct
+    MatInfo info;
+    MatGetInfo(Pmat, MAT_GLOBAL_SUM, &info);
+    PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Allocated Nonzero number is: %6.4e\n", rank, info.nz_allocated);
+    PetscPrintf(PETSC_COMM_SELF, "Correct Nonzero number is: %6.4e\n", myProblem->_totalNonZeros);
     ierr = MatAssemblyBegin(Pmat, MAT_FINAL_ASSEMBLY);
     ierr = MatAssemblyEnd(Pmat, MAT_FINAL_ASSEMBLY);
     

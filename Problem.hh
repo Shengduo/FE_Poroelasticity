@@ -54,15 +54,28 @@ private:
     
     // Global residual vector
     Vec globalF;
+    // Vec seqGlobalF;
     
     // Global solution vector
     Vec globalS;
+    Vec seqGlobalS;
 
     // Global time-derivative 
     Vec globalS_t;
+    Vec seqGlobalS_t;
 
     // Global JF
+    vector<int> nonZeros;
+    int _totalNonZeros;
     Mat globalJF;
+
+    // For vector scattering
+    VecScatter scatter;
+    IS from, to;
+    PetscInt *idx_from, *idx_to;
+
+    // TS, Non-linear time-dependent solver
+    TS ts;
 
     // Local residual
     double *localF;
@@ -137,11 +150,17 @@ private:
     // TestGradient 
     void testEvaluateF_x() const;
 
-    // Non-zeros per row in global matrices
-    void getNNZPerRow(PetscInt *nnz);
+    // Initialize non-zeros in global matrices
+    void initializeNonZeros();
 
-    // Print matrix
+    // Non-zeros per row in global matrices
+    void getNNZPerRow(PetscInt rowStart, PetscInt rowEnd, PetscInt nOfRows, PetscInt *dnnz, PetscInt *onnz) const;
+
+    // Print matrix (double)
     void printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const;
+
+    // Print matrix (int)
+    void printMatrix(ofstream & myFile, const vector<int>& Matrix, int nRows, int nCols) const;
 
 // ============= Test Elastic Solution ============================================================
 /** Only has 1 block upperNodes and upperElements
@@ -182,7 +201,13 @@ private:
 // PUBLIC METHODS
 public:
     // Initialize elastic problem
-    void initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime = 1.0, double dt = 0.01);
+    void initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime = 1.0, double dt = 0.01, int nMatPartitions = 2);
+
+    // Initialize the Vecs and Mats and TS
+    PetscErrorCode initializePetsc(int argc, char** argv);
+
+    // TS solver
+    void solvePoroElastic(double endingTime = 1.0, double dt = 0.01);
 
 // PRIVATE METHODS
 private:
@@ -195,11 +220,7 @@ private:
     // Initialization of Elements
     void initializeElementsPoroElastic();
 
-    // Initialize the Vecs and Mats and TS
-    void initializePetsc();
-
-    // TS solver
-    void solvePoroElastic(double endingTime = 1.0, double dt = 0.01);
+ 
 
     // Residual function
     static PetscErrorCode IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, void *ctx = NULL);
