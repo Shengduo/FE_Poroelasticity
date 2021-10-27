@@ -993,8 +993,13 @@ void Problem::testIntegratorNfB() const {
 
 /** Initialize non-zeros in global matrices */
 void Problem::initializeNonZeros() {
+    // DEBUG LINES
+    int rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
     // Non-zeros resize
-    cout << "Initializing Non-Zeros. " << "\n";
+    // PetscPrintf(PETSC_COMM_SELF, "Initializing Non-Zeros. \n");
+
+
     nonZeros.resize(pow(_totalDOF, 2), 0);
 
     // Some constants
@@ -1038,6 +1043,9 @@ void Problem::initializeNonZeros() {
     }
 
     for (int i = 0; i < nonZeros.size(); i++) _totalNonZeros += nonZeros[i];
+
+    // DEBUG LINES
+    // PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Total NonZeros: %d \n", rank, _totalNonZeros);
     ofstream myFile;
     myFile.open("NonZeroMat.txt");
     printMatrix(myFile, nonZeros, _totalDOF, _totalDOF);
@@ -1054,15 +1062,15 @@ void Problem::getNNZPerRow(PetscInt rowStart, PetscInt rowEnd, PetscInt nOfRows,
     // Calculate on-diagonal and off-diagonal non-zeros
     for (PetscInt i = 0; i < nOfRows; i++) {
         for (PetscInt j = 0; j < rowStart; j++) {
-            onnz[i] += nonZeros[i * _totalDOF + j];
+            onnz[i] += nonZeros[(i + rowStart) * _totalDOF + j];
         }
 
         for (PetscInt j = rowStart; j < rowEnd; j++) {
-            dnnz[i] += nonZeros[i * _totalDOF + j];
+            dnnz[i] += nonZeros[(i + rowStart) * _totalDOF + j];
         }
 
         for (PetscInt j = rowEnd; j < _totalDOF; j++) {
-            onnz[i] += nonZeros[i * _totalDOF + j];
+            onnz[i] += nonZeros[(i + rowStart) * _totalDOF + j];
         }
     }
 };
@@ -1411,12 +1419,6 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     initializeElementsPoroElastic();
     
     /**
-    // Initialize Mats and Vecs, Mats and TS
-    initializePetsc(nMatPartitions);
-
-    // Non-Linear solver
-    solvePoroElastic(endingTime, dt);
-
     // Cout timeConsumed
     for (int i = 0; i < timeConsumed.size(); i++) {
         cout << "Time Consumed [" << i << "] is " << timeConsumed[i] << "\n";
@@ -1585,6 +1587,44 @@ void Problem::assignNodalDOFPoroElastic() {
     myFile.close();
 };
 
+// Initialization of Elastic Elements
+void Problem::initializeElementsPoroElastic() {
+    // Using the NID to assign values to each element
+    vector<Node*> NID(4, NULL);
+    
+    // Upperzone ElementQ4s
+    upperElements.resize(myGeometry->nOfElements, NULL);
+
+    for (int i = 0; i < myGeometry->xEdgeNum; i++) {
+        for (int j = 0; j < myGeometry->yEdgeNum; j++) {
+            // Setting NID for upper subzone
+            NID = {upperNodes[j * myGeometry->xNodeNum + i], 
+                   upperNodes[j * myGeometry->xNodeNum + i + 1], 
+                   upperNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
+                   upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
+
+            upperElements[j * myGeometry->xEdgeNum + i] = 
+                new ElementQ4(j * myGeometry->xEdgeNum + i, NID, &clocks, &timeConsumed);            
+        }
+    }
+    ofstream myFile;
+    myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
+    for (ElementQ4* thisElement : upperElements) thisElement->outputInfo(myFile);
+    for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
+    for (ElementQ4Cohesive* thisElement : cohesiveElements) thisElement->outputInfo(myFile);
+    myFile.close();
+
+    // Allocate localF and localJF
+    localFSize = upperElements[0]->getElementDOF();
+    localJFSize = pow(localFSize, 2);
+    localF = new double [localFSize];
+    localJF = new double [localJFSize];
+
+    // Initialize global non-zeros
+    initializeNonZeros();
+};
+
 // Initialize Vec F, S, S_t, Mat JF
 PetscErrorCode Problem::initializePetsc(int argc, char **argv) {
     PetscErrorCode ierr;
@@ -1607,12 +1647,22 @@ PetscErrorCode Problem::initializePetsc(int argc, char **argv) {
 
     // Use Parallel Matrix for globalJF, Parallel Vector for globalF, globalS_t and globalS
     PetscMPIInt rank, size, rowStart, rowEnd;
+    ierr = MPI_Comm_size(PETSC_COMM_WORLD, &size);
+    ierr = MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
     ierr = MatCreate(PETSC_COMM_WORLD, &globalJF); 
     ierr = MatSetType(globalJF, MATMPIAIJ);
     ierr = MatSetSizes(globalJF, PETSC_DECIDE, PETSC_DECIDE, _totalDOF, _totalDOF);
     ierr = MatSetFromOptions(globalJF);
     ierr = MatSetUp(globalJF);
     if (ierr) return ierr;
+    
+    // DEBUG LINES
+    // cout << "Total Non zero number: " << _totalNonZeros << "\n";
+    // See whether pre-allocation is correct
+    // MatInfo info;
+    // MatGetInfo(globalJF, MAT_GLOBAL_SUM, &info);
+    // PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Allocated Nonzero number is: %6.4e\n", rank, info.nz_allocated);
+    // PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Correct Nonzero number before preallocation is: %d \n", rank, this->_totalNonZeros);
 
     // Initialize globalJF
     ierr = MatGetOwnershipRange(globalJF, &rowStart, &rowEnd);
@@ -1647,17 +1697,20 @@ PetscErrorCode Problem::initializePetsc(int argc, char **argv) {
     }
     */
     // Delete memory claimed on heaps
-    delete [] onnz, dnnz;
+    delete [] onnz;
+    delete [] dnnz;
 
+    // DEBUG LINES
     // Synchronize
-    MPI_Barrier(PETSC_COMM_WORLD);
+    // MPI_Barrier(PETSC_COMM_WORLD);
+    // MatInfo info;
+    // MatGetInfo(globalJF, MAT_GLOBAL_SUM, &info);
+    // PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Allocated Nonzero number is: %d \n", rank, int(info.nz_allocated));
+    // PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Correct Nonzero number after preallocation is: %d \n", rank, this->_totalNonZeros);
+    // // Synchronize
+    // MPI_Barrier(PETSC_COMM_WORLD);
 
-    // See whether pre-allocation is correct
-    MatInfo info;
-    MatGetInfo(globalJF, MAT_GLOBAL_SUM, &info);
-    PetscPrintf(PETSC_COMM_WORLD, "Allocated Nonzero number is: %6.4e\n", info.nz_allocated);
-    PetscPrintf(PETSC_COMM_WORLD, "Correct Nonzero number is: %6.4e\n", _totalNonZeros);
-    MatSetOption(globalJF, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+    // MatSetOption(globalJF, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
     // Initialize global F
     MatCreateVecs(globalJF, NULL, &globalF);
     VecSetOption(globalF, VEC_IGNORE_NEGATIVE_INDICES,PETSC_TRUE);
@@ -1711,44 +1764,6 @@ PetscErrorCode Problem::initializePetsc(int argc, char **argv) {
     // ierr = PetscFinalize(); 
     return ierr;
 }
-
-// Initialization of Elastic Elements
-void Problem::initializeElementsPoroElastic() {
-    // Using the NID to assign values to each element
-    vector<Node*> NID(4, NULL);
-    
-    // Upperzone ElementQ4s
-    upperElements.resize(myGeometry->nOfElements, NULL);
-
-    for (int i = 0; i < myGeometry->xEdgeNum; i++) {
-        for (int j = 0; j < myGeometry->yEdgeNum; j++) {
-            // Setting NID for upper subzone
-            NID = {upperNodes[j * myGeometry->xNodeNum + i], 
-                   upperNodes[j * myGeometry->xNodeNum + i + 1], 
-                   upperNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
-                   upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
-
-            upperElements[j * myGeometry->xEdgeNum + i] = 
-                new ElementQ4(j * myGeometry->xEdgeNum + i, NID, &clocks, &timeConsumed);            
-        }
-    }
-    ofstream myFile;
-    myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
-    myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
-    for (ElementQ4* thisElement : upperElements) thisElement->outputInfo(myFile);
-    for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
-    for (ElementQ4Cohesive* thisElement : cohesiveElements) thisElement->outputInfo(myFile);
-    myFile.close();
-
-    // Allocate localF and localJF
-    localFSize = upperElements[0]->getElementDOF();
-    localJFSize = pow(localFSize, 2);
-    localF = new double [localFSize];
-    localJF = new double [localJFSize];
-
-    // Initialize global non-zeros
-    initializeNonZeros();
-};
 
 /** TS (SNES) solver for linear poroelastic problems */
 void Problem::solvePoroElastic(double endingTime, double dt) {
@@ -1813,9 +1828,9 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     // Write vtk file
     if (t > myProblem->nodeTime) {
         // Debug lines
-        cout << "IFunction t = " << t << "\n";
+        PetscPrintf(PETSC_COMM_WORLD, "IFunction t = %f\n",  t);
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTU("SingleCoreOutput");
+        myProblem->writeVTU("SixCoresOutput");
         myProblem->nodeTime = t;
     }
 
@@ -1879,7 +1894,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     cout << "\n";
     */
 
-    ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRMPI(ierr);
+    // ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRMPI(ierr);
     return ierr;
 }
 
@@ -1944,10 +1959,10 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Assemble the global Jacobian matrix
 
     // See whether pre-allocation is correct
-    MatInfo info;
-    MatGetInfo(Pmat, MAT_GLOBAL_SUM, &info);
-    PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Allocated Nonzero number is: %6.4e\n", rank, info.nz_allocated);
-    PetscPrintf(PETSC_COMM_SELF, "Correct Nonzero number is: %6.4e\n", myProblem->_totalNonZeros);
+    // MatInfo info;
+    // MatGetInfo(Pmat, MAT_GLOBAL_SUM, &info);
+    // PetscPrintf(PETSC_COMM_SELF, "Processor [%d] Allocated Nonzero number is: %6.4e\n", rank, info.nz_allocated);
+    // PetscPrintf(PETSC_COMM_SELF, "Correct Nonzero number is: %6.4e\n", myProblem->_totalNonZeros);
     ierr = MatAssemblyBegin(Pmat, MAT_FINAL_ASSEMBLY);
     ierr = MatAssemblyEnd(Pmat, MAT_FINAL_ASSEMBLY);
     
