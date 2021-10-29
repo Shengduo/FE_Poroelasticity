@@ -300,12 +300,23 @@ void Problem::testFetchGlobalF() {
 
 // Initialize Elements, !! CURRENTLY only ElementQ4s are available
 void Problem::initializeElements() {
+    // Get size and rank;
+    PetscInt size, rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+    MPI_Comm_size(PETSC_COMM_WORLD, &size);
+    
+    // Calculate upEleStart and upEleEnd
+    upEleStart = myGeometry->nOfElements / size * rank;
+    if (rank == size - 1) upEleEnd = myGeometry->nOfElements;
+    else upEleEnd = myGeometry->nOfElements / size * (rank + 1);
+
     // Using the NID to assign values to each element
     vector<Node*> NID(4, NULL);
     
     // Subzone ElementQ4s
     upperElements.resize(myGeometry->nOfElements, NULL);
     lowerElements.resize(myGeometry->nOfElements, NULL);
+
 
     for (int i = 0; i < myGeometry->xEdgeNum; i++) {
         for (int j = 0; j < myGeometry->yEdgeNum; j++) {
@@ -1592,21 +1603,32 @@ void Problem::initializeElementsPoroElastic() {
     // Using the NID to assign values to each element
     vector<Node*> NID(4, NULL);
     
+    // Get size and rank;
+    PetscInt size, rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+    MPI_Comm_size(PETSC_COMM_WORLD, &size);
+    
+    // Calculate upEleStart and upEleEnd
+    upEleStart = myGeometry->nOfElements / size * rank;
+    if (rank == size - 1) upEleEnd = myGeometry->nOfElements;
+    else upEleEnd = myGeometry->nOfElements / size * (rank + 1);
+
     // Upperzone ElementQ4s
     upperElements.resize(myGeometry->nOfElements, NULL);
-
     for (int i = 0; i < myGeometry->xEdgeNum; i++) {
         for (int j = 0; j < myGeometry->yEdgeNum; j++) {
             // Setting NID for upper subzone
             NID = {upperNodes[j * myGeometry->xNodeNum + i], 
-                   upperNodes[j * myGeometry->xNodeNum + i + 1], 
-                   upperNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
-                   upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
+                upperNodes[j * myGeometry->xNodeNum + i + 1], 
+                upperNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
+                upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
 
             upperElements[j * myGeometry->xEdgeNum + i] = 
                 new ElementQ4(j * myGeometry->xEdgeNum + i, NID, &clocks, &timeConsumed);            
         }
     }
+    
+    /**
     ofstream myFile;
     myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
     myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
@@ -1614,12 +1636,16 @@ void Problem::initializeElementsPoroElastic() {
     for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
     for (ElementQ4Cohesive* thisElement : cohesiveElements) thisElement->outputInfo(myFile);
     myFile.close();
+    */ 
 
     // Allocate localF and localJF
-    localFSize = upperElements[0]->getElementDOF();
+    localFSize = upperElements[upEleStart]->getElementDOF();
     localJFSize = pow(localFSize, 2);
     localF = new double [localFSize];
     localJF = new double [localJFSize];
+
+    // DEBUG LINES
+    PetscPrintf(PETSC_COMM_SELF,  "Processor [%d] Fuck! \n", rank);
 
     // Initialize global non-zeros
     initializeNonZeros();
@@ -1816,21 +1842,29 @@ void Problem::solvePoroElastic(double endingTime, double dt) {
  */
 PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, void *ctx) {
     PetscErrorCode ierr;
+
+    // Get MPI Size and rank
+    PetscInt size, rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+    MPI_Comm_size(PETSC_COMM_WORLD, &size);
+
+
     // Convert the pointer
     Problem *myProblem = (Problem*) ctx;
     
     // Clear the vector at the positions to assemble to in this processor
+    // if (rank == 0) 
     ierr = VecZeroEntries(F);
     
     // Set a Barrier so that F does not get zeroed by other processors
     ierr = MPI_Barrier(PETSC_COMM_WORLD); CHKERRMPI(ierr);
-    
+
     // Write vtk file
     if (t > myProblem->nodeTime) {
         // Debug lines
         PetscPrintf(PETSC_COMM_WORLD, "IFunction t = %f\n",  t);
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTU("SixCoresOutput");
+        if (rank == 0) myProblem->writeVTU("SixCoresOutput");
         myProblem->nodeTime = t;
     }
 
@@ -1866,12 +1900,11 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     }
 
     // Add Parallelization
-    PetscInt size, rank;
-    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-    MPI_Comm_size(PETSC_COMM_WORLD, &size);
+    
 
     // Loop through all elements in upperElements
-    for (PetscInt i = rank; i < myProblem->upperElements.size(); i += size) {
+    // for (PetscInt i = rank; i < myProblem->upperElements.size(); i += size) {
+    for (PetscInt i = myProblem->upEleStart; i < myProblem->upEleEnd; i += 1) {
         // Calculate F within the element
         myProblem->upperElements[i]->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
         
@@ -1945,7 +1978,8 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     MPI_Comm_size(PETSC_COMM_WORLD, &size);
 
     // Loop through all elements in upperElements
-    for (PetscInt i = rank; i < myProblem->upperElements.size(); i += size) {
+    // for (PetscInt i = rank; i < myProblem->upperElements.size(); i += size) {
+    for (PetscInt i = myProblem->upEleStart; i < myProblem->upEleEnd; i += 1) {
     // for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
         myProblem->upperElements[i]->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);

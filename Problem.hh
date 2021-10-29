@@ -39,6 +39,7 @@ private:
     
     // Upper half subzone elements
     vector<ElementQ4*> upperElements;
+    int upEleStart, upEleEnd;
 
     // Lower half subzone elements
     vector<ElementQ4*> lowerElements;

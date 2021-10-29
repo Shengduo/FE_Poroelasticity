@@ -12,8 +12,9 @@ int main(int argc, char **argv) {
     
     // Initialize problem
     PetscErrorCode ierr = PetscInitialize(&argc, &argv, NULL, help);  if (ierr) return ierr;
+    ierr = PetscLogDefaultBegin(); CHKERRMPI(ierr);
     vector<double> spaceDomain = {4, 6}; 
-    vector<int> nOfEdges = {4, 6};
+    vector<int> nOfEdges = {40, 60};
     double endingTime = 5.0;
     double dt = 0.1;
     int nMatPartition = 8;
@@ -26,14 +27,15 @@ int main(int argc, char **argv) {
     try {
         Problem* myProblem = new Problem();
         myProblem->initializePoroElastic(spaceDomain, nOfEdges, endingTime, dt, nMatPartition);
+        
         ierr = myProblem->initializePetsc(argc, argv);  if (ierr) return ierr; 
-        myProblem->solvePoroElastic();    
+        myProblem->solvePoroElastic(endingTime, dt);    
     }
     catch (const char* msg) {
         cerr << msg << endl;
     }
 
-    // ierr  = PetscLogView(PETSC_VIEWER_STDOUT_SELF); if (ierr) return ierr;
+    ierr  = PetscLogView(PETSC_VIEWER_STDOUT_WORLD); if (ierr) return ierr;
     ierr = PetscFinalize(); 
     return ierr;    
 
