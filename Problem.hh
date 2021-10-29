@@ -185,7 +185,7 @@ private:
 // PUBLIC METHODS
 public:
     // Initialize elastic problem
-    void initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime = 1.0, double dt = 0.01);
+    void initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime = 1.0, double dt = 0.01, string outputPrefix = "Output");
 
 // PRIVATE METHODS
 private:
@@ -209,6 +209,9 @@ private:
     
     // Jacobian function
     static PetscErrorCode IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal s_tshift, Mat Amat, Mat Pmat, void *ctx = NULL);
+
+    // output String prefix
+    string outputPrefix;
 
     // Write VTK files
     void writeVTK(string prefix);

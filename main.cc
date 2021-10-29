@@ -15,13 +15,14 @@ int main(int argc, char **argv) {
     PetscLogDefaultBegin();
    
     vector<double> spaceDomain = {4, 6}; 
-    vector<int> nOfEdges = {4, 6};
-    double endingTime = 1.0;
-    double dt = 0.01;
+    vector<int> nOfEdges = {40, 60};
+    double endingTime = 5.0;
+    double dt = 0.1;
+    string outputPrefix = "SingleCoreSourceDiffusion";
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
-        myProblem->initializePoroElastic(spaceDomain, nOfEdges, endingTime, dt);
+        myProblem->initializePoroElastic(spaceDomain, nOfEdges, endingTime, dt, outputPrefix);
     }
     catch (const char* msg) {
         cerr << msg << endl;

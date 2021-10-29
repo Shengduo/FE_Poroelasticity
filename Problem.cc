@@ -1341,7 +1341,7 @@ void Problem::testFetchGlobalSElastic() {
  * Test Petsc, Mat, Vec, KSP solver, integratorBfB
  */
 // Initialization of poroelastic problem
-void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime, double dt) {
+void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime, double dt, string outputPrefix) {
     // Initialize geometry2D
     if (_spaceDim == 2) initializeGeometry2D(xRanges, edgeNums);
     
@@ -1360,6 +1360,9 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     
     // Initialize Mats and Vecs, Mats and TS
     initializePetsc();
+
+    // Set outputprefix
+    this->outputPrefix = outputPrefix;
 
     // Non-Linear solver
     solvePoroElastic(endingTime, dt);
@@ -1443,11 +1446,11 @@ void Problem::initializeNodesPoroElastic() {
             
             // upper surface, put pressure = 1 into initialS;
             if (j == myGeometry->yNodeNum - 1 ) {
-                initialS[2 * spaceDim] = 1.0;
+                initialS[2 * spaceDim] = 0.0;
             }
             // lower surface, put pressure = 0 into initialS;
             else if (j == 0) {
-                initialS[2 * spaceDim] = -1.0;
+                initialS[2 * spaceDim] = -0.0;
             }
             else {
                 initialS[2 * spaceDim] = 0.0;
@@ -1486,7 +1489,7 @@ void Problem::initializeNodesPoroElastic() {
                 if (i == myGeometry->xNodeNum / 2) {
                     // Further fix x
                     upperNodes[nodeID_in_set]->setDOF(0, 1);
-                    // upperNodes[nodeID_in_set]->setSource(4.0);
+                    upperNodes[nodeID_in_set]->setSource(4.0);
                 }
             }
 
@@ -1674,7 +1677,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Debug lines
         cout << "IFunction t = " << t << "\n";
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTU("NewOutputSingleCore");
+        myProblem->writeVTU(myProblem->outputPrefix);
         myProblem->nodeTime = t;
     }
 
