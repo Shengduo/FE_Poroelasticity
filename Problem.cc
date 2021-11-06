@@ -173,13 +173,22 @@ void Problem::initializeNodes() {
     cohesiveNodes.resize(myGeometry->xNodeNum);
     initialS.resize(spaceDim + 2);
     fill(initialS.begin(), initialS.end(), 3.0);
-    vector<int> DOF_cohesive_default(spaceDim + 2, 0);
+    
+    // Properly set the DOFs and lowerUpperNodes
+    vector<int> DOF_cohesive_default(2 * (2 * spaceDim + 2) + spaceDim + 2, 2);
+    for (int i = 2 * (2 * spaceDim + 2); i < 2 * (2 * spaceDim + 2) + spaceDim + 2; i++) DOF_cohesive_default[i] = 0;
+    vector<Node*> lowerUpperNodes(2, NULL);
+    
     for (int i = 0; i < myGeometry->xNodeNum; i++) {
+        // lowerUpperNodes
+        lowerUpperNodes[0] = lowerNodes[i];
+        lowerUpperNodes[1] = upperNodes[i];
+
         thisXYZ[0] = i * edgeSize[0];
         thisXYZ[1] = 0.;
         massDensity = thisXYZ[0] + thisXYZ[1];
         bodyForce  = {-thisXYZ[0], -thisXYZ[1]};
-        cohesiveNodes[nodeID_in_set] = new CohesiveNode(nodeID, thisXYZ, DOF_cohesive_default, spaceDim);
+        cohesiveNodes[nodeID_in_set] = new CohesiveNode(nodeID, thisXYZ, DOF_cohesive_default, lowerUpperNodes, spaceDim);
         cohesiveNodes[nodeID_in_set]->setMassDensity(massDensity);
         cohesiveNodes[nodeID_in_set]->setBodyForce(&bodyForce);
         cohesiveNodes[nodeID_in_set]->initializeS(initialS);
@@ -235,10 +244,11 @@ void Problem::assignNodalDOF() {
                 cohesiveNodes[i]->setDOF(j, _totalDOF);
                 _totalDOF += 1;
             }
-            else {
+            else if (cohesiveNodes[i]->getDOF(j) == 1){
                 cohesiveNodes[i]->setDOF(j, -1); 
             }
         }
+        cohesiveNodes[i]->updateDOF();
     }
 };
 
@@ -322,9 +332,8 @@ void Problem::initializeElements() {
     for (int i = 0; i < myGeometry->xEdgeNum; i++) {
         NID_cohesive = {cohesiveNodes[i], 
                cohesiveNodes[i + 1]};
-        NID = {lowerNodes[i], lowerNodes[i + 1], upperNodes[i], upperNodes[i + 1]};
         cohesiveElements[i] = 
-            new ElementQ4Cohesive(cohesiveElementST + i, NID_cohesive, NID); 
+            new ElementQ4Cohesive(cohesiveElementST + i, NID_cohesive); 
     }
 
     ofstream myFile;
@@ -1523,6 +1532,34 @@ void Problem::assignNodalDOFPoroElastic() {
                 upperNodes[i]->setDOF(j, -1); 
             }
         }
+    }
+
+    // Assign lowerzone
+    for (int i = 0; i < lowerNodes.size(); i++) {
+        for (int j = 0; j < lowerNodes[i]->getDOF().size(); j++) {
+            if (lowerNodes[i]->getDOF(j) == 0) {
+                lowerNodes[i]->setDOF(j, _totalDOF);
+                _totalDOF += 1;
+            }
+            else {
+                lowerNodes[i]->setDOF(j, -1); 
+            }
+        }
+    }
+
+    // Assign cohesivezone
+    for (int i = 0; i < cohesiveNodes.size(); i++) {
+        for (int j = 0; j < cohesiveNodes[i]->getDOF().size(); j++) {
+            if (cohesiveNodes[i]->getDOF(j) == 0) {
+                cohesiveNodes[i]->setDOF(j, _totalDOF);
+                _totalDOF += 1;
+            }
+            // Locked degree of freedom
+            else if (cohesiveNodes[i]->getDOF(j) == 1){
+                cohesiveNodes[i]->setDOF(j, -1); 
+            }
+        }
+        cohesiveNodes[i]->updateDOF();
     }
 
     // Output to log file

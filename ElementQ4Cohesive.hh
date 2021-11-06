@@ -13,9 +13,6 @@ private:
     /** Node connection */
     vector<CohesiveNode*> _NID;
 
-    /** Minus and plus side node connection */
-    vector<Node*> _NIDMinusPlus;
-
     /** Shape function N, vector of 2 on 2 nodes, 
      * evaluated in base space (ksi)
      */
@@ -40,15 +37,79 @@ private:
     /** Gradient of shape function B_x[i, j] at (ksi) */
     double B_x(const vector<double> & Bvector, int i, int j) const;
 
+    /** Pre-calculate all B_x vectors at 4 integration points
+     * since everything is calculated in reference config
+     */
+    vector<vector<double>> Bvector;
+
+    /** Pre-calculate all N vectors at 4 integration points
+     * since everything is calculated in reference config
+     */
+    vector<vector<double>> Nvector;
+
+    /** Element DOF number
+     * used to pre-allocate other matrices / vectors
+     */
+    PetscInt elementDOF;
+
+    /** Pre-calculate the local->global indices, 
+     * can call when assemblying global Jacobian and vector.
+     */
+    PetscInt *localGlobalIndices;
+
+    /** Pre-calculate pointValue = w_i w_j J(i, j)
+     * Used in integrators
+     * Since element reference state does not change,
+     * this can be pre-stored.
+     */
+    vector<double> pointValue;
+
     /** Jacobian at any given location in base space (ksi, eta), J = dx / d ksi */
     double J(double ksi) const;
 
+// ================== Constants and structures used for JF and elementF evaluation =======
+    /** Number of nodes */
+    int nOfNodes;
 
+    /** Space dimension */
+    int spaceDim;
+
+    /** Number of degree of freedom */
+    int nOfDofs;
+
+    /** Number of integration points */
+    int nOfIntPts;
+
+    /** For evaluation at each integration point, pre-allocate */
+    vector<double> ss;
+    vector<double> s_xs;
+    vector<double> s_ts;
+    vector<double> as;
+
+    /** For collecting nodal data, pre-allocate */
+    vector<vector<double> *> nodalSs;
+    vector<vector<double> *> nodalS_ts;
+    vector<vector<double> *> nodalAs;
+
+    /** Pre-allocate for jacobians */
+    PetscBool isJfAssembled;
+    vector<vector<double>> Jf0s;
+    vector<vector<double>> Jf1s;
+    vector<vector<double>> Jf2s;
+    vector<vector<double>> Jf3s;
+
+    /** Pre-allocate for residuals */
+    vector<vector<double>> F0s;
+    vector<vector<double>> F1s;
+
+    /** Pointer to the entire problem timer so that can call computing time */
+    vector<clock_t> *clocks;
+    vector<double> *timeConsumed;
 
 // PUBLIC MEMBERS
 public:
     /** Constructor */
-    ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, const vector<Node*> & NIDMinusPlus);
+    ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, vector<clock_t> *clocks = NULL, vector<double> *timeConsumed = NULL);
     
     /** Destructor */
     ~ElementQ4Cohesive();
@@ -58,12 +119,6 @@ public:
 
     /** Get element NID */
     const vector<CohesiveNode*> & getNID() const;
-
-    /** Set element NIDMinusPlus */
-    void setNIDMinusPlus(const vector<Node*> & NIDMinusPlus);
-
-    /** Get element NIDMinusPlus handle */
-    const vector<Node*> & getNIDMinusPlus() const;
 
     /** Evaluate a function at ksi */
     void evaluateF(vector<double> & res, double ksi, 

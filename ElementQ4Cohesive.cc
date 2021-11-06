@@ -10,10 +10,65 @@
  */
 
 /** Constructor 1 for ElementQ4Cohesive */
-ElementQ4Cohesive::ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, const vector<Node*> & NIDMinusPlus) {
+ElementQ4Cohesive::ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, vector<clock_t> *clocks, vector<double> *timeConsumed) {
+    elementDOF = 0;
     setID(ID);
     setNID(NID);
-    setNIDMinusPlus(NIDMinusPlus);
+
+    // Initialize Timers
+    this->clocks = clocks;
+    this->timeConsumed = timeConsumed;
+
+    // Initialize constants
+    spaceDim = _NID[0]->getSpaceDim();
+    nOfIntPts = IntPos.size();
+    nOfNodes = _NID.size();
+    nOfDofs = _NID[0]->getDOF().size();
+
+    // Initialize vectors
+    ss.resize(nOfDofs, 0.);
+    s_xs.resize(nOfDofs * spaceDim, 0.);
+    s_ts.resize(nOfDofs, 0.);
+    as.resize(_NID[0]->_nodalProperties.size(), 0.);
+
+    // Collecting nodal data, pre-allocate
+    nodalSs.resize(nOfNodes, NULL);
+    nodalS_ts.resize(nOfNodes, NULL);
+    nodalAs.resize(nOfNodes, NULL);
+
+    // Jacobians and residuals
+    isJfAssembled = PETSC_FALSE;
+    Jf0s.resize(pow(nOfIntPts, spaceDim - 1));
+    Jf1s.resize(pow(nOfIntPts, spaceDim - 1));
+    Jf2s.resize(pow(nOfIntPts, spaceDim - 1));
+    Jf3s.resize(pow(nOfIntPts, spaceDim - 1));
+
+    F0s.resize(pow(nOfIntPts, spaceDim - 1));
+    F1s.resize(pow(nOfIntPts, spaceDim - 1));
+
+    
+    // Calculate Bvector, Nvector, pointValue 
+    localGlobalIndices = new PetscInt [elementDOF];
+    Bvector.resize(pow(nOfIntPts, 2));
+    Nvector.resize(pow(nOfIntPts, 2));
+    pointValue.resize(pow(nOfIntPts, 2));
+
+    // TO DO: CHANGE HERE
+    for (int i = 0; i < nOfIntPts; i++) {
+        for (int j = 0; j < nOfIntPts; j++) {
+            Bvector[i * nOfIntPts + j] = B_x(IntPos[i], IntPos[j]);
+            Nvector[i * nOfIntPts + j] = N(IntPos[i], IntPos[j]);
+            pointValue[i * nOfIntPts + j] = J(IntPos[i], IntPos[j]) * IntWs[i] * IntWs[j];
+        }
+    }
+    int index = 0;
+    // Calculate localGlobalIndices
+    for (int n = 0; n < 4; n++) {
+        for (int i = 0; i < NID[n]->getDOF().size(); i++) {
+            localGlobalIndices[index] = NID[n]->getDOF()[i];
+            index += 1;
+        }
+    }
 };
 
 /** Destructor */
@@ -28,6 +83,7 @@ void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
     _NID.resize(NID.size());
     for (int i = 0; i < NID.size(); i++) {
         _NID[i] = NID[i];
+        elementDOF += NID[i]->getDOF().size();
     }
 };
 
@@ -36,26 +92,13 @@ const vector<CohesiveNode*> & ElementQ4Cohesive::getNID() const {
     return _NID;
 };
 
-/** Set element NIDMinusPlus */
-void ElementQ4Cohesive::setNIDMinusPlus(const vector<Node*> & NIDMinusPlus) {
-    _NIDMinusPlus.resize(NIDMinusPlus.size());
-    for (int i = 0; i < NIDMinusPlus.size(); i++) {
-        _NIDMinusPlus[i] = NIDMinusPlus[i];
-    }
-};
-
-/** Get element NIDMinusPlus */
-const vector<Node*> & ElementQ4Cohesive::getNIDMinusPlus() const {
-    return _NIDMinusPlus;
-};
-
 /** Shape function N, vector of 2 on 2 nodes, evaluated in base space (ksi) */
 vector<double> ElementQ4Cohesive::N(double ksi) {
     return vector<double> {(1. - ksi) / 2., (1. + ksi) / 2.};
 };
 
 /** Shape function N, vector of 4 on 4 nodes, 
- * evaluated in base space (ksi, eta)
+ * evaluated in base space (ksi)
  * at i, j of elemental shape matrix
  */
 double ElementQ4Cohesive::N(const vector<double> & Nvector, int i, int j) const {

@@ -113,6 +113,7 @@ const vector<double> & Node::getXYZ() const {
 
 // Set DOF 1
 void Node::setDOF(const vector<int> & DOF) {
+    if (_nodalDOF.size() < 2 * _spaceDim + 2) _nodalDOF.resize(2 * _spaceDim + 2);
     if (DOF.size() != _nodalDOF.size()) {
         throw "Input DOF incompatible with nodal DOF!";
     }
@@ -172,9 +173,9 @@ vector<double> Node::getBodyForce() const {
     return res;
 };
 
-/** Initialize s = [displacement, velocity, pressure, trace_strain] */
+/** Initialize s = [displacement (-+), velocity (-+), pressure (-+), trace_strain(-+), lambda, pressure_fault, theta] */
 void Node::initializeS(const vector<double> & initialS) {
-    if (initialS.size() != _spaceDim * 2 + 2) throw "Initial s vector not compatible with nodal DOFs!";
+    if (initialS.size() != 16) throw "Initial s vector not compatible with nodal DOFs!";
     
     s.resize(initialS.size());
     for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
@@ -245,26 +246,75 @@ CohesiveNode::CohesiveNode(int ID, int spaceDim) {
     _nodalXYZ.resize(_spaceDim, 0.);
 
     // {lambda, fault_pressure, theta}
-    _nodalDOF.resize(_spaceDim + 2, 0);
+    _nodalDOF.resize(2 * (2 * _spaceDim + 2) + _spaceDim + 2, 0);
 
     // Set nodal body force to 0.
     _nodalBodyForce.resize(_spaceDim, 0.);
 };
 
 // Constructor 2
-CohesiveNode::CohesiveNode(int ID, const vector<double> & XYZ, const vector<int> & DOF, int spaceDim) {
+CohesiveNode::CohesiveNode(int ID,
+                           const vector<double> &XYZ,
+                           const vector<int> &DOF,
+                           const vector<Node*> &lowerUpperNodes, 
+                           int spaceDim,
+                           int density,
+                           const vector<double> *bodyForce,
+                           double fluidMobility_x, 
+                           double fluidMobility_z,
+                           double fluidViscosity,
+                           double porosity,
+                           double thickness,
+                           double beta_p,
+                           double beta_sigma,
+                           double rateStateA,
+                           double rateStateB,
+                           double DRateState,
+                           const vector<double> *fluidBodyForce,
+                           double source) {
     setSpaceDim(spaceDim);
     setID(ID);
     setSpaceDim(spaceDim);
     setXYZ(XYZ);
-    _nodalDOF.resize(spaceDim + 2);
+    _nodalDOF.resize(2 * (2 * _spaceDim + 2) + spaceDim + 2);
     setDOF(DOF);
+    setLowerUpperNodes(lowerUpperNodes);
     _nodalBodyForce.resize(_spaceDim, 0.);
 };
 
-/** Initialize s = [lambda, fault_pressure, theta] */
+/** Initialize s = [u(-+), v(-+), p(-+), trace_strain(-+), lambda, fault_pressure, theta] */
 void CohesiveNode::initializeS(const vector<double> & initialS) {
     if (initialS.size() != _spaceDim + 2) throw "Initial s vector not compatible with cohesive nodal DOFs!";
-    s.resize(initialS.size());
-    for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
+    s.resize(2 * (2 * _spaceDim + 2) + initialS.size());
+    for (int i = 0; i < initialS.size(); i++) s[i + 2 * (2 * _spaceDim + 2)] = initialS[i];
+
+    // For upper and lower nodes
+    // u(-+)
+    s[0] = _lowerUpperNodes[0]->s[0]; 
+    s[1] = _lowerUpperNodes[0]->s[1]; 
+    s[2] = _lowerUpperNodes[1]->s[0]; 
+    s[3] = _lowerUpperNodes[1]->s[1]; 
+
+    // v(-+)
+    s[4] = _lowerUpperNodes[0]->s[2]; 
+    s[5] = _lowerUpperNodes[0]->s[3]; 
+    s[6] = _lowerUpperNodes[1]->s[2]; 
+    s[7] = _lowerUpperNodes[1]->s[3]; 
+
+    // p(-+)
+    s[8] = _lowerUpperNodes[0]->s[4]; 
+    s[9] = _lowerUpperNodes[1]->s[4]; 
+
+    // trace_strain(-+)
+    s[10] = _lowerUpperNodes[0]->s[5]; 
+    s[11] = _lowerUpperNodes[1]->s[5]; 
+};
+
+/** Push initial s to the global vector s */
+void CohesiveNode::pushS(Vec & globalS) const {
+    for (int i = 2 * (2 * _spaceDim + 2); i < _nodalDOF.size(); i++) {
+        if (_nodalDOF[i] != -1) {
+            VecSetValue(globalS, _nodalDOF[i], s[i], INSERT_VALUES);
+        }
+    }
 };
