@@ -306,7 +306,8 @@ public:
     // Constructor 1
     CohesiveNode(int ID, int spaceDim = 2);
 
-    /** Nodal properties values (0 - mass density; 
+    /** Nodal properties values (
+     * 0 - mass density; 
      * 1,2 - body force (force per unit volume); 
      * 3 - fluidMobility_x
      * 4 - fluidMobility_z

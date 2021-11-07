@@ -24,10 +24,12 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
                               double s_tshift,            // sigma of tshift due to the time-derivative
                               const vector<double> &sOff, // offset of each solution field
                               const vector<double> &a,    // auxiliary fields
-                              const vector<double> &aOff  // auxiliary fields offset
+                              const vector<double> &a_x, // auxiliary fields gradient
+                              const vector<double> &n,    // unit normal vector
+                              const vector<double> &d     // prescribed slip
 ) {
     // Check size of F0
-    if (F0.size() != 15) F0.resize(15); 
+    if (F0.size() != 16) F0.resize(16); 
 
     // Clear F0
     for (int i = 0; i < F0.size(); i++) F0[i] = 0.;
@@ -36,72 +38,96 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
     /** Nodal properties values (
      * 0 - mass density; 
      * 1,2 - body force (force per unit volume); 
-     * 3 - \lambda (drained);
-     * 4 - shear modulus G;
-     * 5 - Biot coefficient \alpha;
-     * 6 - Biot modulus M_p;
-     * 7 - Fluid mobility \kappa;
-     * 8 - Fluid viscosity \mu;
-     * 9 - fluid density
-     * 10 - reference porosity
-     * 11, 12 - fluid body force (force per unit volume)
-     * 13 - fluid source density (/s) 
+     * 3 - fluidMobility_x
+     * 4 - fluidMobility_z
+     * 5 - fluidViscosity \mu
+     * 6 - porosity \phi_f
+     * 7 - thickness h
+     * 8 - beta_p 
+     * 9 - beta_sigma
+     * 10 - rateStateA
+     * 11 - rateStateB
+     * 12 - DRateState
+     * 13, 14 - fluidBodyForce
+     * 15 - source 
      * ...)
      */
-    int i_bulkDensity = 0;
-    int i_bodyForce = 1;
-    // int i_lambda = 3;
-    // int i_shearModulus = 4;
-    int i_alpha = 5;
-    int i_Mp = 6;
-    // int i_kappa = 7;
-    // int i_viscosity = 8;
-    int i_source = 13;
-    
-    double bulkDensity = a[i_bulkDensity];
-    // double lambda = a[i_lambda];
-    //  double shearModulus = a[i_shearModulus];
-    double alpha = a[i_alpha];
-    double Mp = a[i_Mp];
-    // double kappa = a[i_kappa];
-    // double viscosity = a[i_viscosity];
-    double source = a[i_source];
-    
+    int i_fluidMobilityX = 3;
+    int i_fluidMobilityZ = 4;
+    int i_fluidViscosity = 5;
+    int i_porosity = 6;
+    int i_thickness = 7;
+    int i_betaP = 8;
+    int i_betaSigma = 9;
+    int i_fluidBodyForce = 13;
+    int i_source = 15;
+
     // ================ f0u ======================================
-    // f0u = bodyForce
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
+    /** The solution fields in solution vector s are
+     * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+     * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+     * 8, 9 - pressure-, pressure+;
+     * 10, 11 - trace-strain-, tracestrain+
+     * 12, 13 - lambda1, lambda2
+     * 14 - pressure_fault
+     * 15 - theta (R & S state, not used here)
      */
+    // F0u = [-\lambda, \lambda]
     int I_u = 0;
-    for (int i = 0; i < spaceDim; i++) {
-        F0[I_u + i] = bulkDensity * a[i_bodyForce + i];
-    }
+    int I_l = 12;
+    F0[I_u] = - s[I_l];
+    F0[I_u + 1] = - s[I_l + 1];
+    F0[I_u + 2] = s[I_l];
+    F0[I_u + 3] = s[I_l + 1];
 
     // ================ f0p ======================================
-    // f0p = \partial \zeta(u, p) \partial t - \gamma 
-    // ** TODO ** implement \gamma
-    // \zeta(u, p) = \alpha \epsilon_v + p / M_p
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
+    /** The solution fields in solution vector s are
+     * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+     * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+     * 8, 9 - pressure-, pressure+;
+     * 10, 11 - trace-strain-, tracestrain+
+     * 12, 13 - lambda1, lambda2
+     * 14 - pressure_fault
+     * 15 - theta (R & S state, not used here)
      */
-    int I_p = 4;
-    int I_e = 5;
-    F0[I_p] = alpha * s_t[I_e] + s_t[I_p] / Mp - source;
-    // ================ f0e ======================================
-    // f0e = \nabla \cdot \vec{u} - \epsilon_v
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
+    // F0p = [\kappa_z / \mu (p- - pf + n \cdot f_fluid), \kappa_z / \mu (p+ - pf + n \cdot f_fluid)]
+    int I_p = 8;
+    int I_pf = 14; 
+    F0[I_p] = a[i_fluidMobilityZ] / a[i_fluidViscosity] * 
+              ((s[I_p] - s[I_pf]) / a[i_thickness] + n[0] * a[i_fluidBodyForce] + n[1] * a[i_fluidBodyForce + 1]);
+    F0[I_p + 1] = a[i_fluidMobilityZ] / a[i_fluidViscosity] * 
+                  ((s[I_p + 1] - s[I_pf]) / a[i_thickness] - n[0] * a[i_fluidBodyForce] - n[1] * a[i_fluidBodyForce + 1]);
+    
+    // ================ f0l ======================================
+    /** The solution fields in solution vector s are
+     * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+     * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+     * 8, 9 - pressure-, pressure+;
+     * 10, 11 - trace-strain-, tracestrain+
+     * 12, 13 - lambda1, lambda2
+     * 14 - pressure_fault
+     * 15 - theta (R & S state, not used here)
      */
-    F0[I_e] = s_x[spaceDim * I_u] + s_x[(I_u + 1) * spaceDim + 1] - s[I_e];
+    // F0l = (u+) - (u-) - d
+    F0[I_l] = s[I_u + 2] - s[I_u] - d[0];
+    F0[I_l + 1] = s[I_u + 3] - s[I_u + 1] - d[1];
+
+    // ================ f0pf ======================================
+    /** The solution fields in solution vector s are
+     * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+     * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+     * 8, 9 - pressure-, pressure+;
+     * 10, 11 - trace-strain-, tracestrain+
+     * 12, 13 - lambda1, lambda2
+     * 14 - pressure_fault
+     * 15 - theta (R & S state, not used here)
+     */
+    // F0pf = ...
+    F0[I_pf] = a[i_porosity] * (a[i_betaP] * (s_t[I_p] + 2 * s_t[I_pf]+ s_t[I_p + 1])
+                                - a[i_betaSigma] * (n[0] * s_t[I_l] + n[1] * s_t[I_l + 1]))
+               + a[i_fluidMobilityX] / a[i_fluidViscosity] * (a_x[2 * i_fluidBodyForce] + a_x[2 * i_fluidBodyForce + 3])
+               - a[i_fluidMobilityZ] / a[i_fluidViscosity] * (s[I_p] - 2 * s[I_pf] + s[I_p + 1]) / pow(a[i_thickness], 2) - a[i_source];
+                 
 };
 
 /** Left hand side residual 
@@ -116,11 +142,13 @@ void PrescribeFaultKernel::F1(vector<double> &F1,         // stores the result
                               double s_tshift,            // sigma of tshift due to the time-derivative
                               const vector<double> &sOff, // offset of each solution field
                               const vector<double> &a,    // auxiliary fields
-                              const vector<double> &aOff  // auxiliary fields offset
+                              const vector<double> &a_x, // auxiliary fields gradient
+                              const vector<double> &n,    // unit normal vector
+                              const vector<double> &d     // prescribed slip
 ) {
     // Check size of F1
-    if (F1.size() != (2 * spaceDim + 2) * spaceDim) 
-        F1.resize((2 * spaceDim + 2) * spaceDim);
+    if (F1.size() != (16) * spaceDim) 
+        F1.resize((16) * spaceDim);
 
     // Clear F1
     for (int i = 0; i < F1.size(); i++) F1[i] = 0.;
@@ -129,66 +157,31 @@ void PrescribeFaultKernel::F1(vector<double> &F1,         // stores the result
     /** Nodal properties values (
      * 0 - mass density; 
      * 1,2 - body force (force per unit volume); 
-     * 3 - \lambda (drained);
-     * 4 - shear modulus G;
-     * 5 - Biot coefficient \alpha;
-     * 6 - Biot modulus M_p;
-     * 7 - Fluid mobility \kappa;
-     * 8 - Fluid viscosity \mu;
-     * 9 - fluid density
-     * 10 - reference porosity
-     * 11, 12 - fluid body force (force per unit volume)
-     * 13 - fluid source density (/s) 
+     * 3 - fluidMobility_x
+     * 4 - fluidMobility_z
+     * 5 - fluidViscosity \mu
+     * 6 - porosity \phi_f
+     * 7 - thickness h
+     * 8 - beta_p 
+     * 9 - beta_sigma
+     * 10 - rateStateA
+     * 11 - rateStateB
+     * 12 - DRateState
+     * 13, 14 - fluidBodyForce
+     * 15 - source 
      * ...)
-     */
-    // int i_bodyForce = 1;
-    int i_lambda = 3;
-    int i_shearModulus = 4;
-    int i_alpha = 5;
-    // int i_Mp = 6;
-    int i_kappa = 7;
-    int i_viscosity = 8;
-    int i_fluidDensity = 9;
-    int i_fluidBodyForce = 11;
+     */    
+    int i_fluidMobilityX = 3;
+    int i_fluidViscosity = 6;
     
-    double lambda = a[i_lambda];
-    double shearModulus = a[i_shearModulus];
-    double alpha = a[i_alpha];
-    // double Mp = a[i_Mp];
-    double kappa = a[i_kappa];
-    double fluidDensity = a[i_fluidDensity];
-    double viscosity = a[i_viscosity];
-    
-    // ================ f1u ======================================
-    // f1u = - \lambda * \epsilon_v - G * (\nabla u + u \nabla)
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    int I_u = 0;
-    int I_p = 4;
-    int I_e = 5;
-    F1[spaceDim * I_u] = -lambda * s[I_e] - 2 * shearModulus * (s_x[spaceDim * I_u]) + alpha * s[I_p];             // - \sigma_{11} + \alpha p
-    F1[spaceDim * I_u + 1] = -shearModulus * (s_x[spaceDim * I_u + 1] + s_x[spaceDim * I_u + 2]); // - \sigma_{12}
-    F1[spaceDim * I_u + 2] = F1[spaceDim * I_u + 1];                                              // - \sigma_{21}
-    F1[spaceDim * I_u + 3] = -lambda * s[I_e] - 2 * shearModulus * (s_x[spaceDim * I_u + 3]) + alpha * s[I_p];     // - \sigma_{22} + \alpha p
-
-    // ================ f1p ======================================
-    // f1p = - q(p) = kappa / mu \cdot (\nabla p - f_fluid)
-    // ** TODO ** implement f_fluid
-    // \zeta(u, p) = \alpha \epsilon_v + p / M_p
-    /** Solution vector
-     * 0, 1 - displacement
-     * 2, 3 - velocity
-     * 4 - pressure
-     * 5 - trace-strain
-     */
-    F1[spaceDim * I_p] = kappa / viscosity * 
-        (s_x[spaceDim * I_p] - fluidDensity * a[i_fluidBodyForce]);         // \partial p \partial x_1
-    F1[spaceDim * I_p + 1] = kappa / viscosity * 
-        (s_x[spaceDim * I_p + 1] - fluidDensity * a[i_fluidBodyForce + 1]); // \partial p \partial x_2
+    // ================ f1pf ====================================== 
+    // F1pf = kappa_{fx} / 4\mu * \nabla (p+ + 2 pf + p-) 
+    int I_p = 8;
+    int I_pf = 14;
+    F1[spaceDim * I_pf] = a[i_fluidMobilityX] / a[i_fluidMobilityX] 
+                          * (s_x[2 * I_p] + 2 * s_x[2 * I_pf] + s_x[2 * (I_p + 1)]);
+    F1[spaceDim * I_pf + 1] = a[i_fluidMobilityX] / a[i_fluidMobilityX] 
+                              * (s_x[2 * I_p + 1] + 2 * s_x[2 * I_pf + 1] + s_x[2 * (I_p + 1) + 1]);
     
     // DEBUG LINES
     // cout << "F1[Ip] = " << s_x[spaceDim * I_p] << " " << s_x[spaceDim * I_p + 1] << "\n";
@@ -207,8 +200,10 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
                             double s_tshift,            // sigma of tshift due to the time-derivative
                             const vector<double> &sOff, // offset of each solution field
                             const vector<double> &a,    // auxiliary fields
-                            const vector<double> &aOff, // auxiliary fields offset
-                            PetscBool isAssembled            // if assembled, only calculate the time-dependent parts
+                            const vector<double> &a_x, // auxiliary fields gradient
+                            PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
+                            const vector<double> &n,    // unit normal vector
+                            const vector<double> &d     // prescribed slip
 ) {
     if (!isAssembled) {
         // Check size of Jf0
@@ -378,16 +373,18 @@ const vector<int> PrescribeFaultKernel::Jf0_timedependent_js = {4, 5};
  * Jf1(t, s), uses integrator NfB
  */
 void PrescribeFaultKernel::Jf1(vector<double> &Jf1,        // stores the result
-                            int spaceDim,               // stores the dim of space
-                            double t,                   // time of the simulation
-                            const vector<double> &s,    // solution vector s
-                            const vector<double> &s_x,  // gradient of s
-                            const vector<double> &s_t,  // time derivative of s
-                            double s_tshift,            // sigma of tshift due to the time-derivative
-                            const vector<double> &sOff, // offset of each solution field
-                            const vector<double> &a,    // auxiliary fields
-                            const vector<double> &aOff, // auxiliary fields offset
-                            PetscBool isAssembled            // if assembled, only calculate the time-dependent parts
+                               int spaceDim,               // stores the dim of space
+                               double t,                   // time of the simulation
+                               const vector<double> &s,    // solution vector s
+                               const vector<double> &s_x,  // gradient of s
+                               const vector<double> &s_t,  // time derivative of s
+                               double s_tshift,            // sigma of tshift due to the time-derivative
+                               const vector<double> &sOff, // offset of each solution field
+                               const vector<double> &a,    // auxiliary fields
+                               const vector<double> &a_x, // auxiliary fields gradient
+                               PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
+                               const vector<double> &n,    // unit normal vector
+                               const vector<double> &d     // prescribed slip
 ) {
     if (!isAssembled) {
         // Check size of Jf1    
@@ -468,8 +465,10 @@ void PrescribeFaultKernel::Jf2(vector<double> &Jf2,        // stores the result
                                double s_tshift,            // sigma of tshift due to the time-derivative
                                const vector<double> &sOff, // offset of each solution field
                                const vector<double> &a,    // auxiliary fields
-                               const vector<double> &aOff, // auxiliary fields offset
-                               PetscBool isAssembled       // if assembled, only calculate the time-dependent parts
+                               const vector<double> &a_x, // auxiliary fields gradient
+                               PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
+                               const vector<double> &n,    // unit normal vector
+                               const vector<double> &d     // prescribed slip
 ) {
     // If first assemble
     if (!isAssembled) {
@@ -559,8 +558,10 @@ void PrescribeFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
                                double s_tshift,            // sigma of tshift due to the time-derivative
                                const vector<double> &sOff, // offset of each solution field
                                const vector<double> &a,    // auxiliary fields
-                               const vector<double> &aOff, // auxiliary fields offset
-                               PetscBool isAssembled       // if assembled, only calculate the time-dependent parts
+                               const vector<double> &a_x, // auxiliary fields gradient
+                               PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
+                               const vector<double> &n,    // unit normal vector
+                               const vector<double> &d     // prescribed slip
 ) {
     if (!isAssembled) {
         // Check size of Jf3
@@ -604,7 +605,7 @@ void PrescribeFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
         // ================ Jf3uu ======================================
         // Poroelastic Cijkl, without lambda
         // Only needs lambda and G
-        // Does not depend on s, s_x, s_t, s_tshift, aOff
+        // Does not depend on s, s_x, s_t, s_tshift, a_x
         
 
         // Write down Cijkl

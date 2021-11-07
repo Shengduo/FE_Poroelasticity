@@ -16,48 +16,54 @@ public:
     /** Left hand side residual 
      * F0(t, \dot{s}, s)
      */
-    static void F0(vector<double> &F0,         // stores the result
-                   int spaceDim,               // stores the dim of space
-                   double t,                   // time of the simulation
-                   const vector<double> &s,    // solution vector s
-                   const vector<double> &s_x,  // gradient of s
-                   const vector<double> &s_t,  // time derivative of s
-                   double s_tshift,            // sigma of tshift due to the time-derivative
-                   const vector<double> &sOff, // offset of each solution field
-                   const vector<double> &a,    // auxiliary fields
-                   const vector<double> &aOff  // auxiliary fields offset
+    static void F0(vector<double> &F0,                               // stores the result
+                   int spaceDim,                                     // stores the dim of space
+                   double t,                                         // time of the simulation
+                   const vector<double> &s,                          // solution vector s
+                   const vector<double> &s_x,                        // gradient of s
+                   const vector<double> &s_t,                        // time derivative of s
+                   double s_tshift,                                  // sigma of tshift due to the time-derivative
+                   const vector<double> &sOff,                       // offset of each solution field
+                   const vector<double> &a,                          // auxiliary fields
+                   const vector<double> &a_x,                       // auxiliary fields offset
+                   const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
+                   const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
 
     /** Left hand side residual 
      * F1(t, \dot{s}, s)
      */
-    static void F1(vector<double> &F1,         // stores the result
-                   int spaceDim,               // stores the dim of space
-                   double t,                   // time of the simulation
-                   const vector<double> &s,    // solution vector s
-                   const vector<double> &s_x,  // gradient of s
-                   const vector<double> &s_t,  // time derivative of s
-                   double s_tshift,            // sigma of tshift due to the time-derivative
-                   const vector<double> &sOff, // offset of each solution field
-                   const vector<double> &a,    // auxiliary fields
-                   const vector<double> &aOff  // auxiliary fields offset
+    static void F1(vector<double> &F1,                               // stores the result
+                   int spaceDim,                                     // stores the dim of space
+                   double t,                                         // time of the simulation
+                   const vector<double> &s,                          // solution vector s
+                   const vector<double> &s_x,                        // gradient of s
+                   const vector<double> &s_t,                        // time derivative of s
+                   double s_tshift,                                  // sigma of tshift due to the time-derivative
+                   const vector<double> &sOff,                       // offset of each solution field
+                   const vector<double> &a,                          // auxiliary fields
+                   const vector<double> &a_x,                       // auxiliary fields offset
+                   const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
+                   const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
 
     //======= The Jacobians =================================================================================   
     /** Left hand side Jacobian
      * Jf0(t, s)
      */
-    static void Jf0(vector<double> &Jf0,        // stores the result
-                    int spaceDim,               // stores the dim of space
-                    double t,                   // time of the simulation
-                    const vector<double> &s,    // solution vector s
-                    const vector<double> &s_x,  // gradient of s
-                    const vector<double> &s_t,  // time derivative of s
-                    double s_tshift,            // sigma of tshift due to the time-derivative
-                    const vector<double> &sOff, // offset of each solution field
-                    const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff, // auxiliary fields offset
-                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts
+    static void Jf0(vector<double> &Jf0,                              // stores the result
+                    int spaceDim,                                     // stores the dim of space
+                    double t,                                         // time of the simulation
+                    const vector<double> &s,                          // solution vector s
+                    const vector<double> &s_x,                        // gradient of s
+                    const vector<double> &s_t,                        // time derivative of s
+                    double s_tshift,                                  // sigma of tshift due to the time-derivative
+                    const vector<double> &sOff,                       // offset of each solution field
+                    const vector<double> &a,                          // auxiliary fields
+                    const vector<double> &a_x,                       // auxiliary fields offset
+                    PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
+                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
+                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
 
     /** The elements of Jf0 that requires re-assemble after the first iteration
@@ -74,17 +80,19 @@ public:
     /** Left hand side Jacobian
      * Jf1(t, s)
      */
-    static void Jf1(vector<double> &Jf1,        // stores the result
-                    int spaceDim,               // stores the dim of space
-                    double t,                   // time of the simulation
-                    const vector<double> &s,    // solution vector s
-                    const vector<double> &s_x,  // gradient of s
-                    const vector<double> &s_t,  // time derivative of s
-                    double s_tshift,            // sigma of tshift due to the time-derivative
-                    const vector<double> &sOff, // offset of each solution field
-                    const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff, // auxiliary fields offset
-                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts 
+    static void Jf1(vector<double> &Jf1,                              // stores the result
+                    int spaceDim,                                     // stores the dim of space
+                    double t,                                         // time of the simulation
+                    const vector<double> &s,                          // solution vector s
+                    const vector<double> &s_x,                        // gradient of s
+                    const vector<double> &s_t,                        // time derivative of s
+                    double s_tshift,                                  // sigma of tshift due to the time-derivative
+                    const vector<double> &sOff,                       // offset of each solution field
+                    const vector<double> &a,                          // auxiliary fields
+                    const vector<double> &a_x,                       // auxiliary fields offset
+                    PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
+                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
+                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
 
     /** The elements of Jf0 that requires re-assemble after the first iteration
@@ -101,17 +109,19 @@ public:
     /** Left hand side Jacobian
      * Jf2(t, s)
      */
-    static void Jf2(vector<double> &Jf2,        // stores the result
-                    int spaceDim,               // stores the dim of space
-                    double t,                   // time of the simulation
-                    const vector<double> &s,    // solution vector s
-                    const vector<double> &s_x,  // gradient of s
-                    const vector<double> &s_t,  // time derivative of s
-                    double s_tshift,            // sigma of tshift due to the time-derivative
-                    const vector<double> &sOff, // offset of each solution field
-                    const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff, // auxiliary fields offset
-                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts
+    static void Jf2(vector<double> &Jf2,                              // stores the result
+                    int spaceDim,                                     // stores the dim of space
+                    double t,                                         // time of the simulation
+                    const vector<double> &s,                          // solution vector s
+                    const vector<double> &s_x,                        // gradient of s
+                    const vector<double> &s_t,                        // time derivative of s
+                    double s_tshift,                                  // sigma of tshift due to the time-derivative
+                    const vector<double> &sOff,                       // offset of each solution field
+                    const vector<double> &a,                          // auxiliary fields
+                    const vector<double> &a_x,                       // auxiliary fields offset
+                    PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
+                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
+                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
 
     /** The elements of Jf2 that requires re-assemble after the first iteration
@@ -128,17 +138,19 @@ public:
     /** Left hand side Jacobian
      * Jf3(t, s)
      */
-    static void Jf3(vector<double> &Jf3,        // stores the result
-                    int spaceDim,               // stores the dim of space
-                    double t,                   // time of the simulation
-                    const vector<double> &s,    // solution vector s
-                    const vector<double> &s_x,  // gradient of s
-                    const vector<double> &s_t,  // time derivative of s
-                    double s_tshift,            // sigma of tshift due to the time-derivative
-                    const vector<double> &sOff, // offset of each solution field
-                    const vector<double> &a,    // auxiliary fields
-                    const vector<double> &aOff, // auxiliary fields offset
-                    PetscBool isAssembled = PETSC_FALSE    // if assembled, only calculate the time-dependent parts
+    static void Jf3(vector<double> &Jf3,                              // stores the result
+                    int spaceDim,                                     // stores the dim of space
+                    double t,                                         // time of the simulation
+                    const vector<double> &s,                          // solution vector s
+                    const vector<double> &s_x,                        // gradient of s
+                    const vector<double> &s_t,                        // time derivative of s
+                    double s_tshift,                                  // sigma of tshift due to the time-derivative
+                    const vector<double> &sOff,                       // offset of each solution field
+                    const vector<double> &a,                          // auxiliary fields
+                    const vector<double> &a_x,                       // auxiliary fields offset
+                    PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
+                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
+                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
 
     /** The elements of Jf3 that requires re-assemble after the first iteration
