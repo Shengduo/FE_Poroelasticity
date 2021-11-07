@@ -25,7 +25,7 @@ public:
                    double s_tshift,                                  // sigma of tshift due to the time-derivative
                    const vector<double> &sOff,                       // offset of each solution field
                    const vector<double> &a,                          // auxiliary fields
-                   const vector<double> &a_x,                       // auxiliary fields offset
+                   const vector<double> &a_x,                        // auxiliary fields gradient
                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
@@ -42,7 +42,7 @@ public:
                    double s_tshift,                                  // sigma of tshift due to the time-derivative
                    const vector<double> &sOff,                       // offset of each solution field
                    const vector<double> &a,                          // auxiliary fields
-                   const vector<double> &a_x,                       // auxiliary fields offset
+                   const vector<double> &a_x,                        // auxiliary fields gradient
                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
     );
@@ -60,7 +60,7 @@ public:
                     double s_tshift,                                  // sigma of tshift due to the time-derivative
                     const vector<double> &sOff,                       // offset of each solution field
                     const vector<double> &a,                          // auxiliary fields
-                    const vector<double> &a_x,                       // auxiliary fields offset
+                    const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
                     const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
                     const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
@@ -89,7 +89,7 @@ public:
                     double s_tshift,                                  // sigma of tshift due to the time-derivative
                     const vector<double> &sOff,                       // offset of each solution field
                     const vector<double> &a,                          // auxiliary fields
-                    const vector<double> &a_x,                       // auxiliary fields offset
+                    const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
                     const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
                     const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
@@ -118,7 +118,7 @@ public:
                     double s_tshift,                                  // sigma of tshift due to the time-derivative
                     const vector<double> &sOff,                       // offset of each solution field
                     const vector<double> &a,                          // auxiliary fields
-                    const vector<double> &a_x,                       // auxiliary fields offset
+                    const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
                     const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
                     const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
@@ -147,7 +147,7 @@ public:
                     double s_tshift,                                  // sigma of tshift due to the time-derivative
                     const vector<double> &sOff,                       // offset of each solution field
                     const vector<double> &a,                          // auxiliary fields
-                    const vector<double> &a_x,                       // auxiliary fields offset
+                    const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
                     const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
                     const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
