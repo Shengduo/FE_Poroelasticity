@@ -218,7 +218,6 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
 
     // Check if the system jacobian has been assembled
     if (!isAssembled) {
-        
         // ==================== constants ==============================
         /** Nodal properties values (
          * 0 - mass density; 
@@ -490,8 +489,8 @@ void PrescribeFaultKernel::Jf1(vector<double> &Jf1,        // stores the result
 ) {
     if (!isAssembled) {
         // Check size of Jf1    
-        int nCols = (2 * spaceDim + 2) * spaceDim;
-        int nRows = (2 * spaceDim + 2);
+        int nCols = 16 * spaceDim;
+        int nRows = 16;
         if (Jf1.size() != nRows * nCols) 
             Jf1.resize(nCols * nRows);
 
@@ -534,8 +533,8 @@ void PrescribeFaultKernel::Jf2(vector<double> &Jf2,        // stores the result
     // If first assemble
     if (!isAssembled) {
         // Check size of Jf2    
-        int nRows = (2 * spaceDim + 2) * spaceDim;
-        int nCols = (2 * spaceDim + 2);
+        int nRows = 16 * spaceDim;
+        int nCols = 16;
         if (Jf2.size() != nRows * nCols) 
             Jf2.resize(nRows * nCols);
 
@@ -577,85 +576,87 @@ void PrescribeFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
 ) {
     if (!isAssembled) {
         // Check size of Jf3
-        if (Jf3.size() != spaceDim * spaceDim * (2 * spaceDim + 2) * (2 * spaceDim + 2)) 
-            Jf3.resize(spaceDim * spaceDim * (2 * spaceDim + 2) * (2 * spaceDim + 2));
+        if (Jf3.size() != spaceDim * spaceDim * 16 * 16) 
+            Jf3.resize(spaceDim * spaceDim * 16 * 16);
         // First clear Jf3uu
-        int nCols = (2 * spaceDim + 2) * spaceDim;
-        for (int i = 0; i < spaceDim * spaceDim; i++) {
-            for (int j = 0; j < spaceDim * spaceDim; j++)
+        int nCols = 16 * spaceDim;
+        for (int i = 0; i < nCols; i++) {
+            for (int j = 0; j < nCols; j++)
                 Jf3[i * nCols + j] = 0.;
         }
+        
         // ==================== constants ==============================
         /** Nodal properties values (
          * 0 - mass density; 
          * 1,2 - body force (force per unit volume); 
-         * 3 - \lambda (drained);
-         * 4 - shear modulus G;
-         * 5 - Biot coefficient \alpha;
-         * 6 - Biot modulus M_p;
-         * 7 - Fluid mobility \kappa;
-         * 8 - Fluid viscosity \mu;
-         * 9 - fluid density
-         * 10 - reference porosity
-         * 11, 12 - fluid body force (force per unit volume)
-         * 13 - fluid source density (/s) 
+         * 3 - fluidMobility_x
+         * 4 - fluidMobility_z
+         * 5 - fluidViscosity \mu
+         * 6 - porosity \phi_f
+         * 7 - thickness h
+         * 8 - beta_p 
+         * 9 - beta_sigma
+         * 10 - rateStateA
+         * 11 - rateStateB
+         * 12 - DRateState
+         * 13, 14 - fluidBodyForce
+         * 15 - source 
          * ...)
+         */   
+        int i_fluidMobilityX = 3;
+        int i_fluidMobilityZ = 4;
+        int i_fluidViscosity = 5;
+        int i_porosity = 6;
+        int i_thickness = 7;
+        int i_betaP = 8;
+        int i_betaSigma = 9;
+        int i_fluidBodyForce = 13;
+        int i_source = 15;  
+
+        // ================ Jf3pfpf ======================================
+        // Jf3pfpf = \kappa_fx / 2\mu I
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
          */
-        // int i_lambda = 3;
-        int i_shearModulus = 4;
-        // int i_alpha = 5;
-        // int i_Mp = 6;
-        int i_kappa = 7;
-        int i_viscosity = 8;
-        // double lambda = a[i_lambda];
-        double shearModulus = a[i_shearModulus];
-        // double alpha = a[i_alpha];
-        // double Mp = a[i_Mp];
-        double kappa = a[i_kappa];
-        double viscosity = a[i_viscosity];
 
-        // ================ Jf3uu ======================================
-        // Poroelastic Cijkl, without lambda
-        // Only needs lambda and G
-        // Does not depend on s, s_x, s_t, s_tshift, a_x
-        
+        int I_pf = 14;
+        Jf3[(spaceDim * I_pf) * nCols + (spaceDim * I_pf)] = a[i_fluidMobilityX] / a[i_fluidViscosity] / 2.;
+        Jf3[(spaceDim * I_pf + 1) * nCols + (spaceDim * I_pf + 1)] = a[i_fluidMobilityX] / a[i_fluidViscosity] / 2.;
 
-        // Write down Cijkl
-        Jf3[0 * nCols + 0] = - 2. * shearModulus;
-        Jf3[3 * nCols + 3] = Jf3[0 * nCols + 0];
-
-        // Jf3[0 * nCols + 3] = lambda;  // 1122
-        // Jf3[3 * nCols + 0] = lambda;  // 2211
-
-        Jf3[1 * nCols + 1] = - shearModulus; // 1212
-        Jf3[2 * nCols + 2] = - shearModulus; // 2121
-        Jf3[1 * nCols + 2] = - shearModulus; // 1221
-        Jf3[2 * nCols + 1] = - shearModulus; // 2112
-
-        // ================ Jf3pp ======================================
-        // Jf3pp = \kappa / \mu * \delta_{kl} 
-        /** Solution vector
-         * 0, 1 - displacement
-         * 2, 3 - velocity
-         * 4 - pressure
-         * 5 - trace-strain
+        // ================ Jf3pfp ======================================
+        // Jf3pfp = \kappa_x / \mu / 4 I 
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
          */
-        int I_p = 4 * spaceDim;
-        for (int i = 0; i < spaceDim; i++) {
-            Jf3[(I_p + i) * nCols + (I_p + i)] = kappa / viscosity;
-        }
+        int I_p = 8;
+        Jf3[(spaceDim * I_pf) * nCols + (spaceDim * I_p)] = a[i_fluidMobilityX] / 4. / a[i_fluidViscosity];
+        Jf3[(spaceDim * I_pf + 1) * nCols + (spaceDim * I_p + 1)] = a[i_fluidMobilityX] / 4. / a[i_fluidViscosity];
+        Jf3[(spaceDim * I_pf) * nCols + (spaceDim * (I_p + 1))] = a[i_fluidMobilityX] / 4. / a[i_fluidViscosity];
+        Jf3[(spaceDim * I_pf) * nCols + (spaceDim * (I_p + 1) + 1)] = a[i_fluidMobilityX] / 4. / a[i_fluidViscosity];
     }
     // DEBUG LINES
     // cout << "Jf3pp = " << Jf3[(I_p) * nCols + (I_p)] << " " << Jf3[(I_p + 1) * nCols + (I_p + 1)] << "\n";
 };
 
 /** The elements of Jf3 that requires re-assemble after the first iteration
- * the non-zeros are only Jf3uu (4 terms), Jf3pp
+ * the non-zeros are only Jf3pfpf (2 terms), Jf3pfp (4 terms)
  * nothing is time dependent
  */
-const vector<int> PrescribeFaultKernel::Jf3_entries = {0, 39, 13, 14, 25, 26, 104, 117};
-const vector<int> PrescribeFaultKernel::Jf3_is = {0, 3, 1, 1, 2, 2, 8, 9};
-const vector<int> PrescribeFaultKernel::Jf3_js = {0, 3, 1, 2, 1, 2, 8, 9};
-const vector<int> PrescribeFaultKernel::Jf3_timedependent = {}; 
+// const vector<int> PrescribeFaultKernel::Jf3_entries = {0, 39, 13, 14, 25, 26, 104, 117};
+const vector<int> PrescribeFaultKernel::Jf3_is = {28, 29, 28, 29, 28, 29};
+const vector<int> PrescribeFaultKernel::Jf3_js = {28, 29, 16, 17, 18, 19};
+// const vector<int> PrescribeFaultKernel::Jf3_timedependent = {}; 
 const vector<int> PrescribeFaultKernel::Jf3_timedependent_is = {};
 const vector<int> PrescribeFaultKernel::Jf3_timedependent_js = {};
