@@ -120,10 +120,34 @@ public:
     /** Get element NID */
     const vector<CohesiveNode*> & getNID() const;
 
+    /** Evaluate a function F at i th integration point */
+    void evaluateF(vector<double> & res, int i,
+                   const vector<vector<double> *> & NodeValues) const;
+
+    /** Evaluate vector at (ksi, eta) in logical space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF(vector<double> & res, double ksi,
+                   const vector<vector<double> *> & NodeValues) const;
+
     /** Evaluate a function at ksi */
     void evaluateF(vector<double> & res, double ksi, 
                    const vector<vector<double>> & NodeValues) const;
     
+    /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at integration
+     * point i, j, in LOGICAL space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF_x(vector<double> & res, int i, 
+                     const vector<vector<double> *> & NodeValues) const;
+
+    /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi, eta) 
+     * in LOGICAL space with given nodal values.
+     * Calculated by using shape function to map
+     */
+    void evaluateF_x(vector<double> & res, double ksi, 
+                     const vector<vector<double> *> & NodeValues) const;   
+
     /** Evaluate PHYSICAL gradient (\partial x, \partial y) of vector at (ksi) 
      * in LOGICAL space with given nodal values.
      * Calculated by using shape function to map
@@ -131,21 +155,30 @@ public:
     void evaluateF_x(vector<double> & res, double ksi,
                    const vector<vector<double>> & NodeValues) const;
 
+//================ Integrators for ElementQ4Cohesive ==================================
     /** IntegratorNf, integrates a vector input inside an element, 
      * left side using shape function
      * RES: nOfNodes * nOfDofs
      * NODEVALUES: dim 1, nOfNodes; dim 2, nOfDofs
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorNf(vector<double> & res, 
-                      const vector<vector<double>> & NodeValues) const;
+    void IntegratorNf(double *res,
+                      int resSize, 
+                      const vector<vector<double>> & NodeValues, 
+                      int flag = 0) const;
     
     /** IntegratorBf, integrates a vector input inside an element, 
      * left side using shape function
      * RES: nOfNodes * nOfDofs
      * NODEVALUES: dim 1, nOfNodes; dim 2, nOfDofs * spaceDim
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorBf(vector<double> & res, 
-                      const vector<vector<double>> & NodeValues) const;
+    void IntegratorBf(double *res,
+                      int resSize,
+                      const vector<vector<double>> & NodeValues, 
+                      int flag = 0) const;
 
     /** IntegratorNfN, integrates a vector input inside an element, 
      * both sides using shape function (nOfDofs, nOfDofs * nOfNodes)

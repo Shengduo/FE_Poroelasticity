@@ -316,37 +316,20 @@ void ElementQ4::evaluateF_x(vector<double> & res, double ksi, double eta,
     // int nOfNodes = this->getNID().size();
     if (NodeValues.size() != nOfNodes) 
         throw "In evaluateF_x, nodeValues do not match number of nodes!";
-    
-    // Space dim is 2 for Q4
-    // int spaceDim = 2;
 
     // Set res to 0.;
     res.resize(spaceDim * NodeValues[0]->size());
     fill(res.begin(), res.end(), 0.0);
 
-    vector<double> invJ(spaceDim * spaceDim, 0.);
-    if (!InvJ(invJ, ksi, eta)) throw "J is singular for evaluateF_x!";
-
-    vector<double> res_s(res.size(), 0.);    
     // Loop through fields
     for(int f = 0; f < NodeValues[0]->size(); f++) {
         // Loop through nodes
         for (int n = 0; n < NodeValues.size(); n++) {
             // Loop through spaceDim
             for (int d = 0; d < spaceDim; d++) {
-                // Calculate \partial F / \partial \ksi
-                res_s[d + f * spaceDim] += B(ksi, eta)[n * spaceDim + d] * (*(NodeValues[n]))[f];
+                // Calculate \partial F / \partial x
+                res[d + f * spaceDim] += B_x(ksi, eta)[n * spaceDim + d] * (*(NodeValues[n]))[f];
             }
-        }
-    }
-
-    /** Apply invJ = (\partial x \partial \ksi) ^ -1 */
-    // All fields
-    for (int f = 0; f < NodeValues[0]->size(); f++) {
-        // All spaceDims
-        for (int d = 0; d < spaceDim; d++) {
-            res[f * spaceDim + d] = invJ[0 * spaceDim + d] * res_s[f * spaceDim + 0] 
-                                    + invJ[1 * spaceDim + d] * res_s[f * spaceDim + 1];
         }
     }
 };
@@ -361,37 +344,20 @@ void ElementQ4::evaluateF_x(vector<double> & res, double ksi, double eta,
     // int nOfNodes = this->getNID().size();
     if (NodeValues.size() != nOfNodes) 
         throw "In evaluateF_x, nodeValues do not match number of nodes!";
-    
-    // Space dim is 2 for Q4
-    // int spaceDim = 2;
 
     // Set res to 0.;
     res.resize(spaceDim * NodeValues[0].size());
     fill(res.begin(), res.end(), 0.0);
-
-    vector<double> invJ(spaceDim * spaceDim, 0.);
-    if (!InvJ(invJ, ksi, eta)) throw "J is singular for evaluateF_x!";
-
-    vector<double> res_s(res.size(), 0.);    
+  
     // Loop through fields
     for(int f = 0; f < NodeValues[0].size(); f++) {
         // Loop through nodes
         for (int n = 0; n < NodeValues.size(); n++) {
             // Loop through spaceDim
             for (int d = 0; d < spaceDim; d++) {
-                // Calculate \partial F / \partial \ksi
-                res_s[d + f * spaceDim] += B(ksi, eta)[n * spaceDim + d] * NodeValues[n][f];
+                // Calculate \partial F / \partial x
+                res[d + f * spaceDim] += B_x(ksi, eta)[n * spaceDim + d] * NodeValues[n][f];
             }
-        }
-    }
-
-    /** Apply invJ = (\partial x \partial \ksi) ^ -1 */
-    // All fields
-    for (int f = 0; f < NodeValues[0].size(); f++) {
-        // All spaceDims
-        for (int d = 0; d < spaceDim; d++) {
-            res[f * spaceDim + d] = invJ[0 * spaceDim + d] * res_s[f * spaceDim + 0] 
-                                    + invJ[1 * spaceDim + d] * res_s[f * spaceDim + 1];
         }
     }
 };
