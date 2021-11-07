@@ -265,10 +265,6 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
             Jf0[(I_u + spaceDim + i) * nCols + (I_l + i)] = 1;
         };
         
-        // Use Jf[0] to store current value of Jf0pp
-        // Since only (28, 29, 35) of Jf0 are used
-        // FIX THIS LATER
-        // Jf0[0] = s_tshift / Mp;
         // DEBUG LINES
         // cout << "Jf0pp = " << Jf0[I_p * nCols + I_p] << "\n";
 
@@ -286,10 +282,6 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
         int I_p = 8;
         Jf0[I_p * nCols + I_p] = a[i_fluidMobilityZ] / a[i_fluidViscosity] / a[i_thickness];
         Jf0[(I_p + 1) * nCols + (I_p + 1)] = Jf0[I_p * nCols + I_p];
-        // FIX THIS LATER
-        // Use Jf[1] to store current value of Jf0pe
-        // Since only (28, 29, 35) of Jf0 are used
-        // Jf0[1] = s_tshift * alpha;
         
         // ================ Jf0ppf ======================================
         // Jf0ppf = [- \kappa_cz / (\mu h); -\kappa_cz / (\mu h)]
@@ -306,10 +298,6 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
         int I_pf = 14;
         Jf0[I_p * nCols + I_pf] = -a[i_fluidMobilityZ] / a[i_fluidViscosity] / a[i_thickness];
         Jf0[(I_p + 1) * nCols + I_pf] = Jf0[I_p * nCols + I_pf];
-        // FIX THIS LATER
-        // Use Jf[1] to store current value of Jf0pe
-        // Since only (28, 29, 35) of Jf0 are used
-        // Jf0[1] = s_tshift * alpha;
         
         // ================ Jf0lu ======================================
         // Jf0lu = [-I, I];
@@ -328,25 +316,160 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
             Jf0[(I_l + i) * nCols + (I_u + spaceDim + i)] = 1;
         };
         
-        // Use Jf[0] to store current value of Jf0pp
-        // Since only (28, 29, 35) of Jf0 are used
-        // FIX THIS LATER
-        // Jf0[0] = s_tshift / Mp;
-        // DEBUG LINES
-        // cout << "Jf0pp = " << Jf0[I_p * nCols + I_p] << "\n";   
+        // ================ Jf0pfpf ======================================
+        // Jf0pfpf = 2 \kappa_z / \mu / h^2 + 2 \phi_f * \beta_P * s_tshift;
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
+         */
+
+        Jf0[I_pf * nCols + I_pf] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
+                                   + 2 * a[i_porosity] * a[i_betaP] * s_tshift;
+        
+        // Jf0[0][0] is not used, use to store this
+        Jf0[0 * nCols + 0] = Jf0[I_pf * nCols + I_pf];
+
+        // ================ Jf0pfl ======================================
+        // Jf0pfl = - \phi_f * \beta_Sigma * s_tshift * [n[0], n[1]];
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
+         */
+
+        Jf0[I_pf * nCols + I_l] = - a[i_porosity] * a[i_betaSigma] * s_tshift * n[0];
+        Jf0[I_pf * nCols + I_l + 1] = - a[i_porosity] * a[i_betaSigma] * s_tshift * n[1];
+        // Jf0[0][1] and Jf0[0][2] are not used, use to store this
+        Jf0[0 * nCols + 1] = Jf0[I_pf * nCols + I_l];
+        Jf0[0 * nCols + 2] = Jf0[I_pf * nCols + I_l + 1];
+
+        // ================ Jf0pfp ======================================
+        // Jf0pfp = \phi_f * \beta_P / 4 * s_tshift - \kappa_z / (\mu h^2);
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
+         */
+
+        Jf0[I_pf * nCols + I_p] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
+        Jf0[I_pf * nCols + I_p + 1] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
+        // Jf0[0][3] and Jf0[0][4] are not used, use to store this
+        Jf0[0 * nCols + 3] = Jf0[I_pf * nCols + I_p];
+        Jf0[0 * nCols + 4] = Jf0[I_pf * nCols + I_p + 1];
+    }
+
+    else {
+        // ==================== constants ==============================
+        /** Nodal properties values (
+         * 0 - mass density; 
+         * 1,2 - body force (force per unit volume); 
+         * 3 - fluidMobility_x
+         * 4 - fluidMobility_z
+         * 5 - fluidViscosity \mu
+         * 6 - porosity \phi_f
+         * 7 - thickness h
+         * 8 - beta_p 
+         * 9 - beta_sigma
+         * 10 - rateStateA
+         * 11 - rateStateB
+         * 12 - DRateState
+         * 13, 14 - fluidBodyForce
+         * 15 - source 
+         * ...)
+         */   
+        int i_fluidMobilityX = 3;
+        int i_fluidMobilityZ = 4;
+        int i_fluidViscosity = 5;
+        int i_porosity = 6;
+        int i_thickness = 7;
+        int i_betaP = 8;
+        int i_betaSigma = 9;
+        int i_fluidBodyForce = 13;
+        int i_source = 15;
+        
+        // ================ Jf0pfpf ======================================
+        // Jf0pfpf = 2 \kappa_z / \mu / h^2 + 2 \phi_f * \beta_Sigma * s_tshift;
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
+         */
+        int I_pf = 14;
+        Jf0[I_pf * nCols + I_pf] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
+                                   + 2 * a[i_porosity] * a[i_betaP] * s_tshift 
+                                   - Jf0[0 * nCols + 0];
+        
+        // Jf0[0][0] is not used, use to store this
+        Jf0[0 * nCols + 0] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
+                             + 2 * a[i_porosity] * a[i_betaP] * s_tshift;
+        
+        // ================ Jf0pfl ======================================
+        // Jf0pfl = - \phi_f * \beta_Sigma * s_tshift * [n[0], n[1]];
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
+         */
+
+        int I_l = 12;
+        Jf0[I_pf * nCols + I_l] = - a[i_porosity] * a[i_betaSigma] * s_tshift * n[0] - Jf0[0 * nCols + 1];
+        Jf0[I_pf * nCols + I_l + 1] = - a[i_porosity] * a[i_betaSigma] * s_tshift * n[1] - Jf0[0 * nCols + 2];
+        // Jf0[0][1] and Jf0[0][2] are not used, use to store this
+        Jf0[0 * nCols + 1] = - a[i_porosity] * a[i_betaSigma] * s_tshift * n[0];
+        Jf0[0 * nCols + 2] = - a[i_porosity] * a[i_betaSigma] * s_tshift * n[1];
+
+        // ================ Jf0pfp ======================================
+        // Jf0pfp = \phi_f * \beta_P / 4 * s_tshift - \kappa_z / (\mu h^2);
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - theta (R & S state, not used here)
+         */
+        
+        int I_p = 8;
+        Jf0[I_pf * nCols + I_p] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2) - Jf0[0 * nCols + 3];
+        Jf0[I_pf * nCols + I_p + 1] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2) - Jf0[0 * nCols + 4];
+        // Jf0[0][3] and Jf0[0][4] are not used, use to store this
+        Jf0[0 * nCols + 3] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
+        Jf0[0 * nCols + 4] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
     }
 };
 
 /** The elements of Jf0 that requires re-assemble after the first iteration
- * non-zeros are Jf0ul, Jf0pp and Jf0ppf and Jf0lu
- * nothing is time dependent
+ * non-zeros are Jf0ul, Jf0pp and Jf0ppf and Jf0lu (12 non-zeros in total)
+ * Jf0pfpf,  is time dependent
  */
 // const vector<int> PrescribeFaultKernel::Jf0_entries = {28, 29, 35};
-const vector<int> PrescribeFaultKernel::Jf0_is = {0, 1, 2, 3, 8, 9, 8, 9, 12, 12, 13, 13};
-const vector<int> PrescribeFaultKernel::Jf0_js = {12, 13, 12, 13, 8, 9, 14, 14, 0, 2, 1, 3};
+const vector<int> PrescribeFaultKernel::Jf0_is = {0, 1, 2, 3, 8, 9, 8, 9, 12, 12, 13, 13, 14, 14, 14, 14, 14};
+const vector<int> PrescribeFaultKernel::Jf0_js = {12, 13, 12, 13, 8, 9, 14, 14, 0, 2, 1, 3, 14, 12, 13, 8, 9};
 // const vector<int> PrescribeFaultKernel::Jf0_timedependent = {}; 
-const vector<int> PrescribeFaultKernel::Jf0_timedependent_is = {};
-const vector<int> PrescribeFaultKernel::Jf0_timedependent_js = {};
+const vector<int> PrescribeFaultKernel::Jf0_timedependent_is = {14, 14, 14, 14, 14};
+const vector<int> PrescribeFaultKernel::Jf0_timedependent_js = {14, 12, 13, 8, 9};
 
 /** Left hand side Jacobian
  * Jf1(t, s), uses integrator NfB
@@ -377,58 +500,17 @@ void PrescribeFaultKernel::Jf1(vector<double> &Jf1,        // stores the result
             for (int j = 0; j < nCols; j++)
                 Jf1[i * nCols + j] = 0.;
         }
-        // ==================== constants ==============================
-        /** Nodal properties values (
-         * 0 - mass density; 
-         * 1,2 - body force (force per unit volume); 
-         * 3 - \lambda (drained);
-         * 4 - shear modulus G;
-         * 5 - Biot coefficient \alpha;
-         * 6 - Biot modulus M_p;
-         * 7 - Fluid mobility \kappa;
-         * 8 - Fluid viscosity \mu;
-         * 9 - fluid density
-         * 10 - reference porosity
-         * 11, 12 - fluid body force (force per unit volume)
-         * 13 - fluid source density (/s) 
-         * ...)
-         */
-        // int i_lambda = 3;
-        // int i_shearModulus = 4;
-        // int i_alpha = 5;
-        // int i_Mp = 6;
-        // int i_kappa = 7;
-        // int i_viscosity = 8;
-        // double lambda = a[i_lambda];
-        // double shearModulus = a[i_shearModulus];
-        // double alpha = a[i_alpha];
-        // double Mp = a[i_Mp];
-        // double kappa = a[i_kappa];
-        // double viscosity = a[i_viscosity];
-
-        // ================ Jf1eu ======================================
-        // Jf0pp = s_ts
-        /** Solution vector
-         * 0, 1 - displacement
-         * 2, 3 - velocity
-         * 4 - pressure
-         * 5 - trace-strain
-         */
-        int I_e = 5;
-        int I_u = 0;
-        Jf1[I_e * nCols + I_u * spaceDim] = 1.;
-        Jf1[I_e * nCols + (I_u + 1) * spaceDim + 1] = 1.;
     }
 };
 
-/** The elements of Jf0 that requires re-assemble after the first iteration
- * non-zeros are Jf1eu (2 terms)
+/** The elements of Jf1 that requires re-assemble after the first iteration
+ * non-zeros are NULL (0 terms)
  * nothing in JF1 is time dependent
  */
-const vector<int> PrescribeFaultKernel::Jf1_entries = {60, 63};
-const vector<int> PrescribeFaultKernel::Jf1_is = {5, 5};
-const vector<int> PrescribeFaultKernel::Jf1_js = {0, 3};
-const vector<int> PrescribeFaultKernel::Jf1_timedependent = {}; 
+// const vector<int> PrescribeFaultKernel::Jf1_entries = {};
+const vector<int> PrescribeFaultKernel::Jf1_is = {};
+const vector<int> PrescribeFaultKernel::Jf1_js = {};
+// const vector<int> PrescribeFaultKernel::Jf1_timedependent = {}; 
 const vector<int> PrescribeFaultKernel::Jf1_timedependent_is = {};
 const vector<int> PrescribeFaultKernel::Jf1_timedependent_js = {};
 
@@ -462,66 +544,17 @@ void PrescribeFaultKernel::Jf2(vector<double> &Jf2,        // stores the result
             for (int j = 0; j < nCols; j++)
                 Jf2[i * nCols + j] = 0.;
         }
-        // ==================== constants ==============================
-        /** Nodal properties values (
-         * 0 - mass density; 
-         * 1,2 - body force (force per unit volume); 
-         * 3 - \lambda (drained);
-         * 4 - shear modulus G;
-         * 5 - Biot coefficient \alpha;
-         * 6 - Biot modulus M_p;
-         * 7 - Fluid mobility \kappa;
-         * 8 - Fluid viscosity \mu;
-         * ...)
-         */
-        int i_lambda = 3;
-        // int i_shearModulus = 4;
-        int i_alpha = 5;
-        // int i_Mp = 6;
-        // int i_kappa = 7;
-        // int i_viscosity = 8;
-        double lambda = a[i_lambda];
-        // double shearModulus = a[i_shearModulus];
-        double alpha = a[i_alpha];
-        // double Mp = a[i_Mp];
-        // double kappa = a[i_kappa];
-        // double viscosity = a[i_viscosity];
-
-        // ================ Jf2up ======================================
-        // Jf2up = \alpha \delta_{ij}
-        /** Solution vector
-         * 0, 1 - displacement
-         * 2, 3 - velocity
-         * 4 - pressure
-         * 5 - trace-strain
-         */
-        int I_p = 4;
-        int I_u = 0;
-        Jf2[(I_u * spaceDim) * nCols + I_p] = alpha;
-        Jf2[((I_u + 1) * spaceDim + 1) * nCols + I_p] = alpha;
-
-        // ================ Jf2ue ======================================
-        // Jf2up = \alpha \delta_{ij}
-        /** Solution vector
-         * 0, 1 - displacement
-         * 2, 3 - velocity
-         * 4 - pressure
-         * 5 - trace-strain
-         */
-        int I_e = 5;
-        Jf2[(I_u * spaceDim) * nCols + I_e] = - lambda;
-        Jf2[((I_u + 1) * spaceDim + 1) * nCols + I_e] = - lambda;
     }
 };
 
 /** The elements of Jf2 that requires re-assemble after the first iteration
- * the nonzeros are Jf2up (2 terms) and Jf2ue (2 terms)
+ * the nonzeros are NULL
  * nothing is dependent on time
  */
-const vector<int> PrescribeFaultKernel::Jf2_entries = {4, 22, 5, 23};
-const vector<int> PrescribeFaultKernel::Jf2_is = {0, 3, 0, 3};
-const vector<int> PrescribeFaultKernel::Jf2_js = {4, 4, 5, 5};
-const vector<int> PrescribeFaultKernel::Jf2_timedependent = {}; 
+// const vector<int> PrescribeFaultKernel::Jf2_entries = {4, 22, 5, 23};
+const vector<int> PrescribeFaultKernel::Jf2_is = {};
+const vector<int> PrescribeFaultKernel::Jf2_js = {};
+// const vector<int> PrescribeFaultKernel::Jf2_timedependent = {}; 
 const vector<int> PrescribeFaultKernel::Jf2_timedependent_is = {};
 const vector<int> PrescribeFaultKernel::Jf2_timedependent_js = {};
 
