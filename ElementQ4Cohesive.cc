@@ -25,11 +25,15 @@ ElementQ4Cohesive::ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, 
     nOfNodes = _NID.size();
     nOfDofs = _NID[0]->getDOF().size();
 
+    // Initialize normal vector;
+    setN();
+
     // Initialize vectors
     ss.resize(nOfDofs, 0.);
     s_xs.resize(nOfDofs * spaceDim, 0.);
     s_ts.resize(nOfDofs, 0.);
     as.resize(_NID[0]->_nodalProperties.size(), 0.);
+    a_xs.resize(spaceDim * as.size());
 
     // Collecting nodal data, pre-allocate
     nodalSs.resize(nOfNodes, NULL);
@@ -87,6 +91,16 @@ void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
         _NID[i] = NID[i];
         elementDOF += NID[i]->getDOF().size();
     }
+};
+
+/** Set normal vector */
+void ElementQ4Cohesive::setN() {
+    _n.resize(nOfNodes); 
+    _n[0] = -(_NID[1]->getXYZ()[1] - _NID[0]->getXYZ()[1]);
+    _n[1] = _NID[1]->getXYZ()[0] - _NID[0]->getXYZ()[0];
+    double n_norm = sqrt(pow(_n[0], 2) + pow(_n[1], 2));
+    _n[0] = _n[0] / n_norm; 
+    _n[1] = _n[1] / n_norm;
 };
 
 /** Get element NID */
@@ -755,4 +769,358 @@ void ElementQ4Cohesive::outputInfo(ofstream & myFile) const {
         myFile << setw(10) << getNID()[i]->getID() << " ";
     }
     myFile << "\n";
+};
+
+//============ Element Jacobians and residuals =====================================================
+
+/** Calculate element jacobian Jf */
+void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift, double t, const vector<double> &d) {
+    // Zero localJF
+    for (int i = 0; i < localJFSize; i++) localJF[i] = 0.;
+
+    // Switch kernel
+    switch (Kernel) {
+        // 2D Quasi-static linear elasticity
+        case 0: {
+            /**
+            int nCols = spaceDim * nOfDofs;
+            vector<vector<double>> NodeJFs(this->getNID().size(), vector<double>(nCols * nCols, 0.));
+
+            // Call pointwise Jacobian
+            for (int i = 0; i < nOfNodes; i++) {
+                ElasticKernel::Jf3(NodeJFs[i], spaceDim, this->getNID()[i]->_nodalProperties);
+            }
+
+            // Calculate B^T D B
+            IntegratorBfB(localJF, localJFSize, NodeJFs);
+            
+            // Assemble to globalJF
+            JFPush(globalJF, localJF, localJFSize);      
+            */
+
+            /** DEBUG LINES
+            ofstream myFile;
+            myFile.open("NodeJFs.txt");
+            // Nodal D matrix
+            for (int n = 0; n < nOfNodes; n++) {
+                myFile << "Node ID: " << this->getNID()[n]->getID() << "\n";
+                for (int i = 0; i < nCols; i++) {
+                    for (int j = 0; j < nCols; j++) {
+                        myFile << setw(12) << NodeJFs[n][i * nCols + j] << " ";
+                    }
+                    myFile << "\n";
+                }
+                myFile << "\n";
+            }    
+            */  
+        }
+        
+        // 2D Isotropic linear poroelasticity with prescribed slip
+        case 1: {
+            // MatAssembled(globalJF, &isJfAssembled);
+            // DEBUG LINES
+            // isJfAssembled = PETSC_FALSE;
+
+            for (int n = 0; n < nOfNodes; n++) {
+                nodalSs[n] = &(_NID[n]->s);
+                nodalS_ts[n] = &(_NID[n]->s_t);
+                nodalAs[n] = &(_NID[n]->_nodalProperties);
+            }
+            
+            // DEBUG LINES
+            // (*clocks)[0] = clock();
+
+            // Calculate point values at integration points
+            for (int i = 0; i < nOfIntPts; i++) {
+                    evaluateF(ss, i, nodalSs);
+                    evaluateF_x(s_xs, i, nodalSs);
+                    evaluateF(as, i, nodalAs);
+                    evaluateF(s_ts, i, nodalS_ts);
+                    evaluateF_x(a_xs, i, nodalAs);
+                    // DEBUG LINES
+                    // cout << "fuck!" << "\n";
+                    PrescribeFaultKernel::Jf0(Jf0s[i],
+                                           spaceDim,
+                                           t, 
+                                           ss,
+                                           s_xs,
+                                           s_ts,
+                                           s_tshift,
+                                           as,
+                                           as,
+                                           a_xs,
+                                           isJfAssembled, 
+                                           _n, 
+                                           d);
+
+                    PrescribeFaultKernel::Jf1(Jf1s[i],
+                                           spaceDim,
+                                           t, 
+                                           ss,
+                                           s_xs,
+                                           s_ts,
+                                           s_tshift,
+                                           as,
+                                           as,
+                                           a_xs,
+                                           isJfAssembled, 
+                                           _n, 
+                                           d);
+
+                    PrescribeFaultKernel::Jf2(Jf2s[i],
+                                           spaceDim,
+                                           t, 
+                                           ss,
+                                           s_xs,
+                                           s_ts,
+                                           s_tshift,
+                                           as,
+                                           as,
+                                           a_xs,
+                                           isJfAssembled, 
+                                           _n, 
+                                           d);
+
+                    PrescribeFaultKernel::Jf3(Jf3s[i],
+                                           spaceDim,
+                                           t, 
+                                           ss,
+                                           s_xs,
+                                           s_ts,
+                                           s_tshift,
+                                           as,
+                                           as,
+                                           a_xs,
+                                           isJfAssembled, 
+                                           _n, 
+                                           d);
+                
+            }
+
+            // DEBUG LINES
+            // (*clocks)[1] = clock();
+
+            // Integration
+            if (!isJfAssembled) {
+                // DEBUG LINES
+                // cout << "fuck!" << "\n";
+                (*clocks)[0] = clock();
+                IntegratorNfN(localJF, localJFSize, Jf0s, PrescribeFaultKernel::Jf0_is, PrescribeFaultKernel::Jf0_js, 1);
+                (*clocks)[1] = clock();
+                IntegratorNfB(localJF, localJFSize, Jf1s, PrescribeFaultKernel::Jf1_is, PrescribeFaultKernel::Jf1_js, 1);
+                (*clocks)[2] = clock();
+                IntegratorBfN(localJF, localJFSize, Jf2s, PrescribeFaultKernel::Jf2_is, PrescribeFaultKernel::Jf2_js, 1);
+                (*clocks)[3] = clock();
+                IntegratorBfB(localJF, localJFSize, Jf3s, PrescribeFaultKernel::Jf3_is, PrescribeFaultKernel::Jf3_js, 1);
+                (*clocks)[4] = clock();
+            }
+            else {
+                // DEBUG LINES
+                // double shit = 0.;
+                // cout << "local JF addition before integration: ";
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                
+                IntegratorNfN(localJF, localJFSize, Jf0s, PrescribeFaultKernel::Jf0_timedependent_is, PrescribeFaultKernel::Jf0_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after NfN: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                IntegratorNfB(localJF, localJFSize, Jf1s, PrescribeFaultKernel::Jf1_timedependent_is, PrescribeFaultKernel::Jf1_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after NfB: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                IntegratorBfN(localJF, localJFSize, Jf2s, PrescribeFaultKernel::Jf2_timedependent_is, PrescribeFaultKernel::Jf2_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after BfN: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                IntegratorBfB(localJF, localJFSize, Jf3s, PrescribeFaultKernel::Jf3_timedependent_is, PrescribeFaultKernel::Jf3_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after BfB: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+               
+            }
+            // DEBUG LINES
+            // (*clocks)[2] = clock();
+
+            isJfAssembled = PETSC_TRUE;
+
+            // Push to the global JF
+            JFPush(globalJF, localJF, localJFSize);
+
+            // DEBUG LINES
+            (*clocks)[3] = clock();
+
+            // DEBUG LINES
+            /**
+            for (int i = 0; i < timeConsumed->size(); i++) {
+                (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
+            }
+            */
+        }
+        default:
+            break;
+    }
+};
+
+
+/** Calculate element residual F, 
+ * and then push ot globalF
+ */
+void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift, double t, 
+                                 const vector<double> &d) {
+    // Zero local F
+    for (int i = 0; i < localFSize; i++) localF[i] = 0.;
+    
+    // Switch kernel 0 - elastic (not implemented), 1 - poroelastic with prescribed fault slip
+    switch(Kernel) {
+        // Linear poroelastic kernels
+        case 1: {            
+            for (int n = 0; n < nOfNodes; n++) {
+                nodalSs[n] = &(_NID[n]->s);
+                nodalS_ts[n] = &(_NID[n]->s_t);
+                nodalAs[n] = &(_NID[n]->_nodalProperties);
+            }
+            
+            // Calculate point values at integration points
+            for (int i = 0; i < nOfIntPts; i++) {
+                // DEBUG LINES
+                (*clocks)[0] = clock();        
+                evaluateF(ss, i, nodalSs);
+                
+                // DEBUG LINES
+                (*clocks)[1] = clock();
+                evaluateF_x(s_xs, i, nodalSs);
+
+                // DEBUG LINES
+                (*clocks)[2] = clock();
+                evaluateF(as, i, nodalAs);
+
+                // DEBUG LINES
+                (*clocks)[3] = clock();
+                evaluateF(s_ts, i, nodalS_ts);                    
+                
+                // DEBUG LINES
+                (*clocks)[4] = clock();
+                evaluateF_x(a_xs, i, nodalAs);
+
+                // DEBUG LINES
+                /**
+                if (_ID == 1) {
+                    cout << "Element F_X: \n";
+                    cout << "(i, j) = " << i << " " << j << "\n";
+                    cout << "nodal s: " << nodalSs[0][4] << " " << nodalSs[1][4] << " " << nodalSs[2][4] << " " << nodalSs[3][4] << "\n";
+                    cout << "s, s_x, s_t: " << ss[4] << " " << s_xs[8] << " " << s_xs[9]  << " " << s_ts[4] << "\n"; 
+                }
+                */
+                // DEBUG LINES
+                // cout << "Fuck!" << "\n";
+
+                PrescribeFaultKernel::F0(F0s[i],
+                                         spaceDim,
+                                         t,
+                                         ss,
+                                         s_xs,
+                                         s_ts,
+                                         s_tshift,
+                                         as,
+                                         as,
+                                         a_xs, 
+                                         _n,
+                                         d);
+
+                // DEBUG LINES
+                // cout << "Fuck!" << "\n";
+
+                PrescribeFaultKernel::F1(F1s[i],
+                                         spaceDim,
+                                         t,
+                                         ss,
+                                         s_xs,
+                                         s_ts,
+                                         s_tshift,
+                                         as,
+                                         as,
+                                         a_xs, 
+                                         _n, 
+                                         d);
+
+                // DEBUG LINES
+                /**
+                if (_ID == 1) {
+                    cout << "f0p: " << F0s[i * nOfIntPts + j][4] << "\n";
+                    cout << "f1p: " << F1s[i * nOfIntPts + j][8] << " " << F1s[i * nOfIntPts + j][9] << "\n";
+                }
+                */      
+                for (int i = 0; i < timeConsumed->size(); i++) {
+                    (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
+                }
+            }
+            
+            
+            // Integrate
+            IntegratorNf(localF, localFSize, F0s, 1);
+            
+            
+
+            IntegratorBf(localF, localFSize, F1s, 1);
+            
+            
+
+            // DEBUG LINES
+            /**
+            if (_ID == 1) {
+                cout << "F0: ";
+                for (auto shit : F0) cout << shit << " ";
+                cout << "\n";
+
+                cout << "F1: ";
+                for (auto shit : F1) cout << shit << " ";
+                cout << "\n";
+                //cout << "F0: " << F0[4] << " " << F0[12] << " " << F0[20] << " " << F0[28] << "\n";
+                //cout << "F1: " << F1[4] << " " << F1[12] << " " << F1[20] << " " << F1[28] << "\n";
+            } 
+            */
+
+            // Push to globalF
+            elementFPush(globalF, localF, localFSize);
+            
+        }
+        default :
+            break;
+    }
+
+};
+
+/** Push local Jf to global Jf */
+void ElementQ4Cohesive::JFPush(Mat & globalJF, double *elementJF, int elementJFSize) const {
+    // Push to global JF
+    MatSetValues(globalJF, elementDOF, localGlobalIndices, elementDOF, localGlobalIndices, elementJF, ADD_VALUES);
+};
+
+/** Push elementF to globalF */
+void ElementQ4Cohesive::elementFPush(Vec & globalF, double *elementF, int elementFSize) const {
+
+    // Push to global vector
+    VecSetValues(globalF, elementFSize, localGlobalIndices, elementF, ADD_VALUES);
 };

@@ -2,6 +2,7 @@
  * Headfile for class ElementQ4Cohesive : ElementQ4
  */
 #include "ElementQ4.hh"
+#include "PrescribeFaultKernel.hh"
 //------------------------------------------------------------------------------------------------------------------------------------------------------
 /** ElementQ4Cohesive
  * Cohesive version of Q4, only 2 nodes
@@ -12,6 +13,9 @@ class ElementQ4Cohesive : public ElementQ4 {
 private:
     /** Node connection */
     vector<CohesiveNode*> _NID;
+
+    /** Normal unit vector */
+    vector<double> _n;
 
     /** Shape function N, vector of 2 on 2 nodes, 
      * evaluated in base space (ksi)
@@ -85,6 +89,7 @@ private:
     vector<double> s_xs;
     vector<double> s_ts;
     vector<double> as;
+    vector<double> a_xs;
 
     /** For collecting nodal data, pre-allocate */
     vector<vector<double> *> nodalSs;
@@ -116,6 +121,9 @@ public:
 
     /** Set element NID */
     void setNID(const vector<CohesiveNode*> & NID);
+
+    /** Set normal vector */
+    void setN();
 
     /** Get element NID */
     const vector<CohesiveNode*> & getNID() const;
@@ -242,6 +250,25 @@ public:
 
     /** Output element info */
     void outputInfo(ofstream & myFile) const;
+
+//============ Element Jacobians and residuals =====================================================
+// PUBLIC MEMBERS
+public: 
+    /** Calculate element jacobian JF */
+    void JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift, double t, 
+            const vector<double> &d = vector<double>{0., 0.});
+
+    /** Calculate element residual F */
+    void elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift, double t, 
+                  const vector<double> &d = vector<double>{0., 0.});
+
+// PRIVATE MEMBERS
+private:
+    /** Push local Jf to global Jf */
+    void JFPush(Mat & globalJF, double *elementJF, int elementJFSize) const;
+
+    /** Push elementF to globalF */
+    void elementFPush(Vec & globalF, double *elementF, int elementFSize) const;
 
 // NOT IMPLEMENTED
 private:
