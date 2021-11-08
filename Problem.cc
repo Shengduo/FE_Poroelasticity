@@ -1614,15 +1614,15 @@ void Problem::initializePetsc() {
     }
 }
 
-
 // Initialization of Elastic Elements
 void Problem::initializeElementsPoroElastic() {
     // Using the NID to assign values to each element
     vector<Node*> NID(4, NULL);
+    vector<CohesiveNode*> NID_cohesive(2, NULL);
+    int GlobalEleID = 0;
     
     // Upperzone ElementQ4s
     upperElements.resize(myGeometry->nOfElements, NULL);
-
     for (int i = 0; i < myGeometry->xEdgeNum; i++) {
         for (int j = 0; j < myGeometry->yEdgeNum; j++) {
             // Setting NID for upper subzone
@@ -1632,9 +1632,42 @@ void Problem::initializeElementsPoroElastic() {
                    upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
 
             upperElements[j * myGeometry->xEdgeNum + i] = 
-                new ElementQ4(j * myGeometry->xEdgeNum + i, NID, &clocks, &timeConsumed);            
+                new ElementQ4(GlobalEleID, NID, &clocks, &timeConsumed); 
+            
+            // Augmented global ID
+            GlobalEleID += 1;           
         }
     }
+
+    // Lowerzone ElementQ4s
+    lowerElements.resize(myGeometry->nOfElements, NULL);
+    for (int i = 0; i < myGeometry->xEdgeNum; i++) {
+        for (int j = 0; j < myGeometry->yEdgeNum; j++) {
+            // Setting NID for upper subzone
+            NID = {lowerNodes[(j + 1) * myGeometry->xNodeNum + i], 
+                   lowerNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
+                   lowerNodes[j * myGeometry->xNodeNum + i + 1], 
+                   lowerNodes[j * myGeometry->xNodeNum + i]};
+
+            lowerElements[j * myGeometry->xEdgeNum + i] = 
+                new ElementQ4(GlobalEleID, NID, &clocks, &timeConsumed); 
+            // Augment global node ID
+            GlobalEleID += 1;           
+        }
+    }
+
+    // Cohesivezone ElementQ4Cohesives
+    cohesiveElements.resize(myGeometry->xEdgeNum, NULL);
+    for (int i = 0; i < myGeometry->xEdgeNum; i++) {
+        // Setting NID for upper subzone
+        NID_cohesive = {cohesiveNodes[i], cohesiveNodes[i + 1]};
+
+        cohesiveElements[i] = 
+            new ElementQ4Cohesive(GlobalEleID, NID_cohesive, &clocks, &timeConsumed); 
+        // Augment global node ID
+        GlobalEleID += 1;           
+    }
+
     ofstream myFile;
     myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
     myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
@@ -1648,6 +1681,12 @@ void Problem::initializeElementsPoroElastic() {
     localJFSize = pow(localFSize, 2);
     localF = new double [localFSize];
     localJF = new double [localJFSize];
+
+    // Allocate localFCohesive and localJFCohesive
+    localFCohesiveSize = cohesiveElements[0]->getElementDOF();
+    localJFCohesiveSize = pow(localFCohesiveSize, 2);
+    localFCohesive = new double [localFCohesiveSize];
+    localJFCohesive = new double [localJFCohesiveSize];
 };
 
 /** TS (SNES) solver for linear poroelastic problems */
@@ -1724,13 +1763,31 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         node->fetchS_t(s_t);
     }
 
-    
+    for (Node* node : myProblem->lowerNodes) {
+        node->fetchS(s);
+        node->fetchS_t(s_t);
+    }
 
-    // Loop through all elements in upperElements
+    for (CohesiveNode* node : myProblem->cohesiveNodes) {
+        node->fetchS(s);
+        node->fetchS_t(s_t);
+    }    
+
+    // Loop through all elements in upper and lower Elements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
         element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
-        
+    }
+    
+    for (ElementQ4 *element : myProblem->lowerElements) {
+        // Calculate F within the element
+        element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
+    }
+
+    for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
+        // Calculate F within the element
+        myProblem->prescribedSlip(element->getNID(), t);
+        element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 1, 0., t, myProblem->slip);
     }
     
     // Assemble the global residual function
@@ -1772,22 +1829,34 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Check if assembled
     ierr = MatAssembled(Pmat, &isAssembled);
 
+    /** No need to fetch here, 
+     * since IFunction is always evaluated first 
     // Fetch all s into the nodes
     for (Node* node : myProblem->upperNodes) {
         node->fetchS(s);
         node->fetchS_t(s_t);
     }
-    myProblem->nodeTime = t;
-    
-    // Initialize local JF and JFSize
+    */
 
-    // Clock on
-    // myProblem->clocks[0] = clock();
+    myProblem->nodeTime = t;
 
     // Loop through all elements in upperElements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
         element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);
+    }
+
+    // Loop through all elements in lowerElements
+    for (ElementQ4 *element : myProblem->lowerElements) {
+        // Calculate F within the element
+        element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);
+    }
+
+    // Loop through all elements in cohesive Elements
+    for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
+        // Calculate F within the element
+        myProblem->prescribedSlip(element->getNID(), t);
+        element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, 1, s_tshift, t, myProblem->slip);
     }
 
     // myProblem->clocks[1] = clock();
@@ -1815,6 +1884,14 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
     return ierr;
+};
+
+
+/** Prescribed slip function. */
+void Problem::prescribedSlip(const vector<CohesiveNode*> & nodes, double t) {
+    // Currently apply constant slip everywhere and see what happens.
+    if (slip.size() < _spaceDim) slip.resize(_spaceDim);
+    slip[0] = 1.0e-3 * t;
 };
 
 /** Write VTK files

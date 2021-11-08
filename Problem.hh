@@ -70,10 +70,19 @@ private:
     // Local residual
     double *localF;
     int localFSize;
+    // Local residual for the cohesive zone
+    double *localFCohesive;
+    int localFCohesiveSize;
 
     // Local Jacobian
     double *localJF;
     int localJFSize;
+    // Local Jacobian for the cohesive zone
+    double *localJFCohesive;
+    int localJFCohesiveSize;
+
+    // Slip at x, t;
+    vector<double> slip;
 
 // PUBLIC MEMBERS
 public:
@@ -209,6 +218,9 @@ private:
     
     // Jacobian function
     static PetscErrorCode IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal s_tshift, Mat Amat, Mat Pmat, void *ctx = NULL);
+
+    // Prescribed slip function.
+    void prescribedSlip(const vector<CohesiveNode*> & nodes, double t);
 
     // output String prefix
     string outputPrefix;
