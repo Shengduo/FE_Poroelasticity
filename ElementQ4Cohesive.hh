@@ -183,40 +183,62 @@ public:
     /** IntegratorNfN, integrates a vector input inside an element, 
      * both sides using shape function (nOfDofs, nOfDofs * nOfNodes)
      * first-dim: vector of nodes, second-dim: values (vector, (nOfDofs, nOfDofs))
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorNfN(vector<double> & res,
-                       const vector<vector<double>> & NodeValues) const;
+    void IntegratorNfN(double *res,
+                       int resSize,
+                       const vector<vector<double>> & NodeValues,                         
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
+                       int flag = 0) const;
 
-    /*** IntegratorBfB, integrates a vector input inside an element, 
+    /** IntegratorBfB, integrates a vector input inside an element, 
      * both sides using gradient of shape function
      * RES:
      * first-dim: vector of nodes^2, 
      * NODEVALUES:
      * first-dim vector of nodes, 
      * second-dim (spaceDim * nDof) ^ 2 matrix.
+     * FLAG: 0 - nodevalues are given at nodes
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorBfB(vector<double> & res,
-                       const vector<vector<double>> & NodeValues) const;
-
+    void IntegratorBfB(double *res,
+                       int resSize, 
+                       const vector<vector<double>> & NodeValues, 
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
+                       int flag = 0) const;
+    
     /** IntegratorBfN, integrates a vector input inside an element, 
      * left gradient of shape function, 
      * right shape function
      * RES: first-dim: vector of nOfDof^2
      * NODEVALUES: first dim: spaceDim * nOfDof, 
      * second dim: nOfDof
+     * FLAG: 0 - nodevalues are given at nodes
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorBfN(vector<double> & res,
-                       const vector<vector<double>> & NodeValues) const;
+    void IntegratorBfN(double *res,
+                       int resSize, 
+                       const vector<vector<double>> & NodeValues, 
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
+                       int flag = 0) const;
 
     /** IntegratorNfB, integrates a vector input inside an element, 
-     * left gradient of shape function, 
-     * right shape function
-     * RES: first-dim: vector of nOfDof^2
-     * NODEVALUES: first dim: nOfDof, 
-     * second dim: spaceDim * nOfDof
+     * left side shape function, right side gradient of shape function, 
+     * RES: first-dim: vector of nodes^2, second-dim: values (vector)
+     * NODEVALUES: first dim: nodes, second dim: 1 by spaceDim matrix, stored as a vector)
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
      */
-    void IntegratorNfB(vector<double> & res,
-                       const vector<vector<double>> & NodeValues) const;
+    void IntegratorNfB(double *res,
+                       int resSize, 
+                       const vector<vector<double>> & NodeValues,                         
+                       const vector<int> & f_is, 
+                       const vector<int> & f_js, 
+                       int flag = 0) const;
 
     /** Output element info */
     void outputInfo(ofstream & myFile) const;
