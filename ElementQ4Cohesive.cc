@@ -57,7 +57,6 @@ ElementQ4Cohesive::ElementQ4Cohesive(int ID, const vector<CohesiveNode*> & NID, 
     Nvector.resize(pow(nOfIntPts, spaceDim - 1));
     pointValue.resize(pow(nOfIntPts, spaceDim - 1));
 
-    // TO DO: CHANGE HERE
     for (int i = 0; i < nOfIntPts; i++) {
         Bvector[i] = B_x(IntPos[i]);
         Nvector[i] = N(IntPos[i]);
@@ -381,7 +380,7 @@ void ElementQ4Cohesive::IntegratorNf(double *res,
  * FLAG: 0 - nodevalues are given at nodes, 
  *       1 - nodevalues are given at integration points
  */
-void ElementQ4::IntegratorBf(double *res, 
+void ElementQ4Cohesive::IntegratorBf(double *res, 
                              int resSize, 
                              const vector<vector<double>> & NodeValues, 
                              int flag) const {
@@ -411,11 +410,9 @@ void ElementQ4::IntegratorBf(double *res,
     }
     else {
         // Pre-Calculate values of N and f at integration points
-        vector<vector<double>> fvector(pow(nOfIntPts, spaceDim));
+        vector<vector<double>> fvector(pow(nOfIntPts, spaceDim - 1));
         for (int i = 0; i < nOfIntPts; i++) {
-            for (int j = 0; j < nOfIntPts; j++) {
-                evaluateF(fvector[i * nOfIntPts + j], IntPos[i], IntPos[j], NodeValues);                   
-            }
+            evaluateF(fvector[i], IntPos[i], NodeValues);
         }
 
         // Computing the integral

@@ -178,9 +178,9 @@ void PrescribeFaultKernel::F1(vector<double> &F1,         // stores the result
     // F1pf = kappa_{fx} / 4\mu * \nabla (p+ + 2 pf + p-) 
     int I_p = 8;
     int I_pf = 14;
-    F1[spaceDim * I_pf] = a[i_fluidMobilityX] / a[i_fluidMobilityX] 
+    F1[spaceDim * I_pf] = a[i_fluidMobilityX] / a[i_fluidViscosity] 
                           * (s_x[2 * I_p] + 2 * s_x[2 * I_pf] + s_x[2 * (I_p + 1)]);
-    F1[spaceDim * I_pf + 1] = a[i_fluidMobilityX] / a[i_fluidMobilityX] 
+    F1[spaceDim * I_pf + 1] = a[i_fluidMobilityX] / a[i_fluidViscosity] 
                               * (s_x[2 * I_p + 1] + 2 * s_x[2 * I_pf + 1] + s_x[2 * (I_p + 1) + 1]);
     
     // DEBUG LINES
@@ -236,15 +236,15 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 15 - source 
          * ...)
          */   
-        int i_fluidMobilityX = 3;
+        // int i_fluidMobilityX = 3;
         int i_fluidMobilityZ = 4;
         int i_fluidViscosity = 5;
         int i_porosity = 6;
         int i_thickness = 7;
         int i_betaP = 8;
         int i_betaSigma = 9;
-        int i_fluidBodyForce = 13;
-        int i_source = 15;        
+        // int i_fluidBodyForce = 13;
+        // int i_source = 15;        
 
         // ================ Jf0ul ======================================
         // Jf0ul = [-I; I];
@@ -389,15 +389,15 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 15 - source 
          * ...)
          */   
-        int i_fluidMobilityX = 3;
+        // int i_fluidMobilityX = 3;
         int i_fluidMobilityZ = 4;
         int i_fluidViscosity = 5;
         int i_porosity = 6;
         int i_thickness = 7;
         int i_betaP = 8;
         int i_betaSigma = 9;
-        int i_fluidBodyForce = 13;
-        int i_source = 15;
+        // int i_fluidBodyForce = 13;
+        // int i_source = 15;
         
         // ================ Jf0pfpf ======================================
         // Jf0pfpf = 2 \kappa_z / \mu / h^2 + 2 \phi_f * \beta_Sigma * s_tshift;
@@ -604,14 +604,14 @@ void PrescribeFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
          * ...)
          */   
         int i_fluidMobilityX = 3;
-        int i_fluidMobilityZ = 4;
+        // int i_fluidMobilityZ = 4;
         int i_fluidViscosity = 5;
-        int i_porosity = 6;
-        int i_thickness = 7;
-        int i_betaP = 8;
-        int i_betaSigma = 9;
-        int i_fluidBodyForce = 13;
-        int i_source = 15;  
+        // int i_porosity = 6;
+        // int i_thickness = 7;
+        // int i_betaP = 8;
+        // int i_betaSigma = 9;
+        // int i_fluidBodyForce = 13;
+        // int i_source = 15;  
 
         // ================ Jf3pfpf ======================================
         // Jf3pfpf = \kappa_fx / 2\mu I

@@ -67,6 +67,7 @@ void Problem::initializeGeometry2D(const vector<double> & xRanges, const vector<
 
 // Initialize nodes, !!currently only 2-dim nodes are available
 void Problem::initializeNodes() {
+    /**
     // Some input geometrical values
     int spaceDim = _spaceDim;
 
@@ -204,6 +205,7 @@ void Problem::initializeNodes() {
     for (Node* node : lowerNodes) node->outputInfo(myFile, true);
     for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
     myFile.close();
+    */
 };
 
 // Assign Nodal DOFs;
@@ -1406,7 +1408,6 @@ void Problem::initializeNodesPoroElastic() {
     // For cohesive nodal properties
     double fluidMobilityX = 0.5;
     double fluidMobilityZ = 2.0;
-    double fluidViscosity = 1.;
     double faultPorosity = 0.1;
     double thickness = 0.001;
     double betaP = 1.0;

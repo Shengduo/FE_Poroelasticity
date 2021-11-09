@@ -345,22 +345,6 @@ public:
                  const vector<double> *fluidBodyForce = NULL,
                  double source = 0.);
 
-    // Set ID
-    void setID(int ID);
-
-    // Get ID
-    int getID() const {
-        return _ID;
-    }
-
-    // Set nodal coordinates XYZ
-    void setXYZ(const vector<double> & XYZ);
-
-    // Get XYZ
-    const vector<double> & getXYZ() const {
-        return _nodalXYZ;
-    };
-
     // Set DOF 1 [lambda, pressure, theta]
     void setDOF(const vector<int> & DOF) {
         if (_nodalDOF.size() < 2 * (2 * _spaceDim + 2) + _spaceDim + 2) 
@@ -424,16 +408,11 @@ public:
         return _lowerUpperNodes;
     };
 
-    // Set spaceDim
-    void setSpaceDim(int spaceDim);
-
-    // Get spaceDim
-    int getSpaceDim() const {
-        return _spaceDim;
-    };
-
     // Set mass density
-    void setMassDensity(double density);
+    void setMassDensity(double density) {
+        if (_nodalProperties.size() < 1) _nodalProperties.resize(1);
+        _nodalProperties[0] = density;
+    };
 
     // Get massDensity
     double getMassDensity() const {
@@ -442,7 +421,12 @@ public:
     };
 
     // Set body force
-    void setBodyForce(const vector<double> *bodyForce);
+    void setBodyForce(const vector<double> *bodyForce) {
+        if (_nodalProperties.size() < 3) _nodalProperties.resize(3);
+        for (int i = 0; i < _spaceDim; i++) {
+            _nodalProperties[1 + i] = (*bodyForce)[i];
+        }
+    };
 
     // Get body force
     vector<double> getBodyForce() const {
