@@ -1402,6 +1402,19 @@ void Problem::initializeNodesPoroElastic() {
     double porosity = 0.;
     vector<double> fluidBodyForce = {0.0, 0.0};
     double source = 0.;
+
+    // For cohesive nodal properties
+    double fluidMobilityX = 0.5;
+    double fluidMobilityZ = 2.0;
+    double fluidViscosity = 1.;
+    double faultPorosity = 0.1;
+    double thickness = 0.001;
+    double betaP = 1.0;
+    double betaSigma = 1.0;
+    double rateStateA = 0.008;
+    double rateStateB = 0.012;
+    double DRateState = 1.0;
+    double faultSource = 1.0;
     // double activesource = 1.0;
 
     // Element size
@@ -1416,27 +1429,9 @@ void Problem::initializeNodesPoroElastic() {
      */  
     // Default DOF
     vector<int> DOF_default (2 * spaceDim + 2, 0); 
-    DOF_default[spaceDim] = 1;
-    DOF_default[spaceDim + 1] = 1;
-
-    // x fixed DOF -- fix only displacement in x direction
-    vector<int> DOF_x_fixed (2 * spaceDim + 2, 0);
-    DOF_x_fixed[spaceDim] = 1;
-    DOF_x_fixed[spaceDim + 1] = 1;
-    DOF_x_fixed[0] = 1;
-
-    // y fixed DOF -- fix only displacement in y direction
-    vector<int> DOF_y_fixed (2 * spaceDim + 2, 0);
-    DOF_y_fixed[spaceDim] = 1;
-    DOF_y_fixed[spaceDim + 1] = 1;
-    DOF_y_fixed[1] = 1;
-
-    // xy fixed DOF -- fix displacement in x AND y direction
-    vector<int> DOF_xy_fixed (2 * spaceDim + 2, 0);
-    DOF_xy_fixed[spaceDim] = 1;
-    DOF_xy_fixed[spaceDim + 1] = 1;
-    DOF_xy_fixed[0] = 1;
-    DOF_xy_fixed[1] = 1;
+    vector<int> DOFCohesive_default (16, 2);
+    for (int i = 12; i < 16; i++) DOFCohesive_default[i] = 0; 
+    DOFCohesive_default[15] = 1;             // Fix theta for now
 
     // Upper subzone nodes
     upperNodes.resize(myGeometry->nOfNodes);
@@ -1480,32 +1475,114 @@ void Problem::initializeNodesPoroElastic() {
                          porosity,
                          &fluidBodyForce, 
                          source);
-            // For testing the source, don't block the lower and upper surface
-            /**
-            if (j == 0) // Lower surface
-                upperNodes[nodeID_in_set]->setDOF(DOF_all_fixed);
-            if (j == myGeometry->yNodeNum - 1) // Upper surface
-                upperNodes[nodeID_in_set]->setDOF(DOF_all_fixed);
-            */
-            // For testing the source, impose source at a single node
+            
+            // Fix pressure on the upper boundary 
             if (j == myGeometry->yNodeNum - 1 || j == 0) {
                 // Fix p
                 upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
             }
-            if (j == myGeometry->yNodeNum / 2) {
-                // Fix y
+            
+            upperNodes[nodeID_in_set]->initializeS(initialS);
+            nodeID += 1;
+            nodeID_in_set += 1;
+        }
+    }
+
+    // Lower subzone nodes
+    lowerNodes.resize(myGeometry->nOfNodes);
+    nodeID_in_set = 0;
+    // vector<double> thisXYZ(spaceDim);
+    // vector<double> initialS(spaceDim * 2 + 2, 0.);
+    // First y
+    for (int j = 0; j < myGeometry->yNodeNum; j++) {
+        // Then x
+        for (int i = 0; i < myGeometry->xNodeNum; i++) {
+            // Reset the coordinates
+            thisXYZ[0] = i * edgeSize[0];
+            thisXYZ[1] = -j * edgeSize[1];
+            // massDensity = thisXYZ[0] + thisXYZ[1];
+            
+            // upper surface, put pressure = 1 into initialS;
+            if (j == myGeometry->yNodeNum - 1 ) {
+                initialS[2 * spaceDim] = 0.0;
+            }
+            // lower surface, put pressure = 0 into initialS;
+            else if (j == 0) {
+                initialS[2 * spaceDim] = 0.0;
+            }
+            else {
+                initialS[2 * spaceDim] = 0.0;
+            }
+
+            // Initialize a node
+            lowerNodes[nodeID_in_set] = 
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, 
+                         massDensity, 
+                         &bodyForce, 
+                         lambda, 
+                         shearModulus, 
+                         biotAlpha, 
+                         biotMp, 
+                         fluidMobility, 
+                         fluidViscosity, 
+                         fluidDensity, 
+                         porosity,
+                         &fluidBodyForce, 
+                         source);
+            
+            // Fix some boundaries on the bottom
+            if (j == myGeometry->yNodeNum - 1) {
+                // Fix p, ux, uy
+                upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
+                upperNodes[nodeID_in_set]->setDOF(0, 1);
                 upperNodes[nodeID_in_set]->setDOF(1, 1);
-                if (i == myGeometry->xNodeNum / 2) {
-                    // Further fix x
-                    upperNodes[nodeID_in_set]->setDOF(0, 1);
-                    upperNodes[nodeID_in_set]->setSource(4.0);
-                }
             }
 
             upperNodes[nodeID_in_set]->initializeS(initialS);
             nodeID += 1;
             nodeID_in_set += 1;
         }
+    }
+
+    // Cohesive zone nodes
+    cohesiveNodes.resize(myGeometry->xNodeNum);
+    nodeID_in_set = 0;
+    initialS.resize(16);
+    fill(initialS.begin(), initialS.end(), 0.0);
+    vector<Node*> lowerUpperNodes (2, NULL);
+    for (int i = 0; i < myGeometry->xNodeNum; i++) {
+        // Reset the coordinates
+        thisXYZ[0] = i * edgeSize[0];
+        thisXYZ[1] = 0.;
+
+        // Get lower and upper nodes
+        lowerUpperNodes[0] = upperNodes[i];
+        lowerUpperNodes[1] = upperNodes[i + myGeometry->nOfNodes];
+        // Initialize a node
+        cohesiveNodes[nodeID_in_set] =
+            new CohesiveNode(nodeID,
+                             thisXYZ,
+                             DOFCohesive_default,
+                             lowerUpperNodes,
+                             spaceDim,
+                             massDensity,
+                             &bodyForce,
+                             fluidMobilityX,
+                             fluidMobilityZ,
+                             fluidViscosity, 
+                             faultPorosity,
+                             thickness,
+                             betaP,
+                             betaSigma,
+                             rateStateA,
+                             rateStateB,
+                             DRateState,
+                             &fluidBodyForce,
+                             faultSource);
+
+        cohesiveNodes[nodeID_in_set]->initializeS(initialS);
+        nodeID += 1;
+        nodeID_in_set += 1;
     }
     
     _totalNofNodes = nodeID;
@@ -1992,6 +2069,9 @@ void Problem::writeVTU(string prefix) {
     for (Node* node : upperNodes) {
         myFile << "        " << node->getXYZ()[0] << " " << node->getXYZ()[1] << " " << "0.0" << "\n";
     }
+    for (Node* node : lowerNodes) {
+        myFile << "        " << node->getXYZ()[0] << " " << node->getXYZ()[1] << " " << "0.0" << "\n";
+    }
     myFile << "        </DataArray>" << "\n";
     myFile << "      </Points>" << "\n";    
     
@@ -2005,18 +2085,25 @@ void Problem::writeVTU(string prefix) {
                << element->getNID()[2]->getID() << " "
                << element->getNID()[3]->getID() << "\n";
     }
+    for (ElementQ4 *element : lowerElements) {
+        myFile << "        "
+               << element->getNID()[0]->getID() << " "
+               << element->getNID()[1]->getID() << " "
+               << element->getNID()[2]->getID() << " "
+               << element->getNID()[3]->getID() << "\n";
+    }
     myFile << "        </DataArray>" << "\n";
 
     // Output offsets
     myFile << "       <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">" << "\n";
     myFile << "         ";
-    for (int i = 0; i < upperElements.size(); i++) myFile << 4 * (i + 1) << " ";
+    for (int i = 0; i < upperElements.size() + lowerElements.size(); i++) myFile << 4 * (i + 1) << " ";
     myFile << "\n" << "        </DataArray>" << "\n";
 
     // Output cell type
     myFile << "        <DataArray type=\"Int32\" Name=\"types\" Format=\"ascii\">" << "\n";
     myFile << "        ";
-    for (int i = 0; i < upperElements.size(); i++) myFile << "9 ";
+    for (int i = 0; i < upperElements.size() + lowerElements.size(); i++) myFile << "9 ";
     myFile << "\n" << "        </DataArray>" << "\n";
     myFile << "      </Cells>" << "\n";
 
@@ -2033,11 +2120,22 @@ void Problem::writeVTU(string prefix) {
     for (Node *node : upperNodes) {
         myFile << node->getID() << " ";
     }
+    for (Node *node : lowerNodes) {
+        myFile << node->getID() << " ";
+    }
     myFile << "\n" << "        </DataArray>" << "\n";
 
     // Nodal displacement
     myFile << "        <DataArray type=\"Float64\" Name=\"Displacements\" NumberOfComponents=\"3\" ComponentName0=\"Ux\" ComponentName1=\"Uy\" ComponentName2=\"Uz\" Format=\"ascii\">" << "\n";
     for (Node *node : upperNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_u + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    for (Node *node : lowerNodes) {
         myFile << "        ";
         for (int i = 0; i < _spaceDim; i++) {
             myFile << node->s[I_u + i] << " ";
@@ -2057,6 +2155,14 @@ void Problem::writeVTU(string prefix) {
         if (_spaceDim == 2) myFile << "0.0 ";
         myFile << "\n";
     }
+    for (Node *node : lowerNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_v + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
     myFile << "        </DataArray>" << "\n";
 
     // Output pore fluid pressure
@@ -2064,11 +2170,17 @@ void Problem::writeVTU(string prefix) {
     for (Node *node : upperNodes) {
         myFile << "        " << node->s[I_p] << "\n";
     }
+    for (Node *node : lowerNodes) {
+        myFile << "        " << node->s[I_p] << "\n";
+    }
     myFile << "        </DataArray>" << "\n";
 
     // Output volumetric strain
     myFile << "        <DataArray type=\"Float64\" Name=\"Trace strain\" NumberOfComponents=\"1\" Format=\"ascii\">" << "\n";  
     for (Node *node : upperNodes) {
+        myFile << "        " << node->s[I_e] << "\n";
+    }
+    for (Node *node : lowerNodes) {
         myFile << "        " << node->s[I_e] << "\n";
     }
     myFile << "        </DataArray>" << "\n";
