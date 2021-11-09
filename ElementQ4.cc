@@ -953,8 +953,7 @@ void ElementQ4::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel,
                     evaluateF_x(s_xs, i, j, nodalSs);
                     evaluateF(as, i, j, nodalAs);
                     evaluateF(s_ts, i, j, nodalS_ts);
-                    // DEBUG LINES
-                    // cout << "fuck!" << "\n";
+                    
                     PoroelasticKernel::Jf0(Jf0s[i * nOfIntPts + j],
                                            spaceDim,
                                            ss,

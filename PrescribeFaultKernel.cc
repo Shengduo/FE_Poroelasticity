@@ -79,7 +79,7 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
     F0[I_u + 1] = - s[I_l + 1];
     F0[I_u + 2] = s[I_l];
     F0[I_u + 3] = s[I_l + 1];
-
+    
     // ================ f0p ======================================
     /** The solution fields in solution vector s are
      * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
@@ -91,6 +91,14 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
      * 15 - theta (R & S state, not used here)
      */
     // F0p = [\kappa_z / \mu (p- - pf + n \cdot f_fluid), \kappa_z / \mu (p+ - pf + n \cdot f_fluid)]
+    
+    // DEBUG LINES
+    cout << "a size: " << a.size() << "\n";
+    cout << "F0 size: " << F0.size() << "\n";
+    cout << "s size: " << s.size() << "\n";
+    cout << "n size: " << n.size() << "\n";
+    cout << "Fuck 2\n";
+
     int I_p = 8;
     int I_pf = 14; 
     F0[I_p] = a[i_fluidMobilityZ] / a[i_fluidViscosity] * 

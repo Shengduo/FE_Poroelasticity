@@ -122,6 +122,9 @@ public:
     /** Set element NID */
     void setNID(const vector<CohesiveNode*> & NID);
 
+    /** Get elementDOF */
+    int getElementDOF() const;
+
     /** Set normal vector */
     void setN();
 

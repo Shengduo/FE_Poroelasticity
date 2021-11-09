@@ -1050,7 +1050,7 @@ void Problem::getNNZPerRow(PetscInt *nnz) {
         _totalNonZeros += nnz[i];
     }
     cout << "Total Non-zeros number in JF is: " << _totalNonZeros << "\n";
-}
+};
 
 /** Printout a matrix */
 void Problem::printMatrix(ofstream & myFile, const vector<double>& Matrix, int nRows, int nCols) const {
@@ -1355,20 +1355,20 @@ void Problem::testFetchGlobalSElastic() {
 void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime, double dt, string outputPrefix) {
     // Initialize geometry2D
     if (_spaceDim == 2) initializeGeometry2D(xRanges, edgeNums);
-    
+
     // Initialize nodes
     initializeNodesPoroElastic();
-    
+
     // Assign Nodal DOFs
     assignNodalDOFPoroElastic();
-    
+
     // Initialize the timer
     timeConsumed.resize(4, 0.);
     clocks.resize(timeConsumed.size() + 1);
 
     // Initialize elements
     initializeElementsPoroElastic();
-    
+
     // Initialize Mats and Vecs, Mats and TS
     initializePetsc();
 
@@ -1430,6 +1430,7 @@ void Problem::initializeNodesPoroElastic() {
      */  
     // Default DOF
     vector<int> DOF_default (2 * spaceDim + 2, 0); 
+    DOF_default[2] = 1; DOF_default[3] = 1;  // Fix V
     vector<int> DOFCohesive_default (16, 2);
     for (int i = 12; i < 16; i++) DOFCohesive_default[i] = 0; 
     DOFCohesive_default[15] = 1;             // Fix theta for now
@@ -1478,7 +1479,7 @@ void Problem::initializeNodesPoroElastic() {
                          source);
             
             // Fix pressure on the upper boundary 
-            if (j == myGeometry->yNodeNum - 1 || j == 0) {
+            if (j == myGeometry->yNodeNum - 1) {
                 // Fix p
                 upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
             }
@@ -1492,8 +1493,6 @@ void Problem::initializeNodesPoroElastic() {
     // Lower subzone nodes
     lowerNodes.resize(myGeometry->nOfNodes);
     nodeID_in_set = 0;
-    // vector<double> thisXYZ(spaceDim);
-    // vector<double> initialS(spaceDim * 2 + 2, 0.);
     // First y
     for (int j = 0; j < myGeometry->yNodeNum; j++) {
         // Then x
@@ -1504,7 +1503,7 @@ void Problem::initializeNodesPoroElastic() {
             // massDensity = thisXYZ[0] + thisXYZ[1];
             
             // upper surface, put pressure = 1 into initialS;
-            if (j == myGeometry->yNodeNum - 1 ) {
+            if (j == myGeometry->yNodeNum - 1) {
                 initialS[2 * spaceDim] = 0.0;
             }
             // lower surface, put pressure = 0 into initialS;
@@ -1534,12 +1533,12 @@ void Problem::initializeNodesPoroElastic() {
             // Fix some boundaries on the bottom
             if (j == myGeometry->yNodeNum - 1) {
                 // Fix p, ux, uy
-                upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
-                upperNodes[nodeID_in_set]->setDOF(0, 1);
-                upperNodes[nodeID_in_set]->setDOF(1, 1);
+                lowerNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
+                lowerNodes[nodeID_in_set]->setDOF(0, 1);
+                lowerNodes[nodeID_in_set]->setDOF(1, 1);
             }
 
-            upperNodes[nodeID_in_set]->initializeS(initialS);
+            lowerNodes[nodeID_in_set]->initializeS(initialS);
             nodeID += 1;
             nodeID_in_set += 1;
         }
@@ -1548,17 +1547,18 @@ void Problem::initializeNodesPoroElastic() {
     // Cohesive zone nodes
     cohesiveNodes.resize(myGeometry->xNodeNum);
     nodeID_in_set = 0;
-    initialS.resize(16);
+    initialS.resize(spaceDim + 2);
     fill(initialS.begin(), initialS.end(), 0.0);
     vector<Node*> lowerUpperNodes (2, NULL);
+
     for (int i = 0; i < myGeometry->xNodeNum; i++) {
         // Reset the coordinates
         thisXYZ[0] = i * edgeSize[0];
         thisXYZ[1] = 0.;
 
         // Get lower and upper nodes
-        lowerUpperNodes[0] = upperNodes[i];
-        lowerUpperNodes[1] = upperNodes[i + myGeometry->nOfNodes];
+        lowerUpperNodes[0] = lowerNodes[i];
+        lowerUpperNodes[1] = upperNodes[i];
         // Initialize a node
         cohesiveNodes[nodeID_in_set] =
             new CohesiveNode(nodeID,
@@ -1580,8 +1580,9 @@ void Problem::initializeNodesPoroElastic() {
                              DRateState,
                              &fluidBodyForce,
                              faultSource);
-
+    
         cohesiveNodes[nodeID_in_set]->initializeS(initialS);
+        
         nodeID += 1;
         nodeID_in_set += 1;
     }
@@ -1591,6 +1592,8 @@ void Problem::initializeNodesPoroElastic() {
     myFile.open("Testlog_PoroElastic.txt");
     myFile << "=================== NodeInfoBefore ======================================" << "\n";
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    for (Node* node : lowerNodes) node->outputInfo(myFile, true);
+    for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
     myFile.close();
 };
 
@@ -1646,6 +1649,8 @@ void Problem::assignNodalDOFPoroElastic() {
     myFile << "\n" << "=================== NodeInfoAfter ======================================" << "\n";
 
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
+    for (Node* node : lowerNodes) node->outputInfo(myFile, true);
+    for (CohesiveNode* node : cohesiveNodes) node->outputInfo(myFile, true);
     myFile.close();
 };
 
@@ -1762,6 +1767,7 @@ void Problem::initializeElementsPoroElastic() {
 
     // Allocate localFCohesive and localJFCohesive
     localFCohesiveSize = cohesiveElements[0]->getElementDOF();
+
     localJFCohesiveSize = pow(localFCohesiveSize, 2);
     localFCohesive = new double [localFCohesiveSize];
     localJFCohesive = new double [localJFCohesiveSize];
@@ -1845,11 +1851,11 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         node->fetchS(s);
         node->fetchS_t(s_t);
     }
-
+  
     for (CohesiveNode* node : myProblem->cohesiveNodes) {
         node->fetchS(s);
         node->fetchS_t(s_t);
-    }    
+    }      
 
     // Loop through all elements in upper and lower Elements
     for (ElementQ4 *element : myProblem->upperElements) {

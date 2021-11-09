@@ -92,6 +92,11 @@ void ElementQ4Cohesive::setNID(const vector<CohesiveNode*> & NID) {
     }
 };
 
+// Get ElementDOF
+int ElementQ4Cohesive::getElementDOF() const {
+    return elementDOF;
+};
+
 /** Set normal vector */
 void ElementQ4Cohesive::setN() {
     _n.resize(nOfNodes); 
@@ -988,7 +993,7 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                                  const vector<double> &d) {
     // Zero local F
     for (int i = 0; i < localFSize; i++) localF[i] = 0.;
-    
+
     // Switch kernel 0 - elastic (not implemented), 1 - poroelastic with prescribed fault slip
     switch(Kernel) {
         // Linear poroelastic kernels
@@ -999,6 +1004,9 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                 nodalAs[n] = &(_NID[n]->_nodalProperties);
             }
             
+            // DEBUG LINES
+            cout << "Fuck 1\n";
+
             // Calculate point values at integration points
             for (int i = 0; i < nOfIntPts; i++) {
                 // DEBUG LINES
@@ -1021,18 +1029,6 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                 (*clocks)[4] = clock();
                 evaluateF_x(a_xs, i, nodalAs);
 
-                // DEBUG LINES
-                /**
-                if (_ID == 1) {
-                    cout << "Element F_X: \n";
-                    cout << "(i, j) = " << i << " " << j << "\n";
-                    cout << "nodal s: " << nodalSs[0][4] << " " << nodalSs[1][4] << " " << nodalSs[2][4] << " " << nodalSs[3][4] << "\n";
-                    cout << "s, s_x, s_t: " << ss[4] << " " << s_xs[8] << " " << s_xs[9]  << " " << s_ts[4] << "\n"; 
-                }
-                */
-                // DEBUG LINES
-                // cout << "Fuck!" << "\n";
-
                 PrescribeFaultKernel::F0(F0s[i],
                                          spaceDim,
                                          t,
@@ -1045,10 +1041,7 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                                          a_xs, 
                                          _n,
                                          d);
-
-                // DEBUG LINES
-                // cout << "Fuck!" << "\n";
-
+                
                 PrescribeFaultKernel::F1(F1s[i],
                                          spaceDim,
                                          t,
@@ -1062,13 +1055,7 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                                          _n, 
                                          d);
 
-                // DEBUG LINES
-                /**
-                if (_ID == 1) {
-                    cout << "f0p: " << F0s[i * nOfIntPts + j][4] << "\n";
-                    cout << "f1p: " << F1s[i * nOfIntPts + j][8] << " " << F1s[i * nOfIntPts + j][9] << "\n";
-                }
-                */      
+                
                 for (int i = 0; i < timeConsumed->size(); i++) {
                     (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
                 }
@@ -1077,28 +1064,8 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
             
             // Integrate
             IntegratorNf(localF, localFSize, F0s, 1);
-            
-            
-
             IntegratorBf(localF, localFSize, F1s, 1);
             
-            
-
-            // DEBUG LINES
-            /**
-            if (_ID == 1) {
-                cout << "F0: ";
-                for (auto shit : F0) cout << shit << " ";
-                cout << "\n";
-
-                cout << "F1: ";
-                for (auto shit : F1) cout << shit << " ";
-                cout << "\n";
-                //cout << "F0: " << F0[4] << " " << F0[12] << " " << F0[20] << " " << F0[28] << "\n";
-                //cout << "F1: " << F1[4] << " " << F1[12] << " " << F1[20] << " " << F1[28] << "\n";
-            } 
-            */
-
             // Push to globalF
             elementFPush(globalF, localF, localFSize);
             

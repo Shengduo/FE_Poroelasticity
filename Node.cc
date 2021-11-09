@@ -175,7 +175,7 @@ vector<double> Node::getBodyForce() const {
 
 /** Initialize s = [displacement (-+), velocity (-+), pressure (-+), trace_strain(-+), lambda, pressure_fault, theta] */
 void Node::initializeS(const vector<double> & initialS) {
-    if (initialS.size() != 16) throw "Initial s vector not compatible with nodal DOFs!";
+    if (initialS.size() != 2 * _spaceDim + 2) throw "Initial s vector not compatible with nodal DOFs!";
     
     s.resize(initialS.size());
     for (int i = 0; i < initialS.size(); i++) s[i] = initialS[i];
@@ -280,6 +280,19 @@ CohesiveNode::CohesiveNode(int ID,
     setDOF(DOF);
     setLowerUpperNodes(lowerUpperNodes);
     _nodalBodyForce.resize(_spaceDim, 0.);
+    setMassDensity(density);
+    setBodyForce(bodyForce);
+    setFluidMobility_x(fluidMobility_x);
+    setFluidMobility_z(fluidMobility_z);
+    setFluidViscosity(fluidViscosity);
+    setPorosity(porosity);
+    setBeta_p(beta_p);
+    setBeta_sigma(beta_sigma);
+    setRateStateA(rateStateA);
+    setRateStateB(rateStateB);
+    setDRateState(DRateState);
+    setFluidBodyForce(fluidBodyForce);
+    setSource(source);
 };
 
 /** Initialize s = [u(-+), v(-+), p(-+), trace_strain(-+), lambda, fault_pressure, theta] */
