@@ -219,8 +219,11 @@ private:
     // Jacobian function
     static PetscErrorCode IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal s_tshift, Mat Amat, Mat Pmat, void *ctx = NULL);
 
-    // Prescribed slip function.
-    void prescribedSlip(const vector<CohesiveNode*> & nodes, double t);
+    // Prescribe slip for every cohesive node.
+    void prescribedSlip(double t);
+
+    // Prescribed slip function
+    void slipFunction(const vector<double> & XYZ, double t);
 
     // output String prefix
     string outputPrefix;

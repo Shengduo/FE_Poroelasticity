@@ -321,6 +321,7 @@ public:
      * 12 - DRateState
      * 13, 14 - fluidBodyForce
      * 15 - source 
+     * 16, 17 - slip
      * ...)
      */
 
@@ -343,7 +344,8 @@ public:
                  double rateStateB = 1.0, 
                  double DRateState = 1.0,
                  const vector<double> *fluidBodyForce = NULL,
-                 double source = 0.);
+                 double source = 0., 
+                 const vector<double> *initialSlip = NULL);
 
     // Set DOF 1 [lambda, pressure, theta]
     void setDOF(const vector<int> & DOF) {
@@ -578,7 +580,7 @@ public:
         if (_nodalProperties.size() < 15) throw "Fluid body force not initialized!";
         vector<double> res = {_nodalProperties[13], _nodalProperties[14]};
         return res;
-    }
+    };
 
     // Set fluid source
     void setSource(double source) {
@@ -589,7 +591,29 @@ public:
     // Get fluid source
     double getSource() const {
         if (_nodalProperties.size() < 16) throw "Source not initialized!";
-        return _nodalProperties[16];
+        return _nodalProperties[15];
+    };
+
+    // Set prescribed slip
+    void setSlip(const vector<double> *slip) {
+        if (_nodalProperties.size() < 18) _nodalProperties.resize(18);
+        if (slip) {
+            for (int i = 0; i < _spaceDim; i++) {
+                _nodalProperties[16 + i] = (*slip)[i];
+            }
+        }
+        else {
+            for (int i = 0; i < _spaceDim; i++) {
+                _nodalProperties[16 + i] = 0.;
+            }
+        }
+    };
+    
+    // Get prescribed slip
+    vector<double> getSlip() const {
+        if (_nodalProperties.size() < 18) throw "Slip not initialized!";
+        vector<double> res = {_nodalProperties[16], _nodalProperties[17]};
+        return res;
     };
 
     /** Initialize s */

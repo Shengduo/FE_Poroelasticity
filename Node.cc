@@ -271,7 +271,8 @@ CohesiveNode::CohesiveNode(int ID,
                            double rateStateB,
                            double DRateState,
                            const vector<double> *fluidBodyForce,
-                           double source) {
+                           double source, 
+                           const vector<double> *initialSlip) {
     setSpaceDim(spaceDim);
     setID(ID);
     setSpaceDim(spaceDim);
@@ -280,6 +281,8 @@ CohesiveNode::CohesiveNode(int ID,
     setDOF(DOF);
     setLowerUpperNodes(lowerUpperNodes);
     _nodalBodyForce.resize(_spaceDim, 0.);
+    _nodalProperties.resize(18, 0.);
+
     setMassDensity(density);
     setBodyForce(bodyForce);
     setFluidMobility_x(fluidMobility_x);

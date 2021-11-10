@@ -7,6 +7,7 @@
 Problem::Problem(int spaceDim) {
     _spaceDim = spaceDim;
     nodeTime = 0.;
+    slip.resize(2, 0.0);
 };
 
 // Destructor
@@ -1473,7 +1474,7 @@ void Problem::initializeNodesPoroElastic() {
     double rateStateA = 0.008;
     double rateStateB = 0.012;
     double DRateState = 1.0;
-    double faultSource = 1.0;
+    double faultSource = 0.0;
     // double activesource = 1.0;
 
     // Element size
@@ -1899,6 +1900,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
         myProblem->writeVTU();
         myProblem->nodeTime = t;
+        myProblem->prescribedSlip(t);
     }
 
     // Fetch all s into the nodes
@@ -1930,8 +1932,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
 
     for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
         // Calculate F within the element
-        myProblem->prescribedSlip(element->getNID(), t);
-        element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 1, 0., t, myProblem->slip);
+        element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 1, 0., t);
     }
     
     // Assemble the global residual function
@@ -1999,8 +2000,7 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Loop through all elements in cohesive Elements
     for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
         // Calculate F within the element
-        myProblem->prescribedSlip(element->getNID(), t);
-        element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, 1, s_tshift, t, myProblem->slip);
+        element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, 1, s_tshift, t);
     }
 
     // myProblem->clocks[1] = clock();
@@ -2031,11 +2031,20 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
 };
 
 
-/** Prescribed slip function. */
-void Problem::prescribedSlip(const vector<CohesiveNode*> & nodes, double t) {
+/** Prescribe slip for every node */
+void Problem::prescribedSlip(double t) {
     // Currently apply constant slip everywhere and see what happens.
-    if (slip.size() < _spaceDim) slip.resize(_spaceDim);
-    slip[0] = 1.0e-2 * t;
+    for (CohesiveNode* node : cohesiveNodes) {
+        slipFunction(node->getXYZ(), t);
+        node->setSlip(&slip);
+    }
+};
+
+/** Prescribed slip function. */
+void Problem::slipFunction(const vector<double> & XYZ, double t) {
+    // Prescribe slip at a given point, now hyperbolic
+    slip[0] = - (XYZ[0] - myGeometry->xRange) * XYZ[0] * 1.e-2 * t;
+    slip[1] = 0.;
 };
 
 

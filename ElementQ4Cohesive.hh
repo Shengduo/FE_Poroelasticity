@@ -258,12 +258,10 @@ public:
 // PUBLIC MEMBERS
 public: 
     /** Calculate element jacobian JF */
-    void JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift, double t, 
-            const vector<double> &d = vector<double>{0., 0.});
+    void JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift, double t);
 
     /** Calculate element residual F */
-    void elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift, double t, 
-                  const vector<double> &d = vector<double>{0., 0.});
+    void elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift, double t);
 
 // PRIVATE MEMBERS
 private:

@@ -776,7 +776,7 @@ void ElementQ4Cohesive::outputInfo(ofstream & myFile) const {
 //============ Element Jacobians and residuals =====================================================
 
 /** Calculate element jacobian Jf */
-void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift, double t, const vector<double> &d) {
+void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift, double t) {
     // Zero localJF
     for (int i = 0; i < localJFSize; i++) localJF[i] = 0.;
 
@@ -852,8 +852,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                                            as,
                                            a_xs,
                                            isJfAssembled, 
-                                           _n, 
-                                           d);
+                                           _n);
 
                     PrescribeFaultKernel::Jf1(Jf1s[i],
                                            spaceDim,
@@ -866,8 +865,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                                            as,
                                            a_xs,
                                            isJfAssembled, 
-                                           _n, 
-                                           d);
+                                           _n);
 
                     PrescribeFaultKernel::Jf2(Jf2s[i],
                                            spaceDim,
@@ -880,8 +878,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                                            as,
                                            a_xs,
                                            isJfAssembled, 
-                                           _n, 
-                                           d);
+                                           _n);
 
                     PrescribeFaultKernel::Jf3(Jf3s[i],
                                            spaceDim,
@@ -894,8 +891,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                                            as,
                                            a_xs,
                                            isJfAssembled, 
-                                           _n, 
-                                           d);
+                                           _n);
                 
             }
 
@@ -989,8 +985,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
 /** Calculate element residual F, 
  * and then push ot globalF
  */
-void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift, double t, 
-                                 const vector<double> &d) {
+void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, int Kernel, double s_tshift, double t) {
     // Zero local F
     for (int i = 0; i < localFSize; i++) localF[i] = 0.;
 
@@ -1036,8 +1031,7 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                                          as,
                                          as,
                                          a_xs, 
-                                         _n,
-                                         d);
+                                         _n);
                 
                 PrescribeFaultKernel::F1(F1s[i],
                                          spaceDim,
@@ -1049,8 +1043,7 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                                          as,
                                          as,
                                          a_xs, 
-                                         _n, 
-                                         d);
+                                         _n);
 
                 
                 for (int i = 0; i < timeConsumed->size(); i++) {

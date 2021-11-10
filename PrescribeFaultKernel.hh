@@ -26,8 +26,7 @@ public:
                    const vector<double> &sOff,                       // offset of each solution field
                    const vector<double> &a,                          // auxiliary fields
                    const vector<double> &a_x,                        // auxiliary fields gradient
-                   const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
-                   const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
+                   const vector<double> &n = vector<double>{0., 1.}  // unit normal vector
     );
 
     /** Left hand side residual 
@@ -43,8 +42,7 @@ public:
                    const vector<double> &sOff,                       // offset of each solution field
                    const vector<double> &a,                          // auxiliary fields
                    const vector<double> &a_x,                        // auxiliary fields gradient
-                   const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
-                   const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
+                   const vector<double> &n = vector<double>{0., 1.}  // unit normal vector
     );
 
     //======= The Jacobians =================================================================================   
@@ -62,8 +60,7 @@ public:
                     const vector<double> &a,                          // auxiliary fields
                     const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
-                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
-                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
+                    const vector<double> &n = vector<double>{0., 1.}  // unit normal vector
     );
 
     /** The elements of Jf0 that requires re-assemble after the first iteration
@@ -91,8 +88,7 @@ public:
                     const vector<double> &a,                          // auxiliary fields
                     const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
-                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
-                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
+                    const vector<double> &n = vector<double>{0., 1.}  // unit normal vector
     );
 
     /** The elements of Jf0 that requires re-assemble after the first iteration
@@ -120,8 +116,7 @@ public:
                     const vector<double> &a,                          // auxiliary fields
                     const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
-                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
-                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
+                    const vector<double> &n = vector<double>{0., 1.}  // unit normal vector
     );
 
     /** The elements of Jf2 that requires re-assemble after the first iteration
@@ -149,8 +144,7 @@ public:
                     const vector<double> &a,                          // auxiliary fields
                     const vector<double> &a_x,                        // auxiliary fields gradient
                     PetscBool isAssembled = PETSC_FALSE,              // if assembled, only calculate the time-dependent parts
-                    const vector<double> &n = vector<double>{0., 1.}, // unit normal vector
-                    const vector<double> &d = vector<double>{0., 0.}  // prescribed slip
+                    const vector<double> &n = vector<double>{0., 1.}  // unit normal vector
     );
 
     /** The elements of Jf3 that requires re-assemble after the first iteration

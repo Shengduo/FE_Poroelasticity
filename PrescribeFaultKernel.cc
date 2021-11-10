@@ -25,8 +25,7 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
                               const vector<double> &sOff, // offset of each solution field
                               const vector<double> &a,    // auxiliary fields
                               const vector<double> &a_x, // auxiliary fields gradient
-                              const vector<double> &n,    // unit normal vector
-                              const vector<double> &d     // prescribed slip
+                              const vector<double> &n    // unit normal vector
 ) {
     // Check size of F0
     if (F0.size() != 16) F0.resize(16); 
@@ -50,6 +49,7 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
      * 12 - DRateState
      * 13, 14 - fluidBodyForce
      * 15 - source 
+     * 16, 17 - slip
      * ...)
      */
     int i_fluidMobilityX = 3;
@@ -61,6 +61,7 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
     int i_betaSigma = 9;
     int i_fluidBodyForce = 13;
     int i_source = 15;
+    int i_d = 16;
 
     // ================ f0u ======================================
     /** The solution fields in solution vector s are
@@ -110,8 +111,8 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
      * 15 - theta (R & S state, not used here)
      */
     // F0l = (u+) - (u-) - d
-    F0[I_l] = s[I_u + 2] - s[I_u] - d[0];
-    F0[I_l + 1] = s[I_u + 3] - s[I_u + 1] - d[1];
+    F0[I_l] = s[I_u + 2] - s[I_u] - a[i_d];
+    F0[I_l + 1] = s[I_u + 3] - s[I_u + 1] - a[i_d + 1];
 
     // ================ f0pf ======================================
     /** The solution fields in solution vector s are
@@ -144,8 +145,7 @@ void PrescribeFaultKernel::F1(vector<double> &F1,         // stores the result
                               const vector<double> &sOff, // offset of each solution field
                               const vector<double> &a,    // auxiliary fields
                               const vector<double> &a_x, // auxiliary fields gradient
-                              const vector<double> &n,    // unit normal vector
-                              const vector<double> &d     // prescribed slip
+                              const vector<double> &n    // unit normal vector
 ) {
     // Check size of F1
     if (F1.size() != (16) * spaceDim) 
@@ -203,8 +203,7 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
                                const vector<double> &a,    // auxiliary fields
                                const vector<double> &a_x,  // auxiliary fields gradient
                                PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
-                               const vector<double> &n,    // unit normal vector
-                               const vector<double> &d     // prescribed slip
+                               const vector<double> &n    // unit normal vector
 ) {
     int nCols = 16;
     // Check if the system jacobian has been assembled
@@ -485,8 +484,7 @@ void PrescribeFaultKernel::Jf1(vector<double> &Jf1,        // stores the result
                                const vector<double> &a,    // auxiliary fields
                                const vector<double> &a_x, // auxiliary fields gradient
                                PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
-                               const vector<double> &n,    // unit normal vector
-                               const vector<double> &d     // prescribed slip
+                               const vector<double> &n    // unit normal vector
 ) {
     if (!isAssembled) {
         // Check size of Jf1    
@@ -526,10 +524,9 @@ void PrescribeFaultKernel::Jf2(vector<double> &Jf2,        // stores the result
                                double s_tshift,            // sigma of tshift due to the time-derivative
                                const vector<double> &sOff, // offset of each solution field
                                const vector<double> &a,    // auxiliary fields
-                               const vector<double> &a_x, // auxiliary fields gradient
+                               const vector<double> &a_x,  // auxiliary fields gradient
                                PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
-                               const vector<double> &n,    // unit normal vector
-                               const vector<double> &d     // prescribed slip
+                               const vector<double> &n     // unit normal vector
 ) {
     // If first assemble
     if (!isAssembled) {
@@ -572,8 +569,7 @@ void PrescribeFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
                                const vector<double> &a,    // auxiliary fields
                                const vector<double> &a_x, // auxiliary fields gradient
                                PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
-                               const vector<double> &n,    // unit normal vector
-                               const vector<double> &d     // prescribed slip
+                               const vector<double> &n    // unit normal vector
 ) {
     if (!isAssembled) {
         // Check size of Jf3

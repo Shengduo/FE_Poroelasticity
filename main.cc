@@ -14,11 +14,11 @@ int main(int argc, char **argv) {
     // Start the log
     PetscLogDefaultBegin();
    
-    vector<double> spaceDomain = {20, 10}; 
+    vector<double> spaceDomain = {2, 1}; 
     vector<int> nOfEdges = {20, 10};
     double endingTime = 5.0;
     double dt = 0.1;
-    string outputPrefix = "WithCohesiveZone";
+    string outputPrefix = "NonUniformSlip";
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
