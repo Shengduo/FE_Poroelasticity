@@ -1544,6 +1544,12 @@ void Problem::initializeNodesPoroElastic() {
                 upperNodes[nodeID_in_set]->setDOF(0, 1);
                 upperNodes[nodeID_in_set]->setDOF(1, 1);
             }
+
+            // Give source in the middle
+            if (j == myGeometry->yNodeNum / 2  && i == myGeometry->xNodeNum / 2) {
+                // Fix p, ux, uy
+                upperNodes[nodeID_in_set]->setSource(1.0);
+            }
             
             upperNodes[nodeID_in_set]->initializeS(initialS);
             nodeID += 1;
@@ -2043,7 +2049,7 @@ void Problem::prescribedSlip(double t) {
 /** Prescribed slip function. */
 void Problem::slipFunction(const vector<double> & XYZ, double t) {
     // Prescribe slip at a given point, now hyperbolic
-    slip[0] = - (XYZ[0] - myGeometry->xRange) * XYZ[0] * 1.e-2 * t;
+    slip[0] = - (XYZ[0] - myGeometry->xRange) * XYZ[0] * 0.e-2 * t;
     slip[1] = 0.;
 };
 
