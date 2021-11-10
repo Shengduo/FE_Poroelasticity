@@ -91,13 +91,6 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
      * 15 - theta (R & S state, not used here)
      */
     // F0p = [\kappa_z / \mu (p- - pf + n \cdot f_fluid), \kappa_z / \mu (p+ - pf + n \cdot f_fluid)]
-    
-    // DEBUG LINES
-    cout << "a size: " << a.size() << "\n";
-    cout << "F0 size: " << F0.size() << "\n";
-    cout << "s size: " << s.size() << "\n";
-    cout << "n size: " << n.size() << "\n";
-    cout << "Fuck 2\n";
 
     int I_p = 8;
     int I_pf = 14; 
@@ -213,19 +206,19 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
                                const vector<double> &n,    // unit normal vector
                                const vector<double> &d     // prescribed slip
 ) {
-    // Check size of Jf0
-    if (Jf0.size() != 16 * 16) 
-        Jf0.resize(16 * 16);
-
-    // First clear every entry
     int nCols = 16;
-    for (int i = 0; i < nCols; i++) {
-        for (int j = 0; j < nCols; j++)
-            Jf0[i * nCols + j] = 0.;
-    }
-
     // Check if the system jacobian has been assembled
     if (!isAssembled) {
+        // Check size of Jf0
+        if (Jf0.size() != 16 * 16) 
+            Jf0.resize(16 * 16);
+
+        // First clear every entry
+        for (int i = 0; i < nCols; i++) {
+            for (int j = 0; j < nCols; j++)
+                Jf0[i * nCols + j] = 0.;
+        }
+
         // ==================== constants ==============================
         /** Nodal properties values (
          * 0 - mass density; 

@@ -226,10 +226,16 @@ private:
     string outputPrefix;
 
     // Write VTK files
-    void writeVTK(string prefix);
+    void writeVTK() const;
 
     // Write VTU files
-    void writeVTU(string prefix);
+    void writeVTU() const;
+
+    // Write VTU for the bulk
+    void writeVTU_bulk() const;
+
+    // Write VTU for the fault
+    void writeVTU_fault() const;
     
 // NOT IMPLEMENTED
 private:

@@ -1003,9 +1003,6 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
                 nodalS_ts[n] = &(_NID[n]->s_t);
                 nodalAs[n] = &(_NID[n]->_nodalProperties);
             }
-            
-            // DEBUG LINES
-            cout << "Fuck 1\n";
 
             // Calculate point values at integration points
             for (int i = 0; i < nOfIntPts; i++) {

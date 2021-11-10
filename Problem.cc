@@ -1001,7 +1001,6 @@ void Problem::getNNZPerRow(PetscInt *nnz) {
     // Some constants
     int nOfNodes;
     int nOfDofs;
-    int nColsJF;
     
     // Stores global and local index
     int I, J;
@@ -1013,7 +1012,66 @@ void Problem::getNNZPerRow(PetscInt *nnz) {
         {
             nOfNodes = element->getNID().size();
             nOfDofs = element->getNID()[0]->getDOF().size();
-            nColsJF = nOfDofs * nOfNodes;
+            // cout << "\n";
+            // Then row of local JF3
+            for (int i = 0; i < nOfDofs; i++)
+            {
+                I = element->getNID()[n1]->getDOF()[i];
+                if (I == -1)
+                    continue;
+                // Then node
+                for (int n2 = 0; n2 < nOfNodes; n2++)
+                {
+                    // Then col of local JF3
+                    for (int j = 0; j < nOfDofs; j++)
+                    {
+                        J = element->getNID()[n2]->getDOF()[j];
+                        if (J == -1)
+                            continue;  
+                        nonZeros[I * _totalDOF + J] = 1;                      
+                    }
+                }
+            }
+        }
+    }
+
+    // Upper elements non-zeros
+    for (ElementQ4 *element : lowerElements) {
+        // First node
+        for (int n1 = 0; n1 < nOfNodes; n1++)
+        {
+            nOfNodes = element->getNID().size();
+            nOfDofs = element->getNID()[0]->getDOF().size();
+            // cout << "\n";
+            // Then row of local JF3
+            for (int i = 0; i < nOfDofs; i++)
+            {
+                I = element->getNID()[n1]->getDOF()[i];
+                if (I == -1)
+                    continue;
+                // Then node
+                for (int n2 = 0; n2 < nOfNodes; n2++)
+                {
+                    // Then col of local JF3
+                    for (int j = 0; j < nOfDofs; j++)
+                    {
+                        J = element->getNID()[n2]->getDOF()[j];
+                        if (J == -1)
+                            continue;  
+                        nonZeros[I * _totalDOF + J] = 1;                      
+                    }
+                }
+            }
+        }
+    }
+
+    // Upper elements non-zeros
+    for (ElementQ4Cohesive *element : cohesiveElements) {
+        // First node
+        for (int n1 = 0; n1 < nOfNodes; n1++)
+        {
+            nOfNodes = element->getNID().size();
+            nOfDofs = element->getNID()[0]->getDOF().size();
             // cout << "\n";
             // Then row of local JF3
             for (int i = 0; i < nOfDofs; i++)
@@ -1406,8 +1464,8 @@ void Problem::initializeNodesPoroElastic() {
     double source = 0.;
 
     // For cohesive nodal properties
-    double fluidMobilityX = 0.5;
-    double fluidMobilityZ = 2.0;
+    double fluidMobilityX = 0.000005;
+    double fluidMobilityZ = 0.000020;
     double faultPorosity = 0.1;
     double thickness = 0.001;
     double betaP = 1.0;
@@ -1480,8 +1538,10 @@ void Problem::initializeNodesPoroElastic() {
             
             // Fix pressure on the upper boundary 
             if (j == myGeometry->yNodeNum - 1) {
-                // Fix p
+                // Fix p, ux, uy
                 upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
+                upperNodes[nodeID_in_set]->setDOF(0, 1);
+                upperNodes[nodeID_in_set]->setDOF(1, 1);
             }
             
             upperNodes[nodeID_in_set]->initializeS(initialS);
@@ -1837,7 +1897,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Debug lines
         cout << "IFunction t = " << t << "\n";
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
-        myProblem->writeVTU(myProblem->outputPrefix);
+        myProblem->writeVTU();
         myProblem->nodeTime = t;
     }
 
@@ -1975,15 +2035,17 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
 void Problem::prescribedSlip(const vector<CohesiveNode*> & nodes, double t) {
     // Currently apply constant slip everywhere and see what happens.
     if (slip.size() < _spaceDim) slip.resize(_spaceDim);
-    slip[0] = 1.0e-3 * t;
+    slip[0] = 1.0e-2 * t;
 };
 
+
+// ==================== Writing results into vtk/vtu files ============================
 /** Write VTK files
  * Write into vtk nodal and cell connection values
  * At each timestep write a different file
  */
-void Problem::writeVTK(string prefix) {
-    string path = "./output/" + prefix + to_string(stepNumber) + ".vtk";
+void Problem::writeVTK() const {
+    string path = "./output/" + outputPrefix + to_string(stepNumber) + ".vtk";
     ofstream myFile(path);
 
     // Head lines
@@ -2059,15 +2121,22 @@ void Problem::writeVTK(string prefix) {
  * Write into vtu nodal and cell connection values
  * At each timestep write a different file
  */
-void Problem::writeVTU(string prefix) {
-    string path = "./output/" + prefix + to_string(stepNumber) + ".vtu";
+void Problem::writeVTU() const {
+    writeVTU_bulk();
+    writeVTU_fault();
+};
+
+/** Write VTU files for the bulk
+ */
+void Problem::writeVTU_bulk() const {
+    string path = "./output/" + outputPrefix + to_string(stepNumber) + ".vtu";
     ofstream myFile(path);
 
     // Head lines
     myFile << "<?xml version=\"1.0\"?>" << "\n";        // version info
     myFile << "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"BigEndian\">" << "\n";
     myFile << "  <UnstructuredGrid>" << "\n";    // title
-    myFile << "    <Piece NumberOfPoints=\"" << _totalNofNodes << "\" NumberOfCells=\"" << upperElements.size() << "\">" << "\n";                        // File Format
+    myFile << "    <Piece NumberOfPoints=\"" << upperNodes.size() + lowerNodes.size() << "\" NumberOfCells=\"" << upperElements.size() + lowerElements.size() << "\">" << "\n";                        // File Format
     
     // Output node XYZs
     myFile << "      <Points>" << "\n";
@@ -2102,8 +2171,8 @@ void Problem::writeVTU(string prefix) {
     myFile << "        </DataArray>" << "\n";
 
     // Output offsets
-    myFile << "       <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">" << "\n";
-    myFile << "         ";
+    myFile << "        <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">" << "\n";
+    myFile << "        ";
     for (int i = 0; i < upperElements.size() + lowerElements.size(); i++) myFile << 4 * (i + 1) << " ";
     myFile << "\n" << "        </DataArray>" << "\n";
 
@@ -2190,6 +2259,128 @@ void Problem::writeVTU(string prefix) {
     for (Node *node : lowerNodes) {
         myFile << "        " << node->s[I_e] << "\n";
     }
+    myFile << "        </DataArray>" << "\n";
+    myFile << "      </PointData>" << "\n";
+    myFile << "    </Piece>" << "\n";
+    myFile << "  </UnstructuredGrid>" << "\n";
+    myFile << "</VTKFile>" << "\n";
+};
+
+/** Write VTU files for the fault
+ */
+void Problem::writeVTU_fault() const{
+    string path = "./output/" + outputPrefix + "Fault" + to_string(stepNumber) + ".vtu";
+    ofstream myFile(path);
+    
+    // Needs to compensate for the offset because of bulk nodes
+    int nodeIDOffset = upperNodes.size() + lowerNodes.size();
+
+    // Head lines
+    myFile << "<?xml version=\"1.0\"?>" << "\n";        // version info
+    myFile << "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"BigEndian\">" << "\n";
+    myFile << "  <UnstructuredGrid>" << "\n";    // title
+    myFile << "    <Piece NumberOfPoints=\"" << cohesiveNodes.size() << "\" NumberOfCells=\"" << cohesiveElements.size() << "\">" << "\n";                        // File Format
+    
+    // Output node XYZs
+    myFile << "      <Points>" << "\n";
+    myFile << "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" Format=\"ascii\">" << "\n";
+    myFile << scientific;
+    for (CohesiveNode* node : cohesiveNodes) {
+        myFile << "        " << node->getXYZ()[0] << " " << node->getXYZ()[1] << " " << "0.0" << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+    myFile << "      </Points>" << "\n";    
+    
+    // Output Elements
+    myFile << "      <Cells>" << "\n";
+    myFile << "        <DataArray type=\"Int32\" Name=\"connectivity\" Format=\"ascii\">" << "\n";
+    for (ElementQ4Cohesive *element : cohesiveElements) {
+        myFile << "        "
+               << element->getNID()[0]->getID() - nodeIDOffset << " "
+               << element->getNID()[1]->getID() - nodeIDOffset << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output offsets
+    myFile << "        <DataArray type=\"Int32\" Name=\"offsets\" Format=\"ascii\">" << "\n";
+    myFile << "        ";
+    for (int i = 0; i < cohesiveElements.size(); i++) myFile << 2 * (i + 1) << " ";
+    myFile << "\n" << "        </DataArray>" << "\n";
+
+    // Output cell type
+    myFile << "        <DataArray type=\"Int32\" Name=\"types\" Format=\"ascii\">" << "\n";
+    myFile << "        ";
+    for (int i = 0; i < cohesiveElements.size(); i++) myFile << "3 ";
+    myFile << "\n" << "        </DataArray>" << "\n";
+    myFile << "      </Cells>" << "\n";
+
+    // ============================== Output Node results =================================
+    int I_u = 0;
+    int I_v = I_u + _spaceDim * 2;
+    int I_p = I_v + _spaceDim * 2;
+    int I_e = I_p + 2;
+    int I_l = I_e + 2;
+    int I_pf = I_l + 2;
+    int I_theta = I_pf + 1;
+    myFile << "      <PointData>" << "\n";
+    
+    // Global node ID
+    myFile << "        <DataArray type=\"Int32\" Name=\"GlobalNodeId\" format=\"ascii\">" << "\n";
+    myFile << "        ";
+    for (CohesiveNode *node : cohesiveNodes) {
+        myFile << node->getID() - nodeIDOffset << " ";
+    }
+    myFile << "\n" << "        </DataArray>" << "\n";
+
+    // Nodal displacement
+    myFile << "        <DataArray type=\"Float64\" Name=\"Slip\" NumberOfComponents=\"3\" ComponentName0=\"Slip_x\" ComponentName1=\"Slip_y\" ComponentName2=\"Slip_z\" Format=\"ascii\">" << "\n";
+    for (CohesiveNode *node : cohesiveNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_u + _spaceDim + i] - node->s[I_u + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output velocity
+    myFile << "        <DataArray type=\"Float64\" Name=\"Slip rate\" NumberOfComponents=\"3\" ComponentName0=\"SlipRate_x\" ComponentName1=\"SlipRate_y\" ComponentName2=\"SlipRate_z\" Format=\"ascii\">" << "\n";
+    for (CohesiveNode *node : cohesiveNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_v + _spaceDim + i] - node->s[I_v + i]<< " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output pore fluid pressure
+    myFile << "        <DataArray type=\"Float64\" Name=\"Fault Pressure\" NumberOfComponents=\"1\" Format=\"ascii\">" << "\n";  
+    for (CohesiveNode *node : cohesiveNodes) {
+        myFile << "        " << node->s[I_pf] << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output theta
+    myFile << "        <DataArray type=\"Float64\" Name=\"State Variable\" NumberOfComponents=\"1\" Format=\"ascii\">" << "\n";  
+    for (CohesiveNode *node : cohesiveNodes) {
+        myFile << "        " << node->s[I_theta] << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Output lambda
+    myFile << "        <DataArray type=\"Float64\" Name=\"Lagrangian Multplier\" NumberOfComponents=\"3\" Format=\"ascii\">" << "\n";  
+    for (CohesiveNode *node : cohesiveNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s[I_l + i]<< " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+
     myFile << "        </DataArray>" << "\n";
     myFile << "      </PointData>" << "\n";
     myFile << "    </Piece>" << "\n";

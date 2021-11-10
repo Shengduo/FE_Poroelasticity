@@ -286,6 +286,7 @@ CohesiveNode::CohesiveNode(int ID,
     setFluidMobility_z(fluidMobility_z);
     setFluidViscosity(fluidViscosity);
     setPorosity(porosity);
+    setThickness(thickness);
     setBeta_p(beta_p);
     setBeta_sigma(beta_sigma);
     setRateStateA(rateStateA);
