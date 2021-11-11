@@ -3,6 +3,7 @@
  */
 #include "ElementQ4.hh"
 #include "PrescribeFaultKernel.hh"
+#include "FrictionFaultKernel.hh"
 //------------------------------------------------------------------------------------------------------------------------------------------------------
 /** ElementQ4Cohesive
  * Cohesive version of Q4, only 2 nodes

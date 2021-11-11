@@ -322,6 +322,7 @@ public:
      * 13, 14 - fluidBodyForce
      * 15 - source 
      * 16, 17 - slip
+     * 18 - V_reference
      * ...)
      */
 
@@ -345,7 +346,9 @@ public:
                  double DRateState = 1.0,
                  const vector<double> *fluidBodyForce = NULL,
                  double source = 0., 
-                 const vector<double> *initialSlip = NULL);
+                 const vector<double> *initialSlip = NULL, 
+                 double V_reference = 1.0e-6, 
+                 double f_reference = 0.6);
 
     // Set DOF 1 [lambda, pressure, theta]
     void setDOF(const vector<int> & DOF) {
@@ -614,6 +617,30 @@ public:
         if (_nodalProperties.size() < 18) throw "Slip not initialized!";
         vector<double> res = {_nodalProperties[16], _nodalProperties[17]};
         return res;
+    };
+
+    // Set V reference
+    void setVReference(double V_reference) {
+        if (_nodalProperties.size() < 19) _nodalProperties.resize(19);
+        _nodalProperties[18] = V_reference;
+    };
+
+    // Get V reference
+    double getVReference() const {
+        if (_nodalProperties.size() < 19) throw "V reference not initialized!";
+        return _nodalProperties[18];
+    };
+
+    // Set f reference
+    void setFReference(double f_reference) {
+        if (_nodalProperties.size() < 20) _nodalProperties.resize(20);
+        _nodalProperties[19] = f_reference;
+    };
+
+    // Get f reference
+    double getFReference() const {
+        if (_nodalProperties.size() < 20) throw "f reference not initialized!";
+        return _nodalProperties[19];
     };
 
     /** Initialize s */
