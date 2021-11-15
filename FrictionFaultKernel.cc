@@ -66,7 +66,7 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
     int i_DRateState = 12;
     int i_fluidBodyForce = 13;
     int i_source = 15;
-    int i_d = 16;
+    // int i_d = 16;
     int i_vr = 18;
     int i_fr = 19;
 
@@ -149,7 +149,6 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
      * 15 - theta (R & S state, not used here)
      */
     // F0theta = \dot{\theta} - (1 - (-t) \cdot (v^+ - v^-) \theta / D_RS)
-    int I_theta = 15;
     F0[I_theta] = s_t[I_theta] - (1 + s[I_theta] / a[i_DRateState] * ((-n[1]) * (s_t[I_u + 2] - s_t[I_u]) + n[0] * (s_t[I_u + 3] - s_t[I_u + 1])));
 
     // ================ f0pf ======================================
@@ -288,9 +287,9 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
         int i_rateStateA = 10;
         int i_rateStateB = 11;
         int i_DRateState = 12;
-        int i_fluidBodyForce = 13;
-        int i_source = 15;
-        int i_d = 16;
+        // int i_fluidBodyForce = 13;
+        // int i_source = 15;
+        // int i_d = 16;
         int i_vr = 18;
         int i_fr = 19;     
 
@@ -515,7 +514,7 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 19 - f_reference
          * ...)
          */   
-        int i_fluidMobilityX = 3;
+        // int i_fluidMobilityX = 3;
         int i_fluidMobilityZ = 4;
         int i_fluidViscosity = 5;
         int i_porosity = 6;
@@ -525,9 +524,9 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
         int i_rateStateA = 10;
         int i_rateStateB = 11;
         int i_DRateState = 12;
-        int i_fluidBodyForce = 13;
-        int i_source = 15;
-        int i_d = 16;
+        // int i_fluidBodyForce = 13;
+        // int i_source = 15;
+        // int i_d = 16;
         int i_vr = 18;
         int i_fr = 19;
         
@@ -608,7 +607,7 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          */
         int I_pf = 14;
         int I_p = 8;
-        
+
         Jf0[I_pf * nCols + I_pf] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
                                    + 2 * a[i_porosity] * a[i_betaP] * s_tshift - Jf0[8];
         
