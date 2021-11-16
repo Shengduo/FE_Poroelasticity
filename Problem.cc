@@ -1465,7 +1465,7 @@ void Problem::initializeNodesPoroElastic() {
     double source = 0.;
 
     // For cohesive nodal properties
-    double fluidMobilityX = 0.000005;
+    double fluidMobilityX = 0.000005 * 1.0e3;
     double fluidMobilityZ = 0.000020;
     double faultPorosity = 0.1;
     double thickness = 0.001;
@@ -1539,8 +1539,8 @@ void Problem::initializeNodesPoroElastic() {
             
             // Fix pressure on the upper boundary 
             if (j == myGeometry->yNodeNum - 1) {
-                // Fix p, ux, uy
-                upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
+                // Fix ux, uy
+                // upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
                 upperNodes[nodeID_in_set]->setDOF(0, 1);
                 upperNodes[nodeID_in_set]->setDOF(1, 1);
             }
@@ -1593,8 +1593,8 @@ void Problem::initializeNodesPoroElastic() {
             
             // Fix some boundaries on the bottom
             if (j == myGeometry->yNodeNum - 1) {
-                // Fix p, ux, uy
-                lowerNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
+                // Fix ux, uy
+                // lowerNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
                 lowerNodes[nodeID_in_set]->setDOF(0, 1);
                 lowerNodes[nodeID_in_set]->setDOF(1, 1);
             }
@@ -1643,6 +1643,10 @@ void Problem::initializeNodesPoroElastic() {
                              faultSource);
     
         cohesiveNodes[nodeID_in_set]->initializeS(initialS);
+        
+        // Set source for the middle node
+        if (i == myGeometry->xNodeNum / 2) 
+            cohesiveNodes[nodeID_in_set]->setSource(1.0);
         
         nodeID += 1;
         nodeID_in_set += 1;
@@ -2043,7 +2047,7 @@ void Problem::prescribedSlip(double t) {
 /** Prescribed slip function. */
 void Problem::slipFunction(const vector<double> & XYZ, double t) {
     // Prescribe slip at a given point, now hyperbolic
-    slip[0] = - (XYZ[0] - myGeometry->xRange) * XYZ[0] * 1.e-2 * t;
+    slip[0] = - (XYZ[0] - myGeometry->xRange) * XYZ[0] * 0.e-2 * t;
     slip[1] = 0.;
 };
 

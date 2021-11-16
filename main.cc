@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     vector<int> nOfEdges = {20, 10};
     double endingTime = 5.0;
     double dt = 0.1;
-    string outputPrefix = "NonUniformSlip";
+    string outputPrefix = "FaultDiffusion";
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
