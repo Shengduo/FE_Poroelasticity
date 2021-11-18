@@ -352,8 +352,8 @@ public:
 
     // Set DOF 1 [lambda, pressure, theta]
     void setDOF(const vector<int> & DOF) {
-        if (_nodalDOF.size() < 2 * (2 * _spaceDim + 2) + _spaceDim + 2) 
-            _nodalDOF.resize(2 * (2 * _spaceDim + 2) + _spaceDim + 2);
+        if (_nodalDOF.size() < 2 * (2 * _spaceDim + 2) + _spaceDim + 3) 
+            _nodalDOF.resize(2 * (2 * _spaceDim + 2) + _spaceDim + 3);
         if (DOF.size() != _nodalDOF.size()) {
             throw "Input DOF incompatible with nodal DOF!";
         }

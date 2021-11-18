@@ -57,6 +57,10 @@ Node::Node(int ID,
     // Reset _nodalProperties.
     _nodalProperties.resize(14, 0.);
     
+    // Resize s and s_t
+    s.resize(_nodalDOF.size(), 0.);
+    s_t.resize(_nodalDOF.size(), 0.);
+
     // Set nodal coordinates and degree of freedom
     this->setXYZ(XYZ);
     this->setDOF(DOF);
@@ -246,7 +250,7 @@ CohesiveNode::CohesiveNode(int ID, int spaceDim) {
     _nodalXYZ.resize(_spaceDim, 0.);
 
     // {lambda, fault_pressure, theta}
-    _nodalDOF.resize(2 * (2 * _spaceDim + 2) + _spaceDim + 2, 0);
+    _nodalDOF.resize(2 * (2 * _spaceDim + 2) + _spaceDim + 3, 0);
 
     // Set nodal body force to 0.
     _nodalBodyForce.resize(_spaceDim, 0.);
@@ -279,11 +283,15 @@ CohesiveNode::CohesiveNode(int ID,
     setID(ID);
     setSpaceDim(spaceDim);
     setXYZ(XYZ);
-    _nodalDOF.resize(2 * (2 * _spaceDim + 2) + spaceDim + 2);
+    _nodalDOF.resize(2 * (2 * _spaceDim + 2) + spaceDim + 3);
     setDOF(DOF);
     setLowerUpperNodes(lowerUpperNodes);
     _nodalBodyForce.resize(_spaceDim, 0.);
     _nodalProperties.resize(20, 0.);
+    
+    // Resize solution s and s_t
+    s.resize(_nodalDOF.size(), 0.);
+    s_t.resize(_nodalDOF.size(), 0.);
 
     setMassDensity(density);
     setBodyForce(bodyForce);
@@ -304,9 +312,9 @@ CohesiveNode::CohesiveNode(int ID,
     setFReference(f_reference);
 };
 
-/** Initialize s = [u(-+), v(-+), p(-+), trace_strain(-+), lambda, fault_pressure, theta] */
+/** Initialize s = [u(-+), v(-+), p(-+), trace_strain(-+), lambda, fault_pressure, theta, slip_rate] */
 void CohesiveNode::initializeS(const vector<double> & initialS) {
-    if (initialS.size() != _spaceDim + 2) throw "Initial s vector not compatible with cohesive nodal DOFs!";
+    if (initialS.size() != _spaceDim + 3) throw "Initial s vector not compatible with cohesive nodal DOFs!";
     s.resize(2 * (2 * _spaceDim + 2) + initialS.size());
     for (int i = 0; i < initialS.size(); i++) s[i + 2 * (2 * _spaceDim + 2)] = initialS[i];
 

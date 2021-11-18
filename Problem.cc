@@ -1475,6 +1475,9 @@ void Problem::initializeNodesPoroElastic() {
     double rateStateB = 0.012;
     double DRateState = 1.0;
     double faultSource = 0.0;
+    double fReference = 0.6;
+    double VReference = 1.0e-6;
+    vector<double> initialSlip = {0.0, 0.0};
     // double activesource = 1.0;
 
     // Element size
@@ -1490,9 +1493,9 @@ void Problem::initializeNodesPoroElastic() {
     // Default DOF
     vector<int> DOF_default (2 * spaceDim + 2, 0); 
     DOF_default[2] = 1; DOF_default[3] = 1;  // Fix V
-    vector<int> DOFCohesive_default (16, 2);
-    for (int i = 12; i < 16; i++) DOFCohesive_default[i] = 0; 
-    DOFCohesive_default[15] = 1;             // Fix theta for now
+    vector<int> DOFCohesive_default (17, 2);
+    for (int i = 12; i < 17; i++) DOFCohesive_default[i] = 0; 
+    // DOFCohesive_default[15] = 1;             // Fix psi for now
 
     // Upper subzone nodes
     upperNodes.resize(myGeometry->nOfNodes);
@@ -1548,7 +1551,7 @@ void Problem::initializeNodesPoroElastic() {
             // Give source in the middle
             if (j == myGeometry->yNodeNum / 2  && i == myGeometry->xNodeNum / 2) {
                 // Fix p, ux, uy
-                upperNodes[nodeID_in_set]->setSource(1.0);
+                upperNodes[nodeID_in_set]->setSource(0.0);
             }
             
             upperNodes[nodeID_in_set]->initializeS(initialS);
@@ -1614,8 +1617,14 @@ void Problem::initializeNodesPoroElastic() {
     // Cohesive zone nodes
     cohesiveNodes.resize(myGeometry->xNodeNum);
     nodeID_in_set = 0;
-    initialS.resize(spaceDim + 2);
+    initialS.resize(spaceDim + 3);
     fill(initialS.begin(), initialS.end(), 0.0);
+    initialS[4] = 1.0e-6;
+
+    // Initialize \psi = f_* + b log (V_* \theta / D_RS)
+    double theta = 1.0e6;
+
+    initialS[3] = fReference + rateStateB * log(VReference * theta / DRateState);
     vector<Node*> lowerUpperNodes (2, NULL);
 
     for (int i = 0; i < myGeometry->xNodeNum; i++) {
@@ -1646,7 +1655,10 @@ void Problem::initializeNodesPoroElastic() {
                              rateStateB,
                              DRateState,
                              &fluidBodyForce,
-                             faultSource);
+                             faultSource, 
+                             &initialSlip, 
+                             VReference, 
+                             fReference);
     
         cohesiveNodes[nodeID_in_set]->initializeS(initialS);
         
@@ -1760,6 +1772,14 @@ void Problem::initializePetsc() {
 
     // Set initial conditions by pushing to globalS
     for (Node* node : upperNodes) {
+        node->pushS(globalS);
+    }
+
+    for (Node* node : lowerNodes) {
+        node->pushS(globalS);
+    }
+
+    for (CohesiveNode* node : cohesiveNodes) {
         node->pushS(globalS);
     }
 }
@@ -1898,7 +1918,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     
     // Clear the vector
     ierr = VecZeroEntries(F);
-    
+
     // Write vtk file
     if (t > myProblem->nodeTime) {
         // Debug lines
@@ -1906,7 +1926,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         ierr = TSGetStepNumber(ts, &(myProblem->stepNumber));
         myProblem->writeVTU();
         myProblem->nodeTime = t;
-        myProblem->prescribedSlip(t);
+        // myProblem->prescribedSlip(t);
     }
 
     // Fetch all s into the nodes
@@ -1938,7 +1958,7 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
 
     for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
         // Calculate F within the element
-        element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 1, 0., t);
+        element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 2, 0., t);
     }
     
     // Assemble the global residual function
@@ -1967,9 +1987,9 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
  */
 PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal s_tshift, Mat Amat, Mat Pmat, void *ctx) {
     // DEBUG LINES
-    // cout << "IJacobian t = " << t << "\n";
+    cout << "IJacobian t = " << t << "\n";
     // cout << "IJacobian s_tshift = " << s_tshift << "\n";
-    
+
     // Convert the pointer
     Problem *myProblem = (Problem*) ctx;
     PetscErrorCode ierr;
@@ -2006,7 +2026,7 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Loop through all elements in cohesive Elements
     for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
         // Calculate F within the element
-        element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, 1, s_tshift, t);
+        element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, 2, s_tshift, t);
     }
 
     // myProblem->clocks[1] = clock();
@@ -2024,12 +2044,12 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // myProblem->clocks[2] = clock();
     
     // DEBUG LINES
-    /**
+    
     cout << "View Pmat Norm: ";
     PetscReal norm;
     MatNorm(Pmat, NORM_FROBENIUS, &norm);
     cout << norm << "\n";
-    */
+    
     
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
@@ -2236,6 +2256,26 @@ void Problem::writeVTU_bulk() const {
     }
     myFile << "        </DataArray>" << "\n";
 
+    // Nodal displacement_t
+    myFile << "        <DataArray type=\"Float64\" Name=\"Displacements_t\" NumberOfComponents=\"3\" ComponentName0=\"U_tx\" ComponentName1=\"U_ty\" ComponentName2=\"U_tz\" Format=\"ascii\">" << "\n";
+    for (Node *node : upperNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s_t[I_u + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    for (Node *node : lowerNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s_t[I_u + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
     // Output velocity
     myFile << "        <DataArray type=\"Float64\" Name=\"Velocities\" NumberOfComponents=\"3\" ComponentName0=\"Vx\" ComponentName1=\"Vy\" ComponentName2=\"Vz\" Format=\"ascii\">" << "\n";
     for (Node *node : upperNodes) {
@@ -2336,7 +2376,7 @@ void Problem::writeVTU_fault() const{
     int I_e = I_p + 2;
     int I_l = I_e + 2;
     int I_pf = I_l + 2;
-    int I_theta = I_pf + 1;
+    int I_psi = I_pf + 1;
     myFile << "      <PointData>" << "\n";
     
     // Global node ID
@@ -2347,12 +2387,24 @@ void Problem::writeVTU_fault() const{
     }
     myFile << "\n" << "        </DataArray>" << "\n";
 
-    // Nodal displacement
+    // Nodal Slip
     myFile << "        <DataArray type=\"Float64\" Name=\"Slip\" NumberOfComponents=\"3\" ComponentName0=\"Slip_x\" ComponentName1=\"Slip_y\" ComponentName2=\"Slip_z\" Format=\"ascii\">" << "\n";
     for (CohesiveNode *node : cohesiveNodes) {
         myFile << "        ";
         for (int i = 0; i < _spaceDim; i++) {
             myFile << node->s[I_u + _spaceDim + i] - node->s[I_u + i] << " ";
+        }
+        if (_spaceDim == 2) myFile << "0.0 ";
+        myFile << "\n";
+    }
+    myFile << "        </DataArray>" << "\n";
+
+    // Nodal Slip_t
+    myFile << "        <DataArray type=\"Float64\" Name=\"Slip_t\" NumberOfComponents=\"3\" ComponentName0=\"Slip_tx\" ComponentName1=\"Slip_ty\" ComponentName2=\"Slip_tz\" Format=\"ascii\">" << "\n";
+    for (CohesiveNode *node : cohesiveNodes) {
+        myFile << "        ";
+        for (int i = 0; i < _spaceDim; i++) {
+            myFile << node->s_t[I_u + _spaceDim + i] - node->s_t[I_u + i] << " ";
         }
         if (_spaceDim == 2) myFile << "0.0 ";
         myFile << "\n";
@@ -2378,10 +2430,10 @@ void Problem::writeVTU_fault() const{
     }
     myFile << "        </DataArray>" << "\n";
 
-    // Output theta
+    // Output psi
     myFile << "        <DataArray type=\"Float64\" Name=\"State Variable\" NumberOfComponents=\"1\" Format=\"ascii\">" << "\n";  
     for (CohesiveNode *node : cohesiveNodes) {
-        myFile << "        " << node->s[I_theta] << "\n";
+        myFile << "        " << node->s[I_psi] << "\n";
     }
     myFile << "        </DataArray>" << "\n";
 

@@ -385,14 +385,15 @@ void ElementQ4Cohesive::IntegratorNf(double *res,
  * FLAG: 0 - nodevalues are given at nodes, 
  *       1 - nodevalues are given at integration points
  */
-void ElementQ4Cohesive::IntegratorBf(double *res, 
-                             int resSize, 
-                             const vector<vector<double>> & NodeValues, 
-                             int flag) const {
+void ElementQ4Cohesive::IntegratorBf(double *res,
+                                     int resSize,
+                                     const vector<vector<double>> &NodeValues,
+                                     int flag) const {
     // Some constants
-    if (NodeValues.size() != nOfNodes) throw "Not all nodes are provided for ElementQ4 IntegratorBf!";
-    if (NodeValues[0].size() != nOfDofs * spaceDim) throw "Not all nodal DOFs are provided for ElementQ4 IntegratorBf!";
-    if (resSize != nOfDofs * nOfNodes) throw "resSize error for ElementQ4 IntegratorBf!";
+    if (NodeValues.size() != nOfNodes) throw "Not all nodes are provided for ElementQ4Cohesive IntegratorBf!"; 
+    if (NodeValues[0].size() != nOfDofs * spaceDim) throw "Not all nodal DOFs are provided for ElementQ4Cohesive IntegratorBf!";
+    if (resSize != nOfDofs * nOfNodes) throw "resSize error for ElementQ4Cohesive IntegratorBf!";
+    
 
     // Integration point index
     int IntPtIndex;
@@ -976,6 +977,164 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
             }
             */
         }
+
+        // 2D quasi-static pressure fault with rate and state friction kernels
+        case 2: {
+            // MatAssembled(globalJF, &isJfAssembled);
+            // DEBUG LINES
+            // isJfAssembled = PETSC_FALSE;
+
+            for (int n = 0; n < nOfNodes; n++) {
+                nodalSs[n] = &(_NID[n]->s);
+                nodalS_ts[n] = &(_NID[n]->s_t);
+                nodalAs[n] = &(_NID[n]->_nodalProperties);
+            }
+            
+            // DEBUG LINES
+            // (*clocks)[0] = clock();
+
+            // Calculate point values at integration points
+            for (int i = 0; i < nOfIntPts; i++) {
+                    evaluateF(ss, i, nodalSs);
+                    evaluateF_x(s_xs, i, nodalSs);
+                    evaluateF(as, i, nodalAs);
+                    evaluateF(s_ts, i, nodalS_ts);
+                    evaluateF_x(a_xs, i, nodalAs);
+                    // DEBUG LINES
+                    // cout << "fuck!" << "\n";
+                    FrictionFaultKernel::Jf0(Jf0s[i],
+                                             spaceDim,
+                                             t,
+                                             ss,
+                                             s_xs,
+                                             s_ts,
+                                             s_tshift,
+                                             as,
+                                             as,
+                                             a_xs,
+                                             isJfAssembled,
+                                             _n);
+
+                    FrictionFaultKernel::Jf1(Jf1s[i],
+                                             spaceDim,
+                                             t,
+                                             ss,
+                                             s_xs,
+                                             s_ts,
+                                             s_tshift,
+                                             as,
+                                             as,
+                                             a_xs,
+                                             isJfAssembled,
+                                             _n);
+
+                    FrictionFaultKernel::Jf2(Jf2s[i],
+                                             spaceDim,
+                                             t,
+                                             ss,
+                                             s_xs,
+                                             s_ts,
+                                             s_tshift,
+                                             as,
+                                             as,
+                                             a_xs,
+                                             isJfAssembled,
+                                             _n);
+
+                    FrictionFaultKernel::Jf3(Jf3s[i],
+                                             spaceDim,
+                                             t,
+                                             ss,
+                                             s_xs,
+                                             s_ts,
+                                             s_tshift,
+                                             as,
+                                             as,
+                                             a_xs,
+                                             isJfAssembled,
+                                             _n);
+            }
+
+            // DEBUG LINES
+            // (*clocks)[1] = clock();
+            // Integration
+            if (!isJfAssembled) {
+                // DEBUG LINES
+                // cout << "fuck!" << "\n";
+                (*clocks)[0] = clock();
+                IntegratorNfN(localJF, localJFSize, Jf0s, FrictionFaultKernel::Jf0_is, FrictionFaultKernel::Jf0_js, 1);
+                (*clocks)[1] = clock();
+                IntegratorNfB(localJF, localJFSize, Jf1s, FrictionFaultKernel::Jf1_is, FrictionFaultKernel::Jf1_js, 1);
+                (*clocks)[2] = clock();
+                IntegratorBfN(localJF, localJFSize, Jf2s, FrictionFaultKernel::Jf2_is, FrictionFaultKernel::Jf2_js, 1);
+                (*clocks)[3] = clock();
+                IntegratorBfB(localJF, localJFSize, Jf3s, FrictionFaultKernel::Jf3_is, FrictionFaultKernel::Jf3_js, 1);
+                (*clocks)[4] = clock();
+            }
+            else {
+                // DEBUG LINES
+                // double shit = 0.;
+                // cout << "local JF addition before integration: ";
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                
+                IntegratorNfN(localJF, localJFSize, Jf0s, FrictionFaultKernel::Jf0_timedependent_is, FrictionFaultKernel::Jf0_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after NfN: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                IntegratorNfB(localJF, localJFSize, Jf1s, FrictionFaultKernel::Jf1_timedependent_is, FrictionFaultKernel::Jf1_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after NfB: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                IntegratorBfN(localJF, localJFSize, Jf2s, FrictionFaultKernel::Jf2_timedependent_is, FrictionFaultKernel::Jf2_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after BfN: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+                
+                IntegratorBfB(localJF, localJFSize, Jf3s, FrictionFaultKernel::Jf3_timedependent_is, FrictionFaultKernel::Jf3_timedependent_js, 1);
+                
+                // DEBUG LINES
+                // cout << "local JF after BfB: ";
+                // shit = 0.;
+                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
+                // cout << shit << "\n";
+
+               
+            }
+            // DEBUG LINES
+            // (*clocks)[2] = clock();
+
+            isJfAssembled = PETSC_TRUE;
+
+            // Push to the global JF
+            JFPush(globalJF, localJF, localJFSize);
+
+            // DEBUG LINES
+            (*clocks)[3] = clock();
+
+            // DEBUG LINES
+            /**
+            for (int i = 0; i < timeConsumed->size(); i++) {
+                (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
+            }
+            */
+        }
         default:
             break;
     }
@@ -989,9 +1148,12 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
     // Zero local F
     for (int i = 0; i < localFSize; i++) localF[i] = 0.;
 
-    // Switch kernel 0 - elastic (not implemented), 1 - poroelastic with prescribed fault slip
+    /** Switch kernel 0 - elastic (not implemented), 
+     * 1 - poroelastic with prescribed fault slip,
+     * 2 - poroelastic with quasistatic rate and state slip.
+     */
     switch(Kernel) {
-        // Linear poroelastic kernels
+        // Poroelastic with prescribed fault slip
         case 1: {            
             for (int n = 0; n < nOfNodes; n++) {
                 nodalSs[n] = &(_NID[n]->s);
@@ -1059,6 +1221,74 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
             // Push to globalF
             elementFPush(globalF, localF, localFSize);
             
+        }
+
+        // Poroelastic with quasistatic rate and state slip
+        case 2: {     
+            for (int n = 0; n < nOfNodes; n++) {
+                nodalSs[n] = &(_NID[n]->s);
+                nodalS_ts[n] = &(_NID[n]->s_t);
+                nodalAs[n] = &(_NID[n]->_nodalProperties);
+            }
+
+            // Calculate point values at integration points
+            for (int i = 0; i < nOfIntPts; i++) {
+                // DEBUG LINES
+                (*clocks)[0] = clock();        
+                evaluateF(ss, i, nodalSs);
+                
+                // DEBUG LINES
+                (*clocks)[1] = clock();
+                evaluateF_x(s_xs, i, nodalSs);
+
+                // DEBUG LINES
+                (*clocks)[2] = clock();
+                evaluateF(as, i, nodalAs);
+
+                // DEBUG LINES
+                (*clocks)[3] = clock();
+                evaluateF(s_ts, i, nodalS_ts);                    
+                
+                // DEBUG LINES
+                (*clocks)[4] = clock();
+                evaluateF_x(a_xs, i, nodalAs);
+                
+                FrictionFaultKernel::F0(F0s[i],
+                                        spaceDim,
+                                        t,
+                                        ss,
+                                        s_xs,
+                                        s_ts,
+                                        s_tshift,
+                                        as,
+                                        as,
+                                        a_xs,
+                                        _n);
+                
+                FrictionFaultKernel::F1(F1s[i],
+                                        spaceDim,
+                                        t,
+                                        ss,
+                                        s_xs,
+                                        s_ts,
+                                        s_tshift,
+                                        as,
+                                        as,
+                                        a_xs,
+                                        _n);
+
+                for (int i = 0; i < timeConsumed->size(); i++) {
+                    (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
+                }
+            }
+            
+           
+            // Integrate
+            IntegratorNf(localF, localFSize, F0s, 1);
+            IntegratorBf(localF, localFSize, F1s, 1);
+
+            // Push to globalF
+            elementFPush(globalF, localF, localFSize);
         }
         default :
             break;

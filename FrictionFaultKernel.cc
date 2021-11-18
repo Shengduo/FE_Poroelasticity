@@ -9,7 +9,8 @@
  * 10, 11 - trace-strain-, tracestrain+
  * 12, 13 - lambda_n, lambda_t
  * 14 - pressure_fault
- * 15 - theta (R & S state, used here)
+ * 15 - psi (R & S state, used here)
+ * 16 - slip rate (R & S State, used here)
  */
 //======= The Residuals =================================================================================   
 /** Left hand side residual 
@@ -28,7 +29,7 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
                               const vector<double> &n     // unit normal vector
 ) {
     // Check size of F0
-    if (F0.size() != 16) F0.resize(16); 
+    if (F0.size() != 17) F0.resize(17); 
 
     // Clear F0
     for (int i = 0; i < F0.size(); i++) F0[i] = 0.;
@@ -78,7 +79,8 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
      * 10, 11 - trace-strain-, tracestrain+
      * 12, 13 - lambda_n, lambda_t
      * 14 - pressure_fault
-     * 15 - theta (R & S state, not used here)
+     * 15 - psi (R & S state, used here)
+     * 16 - slip rate (R & S State, used here)
      */
     // F0u = [-\lambda, \lambda], t = [-n[1], n[0]]
     int I_u = 0;
@@ -97,7 +99,8 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
      * 10, 11 - trace-strain-, tracestrain+
      * 12, 13 - lambda1, lambda2
      * 14 - pressure_fault
-     * 15 - theta (R & S state, not used here)
+     * 15 - psi (R & S state, used here)
+     * 16 - slip rate (R & S State, used here)
      */
     // F0p = [\kappa_z / \mu (p- - pf + n \cdot f_fluid), \kappa_z / \mu (p+ - pf + n \cdot f_fluid)]
 
@@ -116,7 +119,8 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
      * 10, 11 - trace-strain-, tracestrain+
      * 12, 13 - lambda_n, lambda_t
      * 14 - pressure_fault
-     * 15 - theta (R & S state, not used here)
+     * 15 - psi (R & S state, used here)
+     * 16 - slip rate (R & S State, used here)
      */
     // F0l_n =  = n \cdot [(u+) - (u-)]
     F0[I_ln] = n[0] * (s[I_u + 2] - s[I_u]) + n[1] * (s[I_u + 3] - s[I_u + 1]);
@@ -129,16 +133,19 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
      * 10, 11 - trace-strain-, tracestrain+
      * 12, 13 - lambda_n, lambda_t
      * 14 - pressure_fault
-     * 15 - theta (R & S state, not used here)
+     * 15 - psi (R & S state, used here)
+     * 16 - slip rate (R & S State, used here)
      */
     // F0l_t = ...
-    int I_theta = 15;
+    int I_psi = 15;
+    int I_V = 16;
+    
     F0[I_lt] = s[I_lt] - (s[I_ln]) * a[i_rateStateA] * asinh(
-        - (-n[1] * (s_t[I_u + 2] - s_t[I_u]) + n[0] * (s_t[I_u + 3] - s_t[I_u + 1])) / (2. * a[i_vr])
-        * exp((a[i_fr] + a[i_rateStateB] * log(a[i_vr] * s[I_theta] / a[i_DRateState])) / a[i_rateStateA])
+        s[I_V] / (2. * a[i_vr])
+        * exp(s[I_psi] / a[i_rateStateA])
     );
 
-    // ================ f0theta ======================================
+    // ================ f0psi ======================================
     /** The solution fields in solution vector s are
      * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
      * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
@@ -146,10 +153,12 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
      * 10, 11 - trace-strain-, tracestrain+
      * 12, 13 - lambda_n, lambda_t
      * 14 - pressure_fault
-     * 15 - theta (R & S state, not used here)
+     * 15 - psi (R & S state, used here)
+     * 16 - slip rate (R & S State, used here)
      */
-    // F0theta = \dot{\theta} - (1 - (-t) \cdot (v^+ - v^-) \theta / D_RS)
-    F0[I_theta] = s_t[I_theta] - (1 + s[I_theta] / a[i_DRateState] * ((-n[1]) * (s_t[I_u + 2] - s_t[I_u]) + n[0] * (s_t[I_u + 3] - s_t[I_u + 1])));
+    // F0psi = \dot{\psi} - (1 - (-t) \cdot (v^+ - v^-) \psi / D_RS)
+    F0[I_psi] = s_t[I_psi] - a[i_rateStateB] * a[i_vr] / a[i_DRateState] * 
+                (exp((a[i_fr] - s[I_psi]) / a[i_rateStateB]) - s[I_V] / a[i_vr]);
 
     // ================ f0pf ======================================
     /** The solution fields in solution vector s are
@@ -159,13 +168,28 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
      * 10, 11 - trace-strain-, tracestrain+
      * 12, 13 - lambda1, lambda2
      * 14 - pressure_fault
-     * 15 - theta (R & S state, not used here)
+     * 15 - psi (R & S state, used here)
+     * 16 - slip rate (R & S State, used here)
      */
     // F0pf = ...
     F0[I_pf] = a[i_porosity] * (a[i_betaP] * (s_t[I_p] + 2 * s_t[I_pf]+ s_t[I_p + 1])
                                 - a[i_betaSigma] * s_t[I_ln])
                + a[i_fluidMobilityX] / a[i_fluidViscosity] * (a_x[2 * i_fluidBodyForce] + a_x[2 * i_fluidBodyForce + 3])
                - a[i_fluidMobilityZ] / a[i_fluidViscosity] * (s[I_p] - 2 * s[I_pf] + s[I_p + 1]) / pow(a[i_thickness], 2) - a[i_source];
+    
+    // ================ f0V ======================================
+    /** The solution fields in solution vector s are
+     * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+     * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+     * 8, 9 - pressure-, pressure+;
+     * 10, 11 - trace-strain-, tracestrain+
+     * 12, 13 - lambda1, lambda2
+     * 14 - pressure_fault
+     * 15 - psi (R & S state, used here)
+     * 16 - slip rate (R & S State, used here)
+     */
+    // F0pf = ...
+    F0[I_V] = s[I_V] + (-n[1] * (s_t[I_u + 2] - s_t[I_u]) + n[0] * (s_t[I_u + 3] - s_t[I_u + 1]));
 };
 
 /** Left hand side residual 
@@ -184,8 +208,8 @@ void FrictionFaultKernel::F1(vector<double> &F1,         // stores the result
                               const vector<double> &n    // unit normal vector
 ) {
     // Check size of F1
-    if (F1.size() != (16) * spaceDim) 
-        F1.resize((16) * spaceDim);
+    if (F1.size() != (17) * spaceDim) 
+        F1.resize((17) * spaceDim);
 
     // Clear F1
     for (int i = 0; i < F1.size(); i++) F1[i] = 0.;
@@ -244,12 +268,12 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
                                PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
                                const vector<double> &n    // unit normal vector
 ) {
-    int nCols = 16;
+    int nCols = 17;
     // Check if the system jacobian has been assembled
     if (!isAssembled) {
         // Check size of Jf0
-        if (Jf0.size() != 16 * 16) 
-            Jf0.resize(16 * 16);
+        if (Jf0.size() != 17 * 17) 
+            Jf0.resize(17 * 17);
 
         // First clear every entry
         for (int i = 0; i < nCols; i++) {
@@ -302,7 +326,8 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
         int I_u = 0;
         int I_ln = 12;
@@ -326,7 +351,8 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
         int I_p = 8;
         Jf0[I_p * nCols + I_p] = a[i_fluidMobilityZ] / a[i_fluidViscosity] / a[i_thickness];
@@ -341,14 +367,15 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
         int I_pf = 14;
         Jf0[I_p * nCols + I_pf] = -a[i_fluidMobilityZ] / a[i_fluidViscosity] / a[i_thickness];
         Jf0[(I_p + 1) * nCols + I_pf] = Jf0[I_p * nCols + I_pf];
         
-        // ================ Jf0lu ======================================
+        // ================ Jf0l_nu ======================================
         // Jf0l_nu = [-n, n];
         /** The solution fields in solution vector s are
          * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
@@ -357,35 +384,35 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
-        int I_theta = 15;
+        int I_psi = 15;
+        int I_V = 16;
 
         Jf0[I_u + I_ln * nCols] = -n[0];
         Jf0[(I_u + 1) + I_ln * nCols] = -n[1];
         Jf0[(I_u + 2) + I_ln * nCols] = n[0];
         Jf0[(I_u + 3) + I_ln * nCols] = n[1];
 
+        // ================ Jf0l_tV ======================================
         // Define a few quantities for further calculation
-        double Q1 = - (-n[1] * (s_t[I_u + 2] - s_t[I_u]) + n[0] * (s_t[I_u + 3] - s_t[I_u + 1])) / (2. * a[i_vr])
-                    * exp((a[i_fr] + a[i_rateStateB] * log(a[i_vr] * s[I_theta] / a[i_DRateState])) / a[i_rateStateA]);
+        double Q1 = s[I_V] / (2. * a[i_vr])
+                    * exp(s[I_psi] / a[i_rateStateA]);
         
         // Currently Q2 is only lambda_n
         double Q2 = s[I_ln];
-        double Q3 = exp((a[i_fr] + a[i_rateStateB] * log(a[i_vr] * s[I_theta] / a[i_DRateState])) / a[i_rateStateA]);
-
-        Jf0[I_lt * nCols + I_u] = - s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (-n[1]);
-        Jf0[I_lt * nCols + I_u + 1] = - s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (n[0]);
-
-        Jf0[I_lt * nCols + I_u + 2] = s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (-n[1]);
-        Jf0[I_lt * nCols + I_u + 3] = s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (n[0]);
-
-        // Use Jf0[0, 0], Jf0[0, 1], Jf0[0, 2], Jf0[0, 3] to store this
-        Jf0[0] = Jf0[I_lt * nCols + I_u];
-        Jf0[1] = Jf0[I_lt * nCols + I_u + 1];
-        Jf0[2] = Jf0[I_lt * nCols + I_u + 2];
-        Jf0[3] = Jf0[I_lt * nCols + I_u + 3];
-
+        double Q3 = exp(s[I_psi] / a[i_rateStateA]);
+        Jf0[I_lt * nCols + I_V] = - Q3 * Q2 * a[i_rateStateA] / 2 / a[i_vr] / sqrt(1 + pow(Q1, 2));
+        
+        // DEBUG LINES
+        /**
+        cout << "Q1 = " << Q1 << "\n";
+        cout << "a asinh(Q1) = " << a[i_rateStateA] * asinh(Q1) << "\n";
+        cout << "Q2 = " << Q2 << "\n";
+        
+        cout << "Q3 = " << Q3 << "\n";
+        */
         // ================ Jf0l_tl ======================================
         // Jf0l_tl_n = - sinh^{-1}(Q_1)
         // Jf0l_tl_t = 1;
@@ -396,14 +423,15 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
         Jf0[I_lt * nCols + I_ln] = - a[i_rateStateA] * asinh(Q1);
         Jf0[I_lt * nCols + I_lt] = 1;
 
-        // ================ Jf0l_ttheta ======================================
-        // Jf0l_ttheta = b Q_1 / (\sqrt(1 + Q1^2) \theta)
+        // ================ Jf0l_tpsi ======================================
+        // Jf0l_tpsi = b Q_1 / (\sqrt(1 + Q1^2) \psi)
         /** The solution fields in solution vector s are
          * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
          * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
@@ -411,13 +439,14 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
-        Jf0[I_lt * nCols + I_theta] = a[i_rateStateB] * Q1 / (sqrt(1 + pow(Q1, 2)) * s[I_theta]);
+        Jf0[I_lt * nCols + I_psi] = - Q2 * Q1 / sqrt(1 + pow(Q1, 2));
 
-        // ================ Jf0theta u ======================================
-        // Jf0 theta u = [s_tshift * \theta t / D_RS, - s_tshift * \theta t / D_RS]
+        // ================ Jf0 psi V ======================================
+        // Jf0 psi V = \psi / D_{RS}
         /** The solution fields in solution vector s are
          * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
          * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
@@ -425,19 +454,29 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
-        Jf0[I_theta * nCols + I_u] = s_tshift * s[I_theta] / a[i_DRateState] * (-n[1]);
-        Jf0[I_theta * nCols + I_u + 1] = s_tshift * s[I_theta] / a[i_DRateState] * (n[0]);
-        Jf0[I_theta * nCols + I_u + 2] = -s_tshift * s[I_theta] / a[i_DRateState] * (-n[1]);
-        Jf0[I_theta * nCols + I_u + 3] = -s_tshift * s[I_theta] / a[i_DRateState] * (n[0]);
+        Jf0[I_psi * nCols + I_V] = a[i_rateStateB] / a[i_DRateState];
 
-        // Use Jf0[0; 4,5,6,7] to store this
-        Jf0[4] = Jf0[I_theta * nCols + I_u];
-        Jf0[5] = Jf0[I_theta * nCols + I_u + 1];
-        Jf0[6] = Jf0[I_theta * nCols + I_u + 2];
-        Jf0[7] = Jf0[I_theta * nCols + I_u + 3]; 
+        // ================ Jf0 psi psi ======================================
+        // Jf0 psi psi = s_tshift + Vr / D_{RS} exp((f_r - \psi) / b)
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda_n, lambda_t
+         * 14 - pressure_fault
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
+         */
+
+        Jf0[I_psi * nCols + I_psi] = a[i_vr] / a[i_DRateState] * exp((a[i_fr] - s[I_psi]) / a[i_rateStateB]) + s_tshift;
+
+        // Use Jf0[0] to store this
+        Jf0[0] = Jf0[I_psi * nCols + I_psi];
 
         // ================ Jf0pfpf ======================================
         // Jf0pfpf = 2 \kappa_z / \mu / h^2 + 2 \phi_f * \beta_P * s_tshift;
@@ -448,14 +487,15 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
         Jf0[I_pf * nCols + I_pf] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
                                    + 2 * a[i_porosity] * a[i_betaP] * s_tshift;
         
-        // Jf0[0][8] is not used, use to store this
-        Jf0[0 * nCols + 8] = Jf0[I_pf * nCols + I_pf];
+        // Jf0[0][1] is not used, use to store this
+        Jf0[0 * nCols + 1] = Jf0[I_pf * nCols + I_pf];
 
         // ================ Jf0pfl_n ======================================
         // Jf0pfl_n = \phi_f * \beta_Sigma * s_tshift;
@@ -466,12 +506,13 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
         Jf0[I_pf * nCols + I_ln] = a[i_porosity] * a[i_betaSigma] * s_tshift;
-        // Jf0[0][9] is not used, use to store this
-        Jf0[9] = Jf0[I_pf * nCols + I_ln];
+        // Jf0[0][2] is not used, use to store this
+        Jf0[2] = Jf0[I_pf * nCols + I_ln];
 
         // ================ Jf0pfp ======================================
         // Jf0pfp = \phi_f * \beta_P / 4 * s_tshift - \kappa_z / (\mu h^2);
@@ -482,14 +523,53 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
         Jf0[I_pf * nCols + I_p] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
         Jf0[I_pf * nCols + I_p + 1] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
         // Jf0[0][3] and Jf0[0][4] are not used, use to store this
-        Jf0[0 * nCols + 10] = Jf0[I_pf * nCols + I_p];
-        Jf0[0 * nCols + 11] = Jf0[I_pf * nCols + I_p + 1];
+        Jf0[0 * nCols + 3] = Jf0[I_pf * nCols + I_p];
+        Jf0[0 * nCols + 4] = Jf0[I_pf * nCols + I_p + 1];
+
+        // ================ Jf0VV ======================================
+        // Jf0VV = 1;
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
+         */
+
+        Jf0[I_V * nCols + I_V] = 1.;
+
+        // ================ Jf0Vu ======================================
+        // Jf0Vu = s_tshift * [-t, t];
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
+         */
+
+        Jf0[I_V * nCols + I_u] = s_tshift * n[1];
+        Jf0[I_V * nCols + I_u + 1] = -s_tshift * n[0];
+        Jf0[I_V * nCols + I_u + 2] = -s_tshift * n[1];
+        Jf0[I_V * nCols + I_u + 3] = s_tshift * n[0];
+
+        Jf0[5] = Jf0[I_V * nCols + I_u];
+        Jf0[6] = Jf0[I_V * nCols + I_u + 1];
+        Jf0[7] = Jf0[I_V * nCols + I_u + 2];
+        Jf0[8] = Jf0[I_V * nCols + I_u + 3];
     }
 
     else {
@@ -521,7 +601,7 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
         int i_thickness = 7;
         int i_betaP = 8;
         int i_betaSigma = 9;
-        int i_rateStateA = 10;
+        // int i_rateStateA = 10;
         int i_rateStateB = 11;
         int i_DRateState = 12;
         // int i_fluidBodyForce = 13;
@@ -529,9 +609,9 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
         // int i_d = 16;
         int i_vr = 18;
         int i_fr = 19;
-        
-        // ================ Jf0lu ======================================
-        // Jf0l_nu = [-n, n];
+
+        // ================ Jf0 psi psi ======================================
+        // Jf0 psi psi = V / D_{RS} + s_tshift
         /** The solution fields in solution vector s are
          * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
          * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
@@ -539,60 +619,18 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
-        int I_theta = 15;
-        int I_u = 0;
-        int I_ln = 12;
-        int I_lt = 13;
-
-        Jf0[I_u + I_ln * nCols] = -n[0];
-        Jf0[(I_u + 1) + I_ln * nCols] = -n[1];
-        Jf0[(I_u + 2) + I_ln * nCols] = n[0];
-        Jf0[(I_u + 3) + I_ln * nCols] = n[1];
-
-        // Define a few quantities for further calculation
-        double Q1 = - (-n[1] * (s_t[I_u + 2] - s_t[I_u]) + n[0] * (s_t[I_u + 3] - s_t[I_u + 1])) / (2. * a[i_vr])
-                    * exp((a[i_fr] + a[i_rateStateB] * log(a[i_vr] * s[I_theta] / a[i_DRateState])) / a[i_rateStateA]);
-        
-        // Currently Q2 is only lambda_n
-        double Q2 = s[I_ln];
-        double Q3 = exp((a[i_fr] + a[i_rateStateB] * log(a[i_vr] * s[I_theta] / a[i_DRateState])) / a[i_rateStateA]);
-
-        Jf0[I_lt * nCols + I_u] = - s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (-n[1]) - Jf0[0];
-        Jf0[I_lt * nCols + I_u + 1] = - s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (n[0]) - Jf0[1];
-
-        Jf0[I_lt * nCols + I_u + 2] = s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (-n[1]) - Jf0[2];
-        Jf0[I_lt * nCols + I_u + 3] = s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (n[0]) - Jf0[3];
-
-        // Use Jf0[0, 0], Jf0[0, 1], Jf0[0, 2], Jf0[0, 3] to store this
-        Jf0[0] = - s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (-n[1]);
-        Jf0[1] = - s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (n[0]);
-        Jf0[2] = s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (-n[1]);
-        Jf0[3] = s_tshift * Q3 * Q2 * a[i_rateStateA] / (2 * a[i_vr] * sqrt(1 + pow(Q1, 2))) * (n[0]);
-
-        // ================ Jf0 theta u ======================================
-        // Jf0 theta u = [s_tshift * \theta t / D_RS, - s_tshift * \theta t / D_RS]
-        /** The solution fields in solution vector s are
-         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
-         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
-         * 8, 9 - pressure-, pressure+;
-         * 10, 11 - trace-strain-, tracestrain+
-         * 12, 13 - lambda_n, lambda_t
-         * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
-         */
-
-        Jf0[I_theta * nCols + I_u] = s_tshift * s[I_theta] / a[i_DRateState] * (-n[1]) - Jf0[4];
-        Jf0[I_theta * nCols + I_u + 1] = s_tshift * s[I_theta] / a[i_DRateState] * (n[0]) - Jf0[5];
-        Jf0[I_theta * nCols + I_u + 2] = -s_tshift * s[I_theta] / a[i_DRateState] * (-n[1]) - Jf0[6];
-        Jf0[I_theta * nCols + I_u + 3] = -s_tshift * s[I_theta] / a[i_DRateState] * (n[0]) - Jf0[7];
-
-        // Use Jf0[0; 4,5,6,7] to store this
-        Jf0[4] = s_tshift * s[I_theta] / a[i_DRateState] * (-n[1]);
-        Jf0[5] = s_tshift * s[I_theta] / a[i_DRateState] * (n[0]);
-        Jf0[6] = -s_tshift * s[I_theta] / a[i_DRateState] * (-n[1]);
-        Jf0[7] = -s_tshift * s[I_theta] / a[i_DRateState] * (n[0]); 
+        int I_psi = 15;
+        int I_V = 16;
+        Jf0[I_psi * nCols + I_psi] = a[i_vr] / a[i_DRateState] 
+                                     * exp((a[i_fr] - s[I_psi]) / a[i_rateStateB]) 
+                                     + s_tshift - Jf0[0];
+        // Use Jf0[0] to store this
+        Jf0[0] = a[i_vr] / a[i_DRateState] 
+                 * exp((a[i_fr] - s[I_psi]) / a[i_rateStateB]) 
+                 + s_tshift;
 
         // ================ Jf0pfpf ======================================
         // Jf0pfpf = 2 \kappa_z / \mu / h^2 + 2 \phi_f * \beta_P * s_tshift;
@@ -603,16 +641,17 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
         int I_pf = 14;
         int I_p = 8;
 
         Jf0[I_pf * nCols + I_pf] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
-                                   + 2 * a[i_porosity] * a[i_betaP] * s_tshift - Jf0[8];
+                                   + 2 * a[i_porosity] * a[i_betaP] * s_tshift - Jf0[1];
         
         // Jf0[0][8] is not used, use to store this
-        Jf0[0 * nCols + 8] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
+        Jf0[0 * nCols + 1] = 2 * a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2)
                              + 2 * a[i_porosity] * a[i_betaP] * s_tshift;
 
         // ================ Jf0pfl_n ======================================
@@ -624,12 +663,13 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda_n, lambda_t
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
-
-        Jf0[I_pf * nCols + I_ln] = a[i_porosity] * a[i_betaSigma] * s_tshift - Jf0[9];
-        // Jf0[0][9] is not used, use to store this
-        Jf0[9] = a[i_porosity] * a[i_betaSigma] * s_tshift;
+        int I_ln = 12;
+        Jf0[I_pf * nCols + I_ln] = a[i_porosity] * a[i_betaSigma] * s_tshift - Jf0[2];
+        // Jf0[0][2] is not used, use to store this
+        Jf0[2] = a[i_porosity] * a[i_betaSigma] * s_tshift;
 
         // ================ Jf0pfp ======================================
         // Jf0pfp = \phi_f * \beta_P / 4 * s_tshift - \kappa_z / (\mu h^2);
@@ -640,14 +680,39 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
-        Jf0[I_pf * nCols + I_p] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2) - Jf0[10];
-        Jf0[I_pf * nCols + I_p + 1] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2) - Jf0[11];
+        Jf0[I_pf * nCols + I_p] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2) - Jf0[3];
+        Jf0[I_pf * nCols + I_p + 1] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2) - Jf0[4];
         // Jf0[0][10] and Jf0[0][11] are not used, use to store this
-        Jf0[0 * nCols + 10] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
-        Jf0[0 * nCols + 11] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
+        Jf0[0 * nCols + 3] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
+        Jf0[0 * nCols + 4] = a[i_porosity] * a[i_betaP] * s_tshift / 4. - a[i_fluidMobilityZ] / a[i_fluidViscosity] / pow(a[i_thickness], 2);
+
+        // ================ Jf0Vu ======================================
+        // Jf0Vu = s_tshift * [-t, t];
+        /** The solution fields in solution vector s are
+         * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;
+         * 4, 5, 6, 7 - v1-, v2-, v1+, v2+; (not used here)
+         * 8, 9 - pressure-, pressure+;
+         * 10, 11 - trace-strain-, tracestrain+
+         * 12, 13 - lambda1, lambda2
+         * 14 - pressure_fault
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
+         */
+
+        int I_u = 0;
+        Jf0[I_V * nCols + I_u] = s_tshift * n[1] - Jf0[5];
+        Jf0[I_V * nCols + I_u + 1] = -s_tshift * n[0] - Jf0[6];
+        Jf0[I_V * nCols + I_u + 2] = -s_tshift * n[1] - Jf0[7];
+        Jf0[I_V * nCols + I_u + 3] = s_tshift * n[0] - Jf0[8];
+
+        Jf0[5] = s_tshift * n[1];
+        Jf0[6] = -s_tshift * n[0];
+        Jf0[7] = -s_tshift * n[1];
+        Jf0[8] = s_tshift * n[0];
     }
 };
 
@@ -656,11 +721,11 @@ void FrictionFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
  * Jf0pfpf,  is time dependent
  */
 // const vector<int> FrictionFaultKernel::Jf0_entries = {28, 29, 35};
-const vector<int> FrictionFaultKernel::Jf0_is = {0, 0, 1, 1, 2, 2, 3, 3, 8, 9, 8, 9, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13, 15, 15, 15, 15, 14, 14, 14, 14};
-const vector<int> FrictionFaultKernel::Jf0_js = {12, 13, 12, 13, 12, 13, 12, 13, 8, 9, 14, 14, 0, 1, 2, 3, 0, 1, 2, 3, 12, 13, 15, 0, 1, 2, 3, 14, 12, 8, 9};
+const vector<int> FrictionFaultKernel::Jf0_is = {0,  1,  2,  3,  0,  1,  2,  3,  8,  9,  8,  9,  12, 12, 12, 12, 13, 13, 13, 13, 15, 15, 14, 14, 14, 14, 16, 16, 16, 16, 16};
+const vector<int> FrictionFaultKernel::Jf0_js = {12, 12, 12, 12, 13, 13, 13, 13, 8,  9,  14, 14, 0,  1,  2,  3,  16, 12, 13, 15, 16, 15, 14, 12, 8,  9,  16, 0,  1,  2,  3};
 // const vector<int> FrictionFaultKernel::Jf0_timedependent = {}; 
-const vector<int> FrictionFaultKernel::Jf0_timedependent_is = {13, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15};
-const vector<int> FrictionFaultKernel::Jf0_timedependent_js = {0, 1, 2, 3, 14, 12, 8, 9, 0, 1, 2, 3};
+const vector<int> FrictionFaultKernel::Jf0_timedependent_is = {15, 14, 14, 14, 14, 16, 16, 16, 16};
+const vector<int> FrictionFaultKernel::Jf0_timedependent_js = {15, 14, 12, 8,  9,  0,  1,  2,  3};
 
 /** Left hand side Jacobian
  * Jf1(t, s), uses integrator NfB
@@ -680,8 +745,8 @@ void FrictionFaultKernel::Jf1(vector<double> &Jf1,        // stores the result
 ) {
     if (!isAssembled) {
         // Check size of Jf1    
-        int nCols = 16 * spaceDim;
-        int nRows = 16;
+        int nCols = 17 * spaceDim;
+        int nRows = 17;
         if (Jf1.size() != nRows * nCols) 
             Jf1.resize(nCols * nRows);
 
@@ -723,8 +788,8 @@ void FrictionFaultKernel::Jf2(vector<double> &Jf2,        // stores the result
     // If first assemble
     if (!isAssembled) {
         // Check size of Jf2    
-        int nRows = 16 * spaceDim;
-        int nCols = 16;
+        int nRows = 17 * spaceDim;
+        int nCols = 17;
         if (Jf2.size() != nRows * nCols) 
             Jf2.resize(nRows * nCols);
 
@@ -765,10 +830,10 @@ void FrictionFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
 ) {
     if (!isAssembled) {
         // Check size of Jf3
-        if (Jf3.size() != spaceDim * spaceDim * 16 * 16) 
-            Jf3.resize(spaceDim * spaceDim * 16 * 16);
+        if (Jf3.size() != spaceDim * spaceDim * 17 * 17) 
+            Jf3.resize(spaceDim * spaceDim * 17 * 17);
         // First clear Jf3uu
-        int nCols = 16 * spaceDim;
+        int nCols = 17 * spaceDim;
         for (int i = 0; i < nCols; i++) {
             for (int j = 0; j < nCols; j++)
                 Jf3[i * nCols + j] = 0.;
@@ -814,7 +879,8 @@ void FrictionFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
 
         int I_pf = 14;
@@ -830,7 +896,8 @@ void FrictionFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
          * 10, 11 - trace-strain-, tracestrain+
          * 12, 13 - lambda1, lambda2
          * 14 - pressure_fault
-         * 15 - theta (R & S state, not used here)
+         * 15 - psi (R & S state, used here)
+         * 16 - slip rate (R & S State, used here)
          */
         int I_p = 8;
         Jf3[(spaceDim * I_pf) * nCols + (spaceDim * I_p)] = a[i_fluidMobilityX] / 4. / a[i_fluidViscosity];

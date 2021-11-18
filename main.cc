@@ -15,10 +15,10 @@ int main(int argc, char **argv) {
     PetscLogDefaultBegin();
    
     vector<double> spaceDomain = {2, 1}; 
-    vector<int> nOfEdges = {20, 10};
+    vector<int> nOfEdges = {2, 1};
     double endingTime = 5.0;
     double dt = 0.1;
-    string outputPrefix = "DiffusionAccrossSmall";
+    string outputPrefix = "QSFricTrial";
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
