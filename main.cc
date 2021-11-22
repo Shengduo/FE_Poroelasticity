@@ -19,7 +19,10 @@ int main(int argc, char **argv) {
     double endingTime = 1.0;
     double dt = 0.01;
     // Get a handle of the problem
-    Problem* myProblem = new Problem();
+    //Man I was just checking your code! It looks good, BUT avoid using raw pointers, 
+    //you MUST free them at the end of the code and you are not doing it! You may want to check
+    //unique_ptr and shared_ptr to avoid leaks in your code!
+    Problem* myProblem = new Problem(); 
     try {
         myProblem->initializePoroElastic(spaceDomain, nOfEdges, endingTime, dt);
     }
