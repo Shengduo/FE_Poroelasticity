@@ -1372,7 +1372,7 @@ void Problem::solveElastic() {
     // Linear solver
     KSP ksp;
 
-    // Preconditioner
+    // Preconditioner 
     PC pc;                 
     KSPCreate(PETSC_COMM_WORLD, &ksp);
 
@@ -1624,6 +1624,7 @@ void Problem::initializeNodesPoroElastic() {
     // Initialize \psi = f_* + b log (V_* \theta / D_RS)
     double theta = 1.0e6;
 
+    // initialS[3] is \psi
     initialS[3] = fReference + rateStateB * log(VReference * theta / DRateState);
     vector<Node*> lowerUpperNodes (2, NULL);
 
