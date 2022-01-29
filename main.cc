@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
    
     vector<double> spaceDomain = {2, 1}; 
     vector<int> nOfEdges = {2, 1};
-    double endingTime = 5.0;
+    double endingTime = 1.0;
     double dt = 0.1;
     string outputPrefix = "QSFricTrial";
     // Get a handle of the problem

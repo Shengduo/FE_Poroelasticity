@@ -65,6 +65,7 @@ public:
      * 10 - reference porosity
      * 11, 12 - fluid body force (force per unit volume)
      * 13 - fluid source density (/s) 
+     * 14, 15 - traction (force per unit area)
      * ...)
      */
     vector<double> _nodalProperties;
@@ -91,7 +92,8 @@ public:
          double fluidDensity = 1., 
          double porosity = 0., 
          const vector<double> *fluidBodyForce = NULL, 
-         double source = 0.);
+         double source = 0., 
+         const vector<double> *traction = NULL);
 
     // Destructor
     ~Node();
@@ -165,7 +167,7 @@ public:
         _nodalProperties[10] = porosity;
     };
 
-    // Set body force
+    // Set fluid body force
     void setFluidBodyForce(const vector<double> *fluidBodyForce) {
         if (_nodalProperties.size() < 13) _nodalProperties.resize(13);
         if (fluidBodyForce) {
@@ -184,6 +186,16 @@ public:
     void setSource(double source) {
         if (_nodalProperties.size() < 14) _nodalProperties.resize(14);
         _nodalProperties[13] = source;
+    };
+
+    // Set the surface traction
+    void setTraction(const vector<double> *traction) {
+        if (traction) {
+            if (_nodalProperties.size() < 16) _nodalProperties.resize(16);
+            for (int i = 0; i < _spaceDim; i++) {
+                _nodalProperties[14 + i] = (*traction)[i];
+            }
+        }
     };
 
     // Get spaceDim
@@ -264,10 +276,18 @@ public:
     };
 
     // Get fluid source
-    double getSource(double source) {
+    double getSource() const{
         if (_nodalProperties.size() < 14) throw "Fluid source not initialized!";
         return _nodalProperties[13];
     };
+
+    // Get surface traction
+    vector<double> getTraction() const {
+        if (_nodalProperties.size() < 16) throw "Surface Traction not initialized!";
+        vector<double> traction = {_nodalProperties[14], _nodalProperties[15]};
+        return traction;        
+    };
+
 
     /** Initialize s = [displacement, velocity, pressure, trace_strain] */
     void initializeS(const vector<double> & initialS);

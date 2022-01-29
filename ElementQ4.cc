@@ -9,16 +9,26 @@
  */
 
 /** Static constants */
-/** Constants for 2-point gaussian integral */
+// Constants for 2-point gaussian integral
 const vector<double> ElementQ4::IntPos = {- 1. / sqrt(3.), 1. / sqrt(3.)};
 const vector<double> ElementQ4::IntWs = {1., 1.};
 
+// Constant N_surf vector evaluated at 2 integration points
+const vector<double> ElementQ4::N_surfVector = {(1. +  1. / sqrt(3.)) / 2., 
+                                                (1. -  1. / sqrt(3.)) / 2., 
+                                                (1. -  1. / sqrt(3.)) / 2., 
+                                                (1. +  1. / sqrt(3.)) / 2.};
+
+// Constant traction scatter pattern (conjugate of u1, u2)
+const vector<int> ElementQ4::scatter_pattern_traction = {0, 1};
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
 /** Constructors */
 /** Default Constructor*/
 ElementQ4::ElementQ4() {};
 
 /** Constructor */
-ElementQ4::ElementQ4(int ID, const vector<Node*> & NID, vector<clock_t> *clocks, vector<double> *timeConsumed) {
+ElementQ4::ElementQ4(int ID, const vector<Node*> & NID, const vector<vector<int>>& loadFaces, vector<clock_t> *clocks, vector<double> *timeConsumed) {
     elementDOF = 0;
     this->_ID = ID;
     this->_NID.resize(NID.size());
@@ -27,6 +37,12 @@ ElementQ4::ElementQ4(int ID, const vector<Node*> & NID, vector<clock_t> *clocks,
         elementDOF += NID[i]->getDOF().size();
     }
     
+    // Register the faces
+    _loadFaces.resize(loadFaces.size());
+    for (int i = 0; i < _loadFaces.size(); i++) {
+        _loadFaces[i] = loadFaces[i];
+    }
+
     // Initialize timers
     this->clocks = clocks;
     this->timeConsumed = timeConsumed;
@@ -80,7 +96,6 @@ ElementQ4::ElementQ4(int ID, const vector<Node*> & NID, vector<clock_t> *clocks,
             index += 1;
         }
     }
-
 };
 
 // Destructor
@@ -99,8 +114,16 @@ vector<double> ElementQ4::N(double ksi, double eta) {
     vector<double> N(4, 0.);
     N[0] = (1. - ksi) * (1. - eta) / 4.;
     N[1] = (1. + ksi) * (1. - eta) / 4.;
-    N[2] = (1. + ksi) * (1. + eta) / 4.; 
+    N[2] = (1. + ksi) * (1. + eta) / 4.;
     N[3] = (1. - ksi) * (1. + eta) / 4.;
+    return N;
+};
+
+// Shape function N_surf at (ksi)
+vector<double> ElementQ4::N_surf(double ksi) {
+    vector<double> N(2, 0.);
+    N[0] = (1. - ksi) / 2.;
+    N[1] = (1. + ksi) / 2.;
     return N;
 };
 
@@ -424,6 +447,84 @@ void ElementQ4::IntegratorNf(double *res,
                     }
                 }
             }
+        }
+    }
+};
+
+/** IntegratorNfFace, integrates a vector input over a face of the element, 
+ * left side using shape function
+ * RES: nOfNodes * nOfDofs
+ * NODEVALUES: dim 1, nOfNodes on the face; dim 2, number of fields
+ * SCATTERPATTERN: index to set the nodalvalues into the element residual res
+ * FACE: vector of the 2 nodes that define a face (order does not matter in 2D)
+ * FLAG: 0 - nodevalues are given at nodes, 
+ *       1 - nodevalues are given at integration points
+ */
+void ElementQ4::IntegratorNfFace(double *res,
+                                 int resSize, 
+                                 const vector<vector<double>> & NodeValues, 
+                                 const vector<int> & scatter_pattern, 
+                                 const vector<int> & Face, 
+                                 int flag) const {
+    // Some constants
+    if (NodeValues.size() != Face.size()) throw "Not all nodes are provided for ElementQ4 IntegratorNfFace!";
+    if (NodeValues[0].size() != scatter_pattern.size()) 
+        throw "Not all scatter patterns are provided for ElementQ4 IntegratorNfFace!";
+    if (resSize != nOfNodes * nOfDofs) throw "ResSize error for ElementQ4 IntegratorNfFace!";
+
+    // Calculate Point Value
+    double J_face = sqrt(pow(_NID[Face[0]]->getXYZ()[0] - _NID[Face[1]]->getXYZ()[0], 2)
+                    + pow(_NID[Face[0]]->getXYZ()[1] - _NID[Face[1]]->getXYZ()[1], 2)) / 2.;
+    
+    // Get the scatter pattern
+    vector<int> resID(2, 0);
+    
+    // Pre-Calculate values of N and f at integration points
+    if (flag == 1) {
+        // Loop through all fields
+        for (int i = 0; i < NodeValues[0].size(); i++) {
+            // Get the scattering address
+            resID[0] = nOfDofs * Face[0] + scatter_pattern[i];
+            resID[1] = nOfDofs * Face[1] + scatter_pattern[i];
+            
+            // Add to res
+            res[resID[0]] += (N_surfVector[0] * NodeValues[0][i] * IntWs[0] 
+                             + N_surfVector[2] * NodeValues[1][i] * IntWs[1]) * J_face;
+            res[resID[1]] += (N_surfVector[1] * NodeValues[0][i] * IntWs[0] 
+                             + N_surfVector[3] * NodeValues[1][i] * IntWs[1]) * J_face;
+        }
+    }
+    
+    // Values are provided on the nodes
+    else {
+        vector<double> valOnIntPoints(2, 0.0);
+        // Loop through all fields
+        for (int i = 0; i < NodeValues[0].size(); i++) {
+            // Calculate value on integration points
+            std::fill(valOnIntPoints.begin(), valOnIntPoints.end(), 0.0);
+            valOnIntPoints[0] = NodeValues[0][i] * N_surfVector[0] 
+                                + NodeValues[1][i] * N_surfVector[1];
+            valOnIntPoints[1] = NodeValues[0][i] * N_surfVector[2] 
+                                + NodeValues[1][i] * N_surfVector[3];
+            
+            // Getting the scattering address
+            resID[0] = nOfDofs * Face[0] + scatter_pattern[i];
+            resID[1] = nOfDofs * Face[1] + scatter_pattern[i];
+
+            // Add to res
+            res[resID[0]] += (N_surfVector[0] * valOnIntPoints[0] * IntWs[0] 
+                             + N_surfVector[2] * valOnIntPoints[1] * IntWs[1]) * J_face;
+            res[resID[1]] += (N_surfVector[1] * valOnIntPoints[0] * IntWs[0] 
+                             + N_surfVector[3] * valOnIntPoints[1] * IntWs[1]) * J_face;
+
+            // DEBUG LINES
+            cout << "Nodal force addition in direction : " << i << "\n";
+            cout << "Added to global nodes: " << _NID[Face[0]]->getID() << " " << _NID[Face[1]]->getID();
+            cout << "Values added: " << (N_surfVector[0] * valOnIntPoints[0] * IntWs[0] 
+                             + N_surfVector[2] * valOnIntPoints[1] * IntWs[1]) * J_face 
+                             << " " << (N_surfVector[1] * valOnIntPoints[0] * IntWs[0] 
+                             + N_surfVector[3] * valOnIntPoints[1] * IntWs[1]) * J_face
+                             << "\n";
         }
     }
 };
@@ -877,11 +978,25 @@ const vector<Node*> & ElementQ4::getNID() const {
     return _NID;
 };
 
+/** Get face traction */
+vector<vector<double>> ElementQ4::getFaceTraction(const vector<int>& face) const {
+    vector<vector<double>> res = {_NID[face[0]]->getTraction(), _NID[face[1]]->getTraction()};
+    return res;
+};
+
 // Output information
 void ElementQ4::outputInfo(ofstream & myFile) const {
     myFile << setw(10) << getID() << " ";
     for (int i = 0; i < getNID().size(); i++) {
         myFile << setw(10) << getNID()[i]->getID() << " ";
+    }
+    if (_loadFaces.size() > 0) {
+        for (int i = 0; i < _loadFaces.size(); i++) {
+            myFile << " face " << i << ": ";
+            for (int j = 0; j < _loadFaces[i].size(); j++) {
+                myFile << setw(10) << _loadFaces[i][j];
+            }
+        }
     }
     myFile << "\n";
 };
@@ -1177,14 +1292,14 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
                 }
             }
             
-            
+            // Add force term
+            for (auto face : _loadFaces) {
+                IntegratorNfFace(localF, localFSize, getFaceTraction(face), scatter_pattern_traction, face, 0);
+            }
+
             // Integrate
             IntegratorNf(localF, localFSize, F0s, 1);
-            
-            
-
             IntegratorBf(localF, localFSize, F1s, 1);
-            
             
 
             // DEBUG LINES

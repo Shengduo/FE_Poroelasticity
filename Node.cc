@@ -43,7 +43,8 @@ Node::Node(int ID,
            double fluidDensity,
            double porosity,
            const vector<double> *fluidBodyForce,
-           double source) {
+           double source, 
+           const vector<double> *traction) {
     _ID = ID;
     _spaceDim = spaceDim;
     _nodalXYZ.resize(_spaceDim, 0.);
@@ -76,6 +77,7 @@ Node::Node(int ID,
     this->setPorosity(porosity);
     this->setFluidBodyForce(fluidBodyForce);
     this->setSource(source);
+    this->setTraction(traction);
 };
 
 // Destructor

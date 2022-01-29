@@ -1428,6 +1428,7 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     // Initialize elements
     initializeElementsPoroElastic();
 
+    
     // Initialize Mats and Vecs, Mats and TS
     initializePetsc();
 
@@ -1441,6 +1442,7 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     for (int i = 0; i < timeConsumed.size(); i++) {
         cout << "Time Consumed [" << i << "] is " << timeConsumed[i] << "\n";
     }
+    
 };
 
 // Initialization of Nodes
@@ -1542,10 +1544,17 @@ void Problem::initializeNodesPoroElastic() {
             
             // Fix pressure on the upper boundary 
             if (j == myGeometry->yNodeNum - 1) {
-                // Fix p, ux, uy
+                // Fix p, uy
                 upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
-                upperNodes[nodeID_in_set]->setDOF(0, 1);
+                // upperNodes[nodeID_in_set]->setDOF(0, 1);
                 upperNodes[nodeID_in_set]->setDOF(1, 1);
+            }
+
+            // Give upper surface a traction
+            if (j == myGeometry->yNodeNum - 1) {
+                // Apply pure shear traction (1.0);
+                vector<double> traction = {1.0, 0.0};
+                upperNodes[nodeID_in_set]->setTraction(&traction);
             }
 
             // Give source in the middle
@@ -1791,7 +1800,9 @@ void Problem::initializeElementsPoroElastic() {
     vector<Node*> NID(4, NULL);
     vector<CohesiveNode*> NID_cohesive(2, NULL);
     int GlobalEleID = 0;
-    
+    vector<int> upperFace = {2, 3};
+    vector<vector<int>> loadFaces(1, upperFace);
+
     // Upperzone ElementQ4s
     upperElements.resize(myGeometry->nOfElements, NULL);
     for (int i = 0; i < myGeometry->xEdgeNum; i++) {
@@ -1803,12 +1814,15 @@ void Problem::initializeElementsPoroElastic() {
                    upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
 
             upperElements[j * myGeometry->xEdgeNum + i] = 
-                new ElementQ4(GlobalEleID, NID, &clocks, &timeConsumed); 
+                new ElementQ4(GlobalEleID, NID, loadFaces, &clocks, &timeConsumed); 
             
             // Augmented global ID
             GlobalEleID += 1;           
         }
     }
+
+    // No load on lower surface
+    loadFaces.clear();
 
     // Lowerzone ElementQ4s
     lowerElements.resize(myGeometry->nOfElements, NULL);
@@ -1821,7 +1835,7 @@ void Problem::initializeElementsPoroElastic() {
                    lowerNodes[j * myGeometry->xNodeNum + i]};
 
             lowerElements[j * myGeometry->xEdgeNum + i] = 
-                new ElementQ4(GlobalEleID, NID, &clocks, &timeConsumed); 
+                new ElementQ4(GlobalEleID, NID, loadFaces, &clocks, &timeConsumed); 
             // Augment global node ID
             GlobalEleID += 1;           
         }

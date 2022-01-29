@@ -27,10 +27,18 @@ private:
     /** Element-node connection */
     vector<Node*> _NID;
     
+    /** Faces that requires surface-load computation. */
+    vector<vector<int>> _loadFaces;
+
     /** Shape function N, vector of 4 on 4 nodes, 
      * evaluated in base space (ksi, eta)
      */
     static vector<double> N(double ksi, double eta);
+
+    /** Shape function N_surf, vector of 2 on 2 integral points, 
+     * evaluated in base space (ksi)
+     */
+    static vector<double> N_surf(double ksi);
 
     /** Shape function N, vector of 4 on 4 nodes, 
      * evaluated in base space (ksi, eta)
@@ -134,14 +142,19 @@ protected:
     /** Constants for 2-point gaussian integral */
     const static vector<double> IntPos;
     const static vector<double> IntWs;
-
+    const static vector<double> N_surfVector;
+    const static vector<int> scatter_pattern_traction;
 // PUBLIC MEMBERS
 public:
     /** Default Constructor */
     ElementQ4();
 
     /** Constructor */
-    ElementQ4(int ID, const vector<Node*> & NID, vector<clock_t> *clocks = NULL, vector<double> *timeConsumed = NULL);
+    ElementQ4(int ID, 
+              const vector<Node*> & NID, 
+              const vector<vector<int>> & loadFaces = vector<vector<int>>(), 
+              vector<clock_t> *clocks = NULL, 
+              vector<double> *timeConsumed = NULL);
 
     /** Destructor */
     ~ElementQ4();
@@ -161,6 +174,9 @@ public:
 
     /** Get element NID */
     const vector<Node*> & getNID() const;
+
+    /** Get face traction */
+    vector<vector<double>> getFaceTraction(const vector<int>& face) const;
 
     /** Evaluate a function F at (i, j)th integration point */
     void evaluateF(vector<double> & res, int i, int j, 
@@ -209,6 +225,21 @@ public:
     void IntegratorNf(double *res,
                       int resSize, 
                       const vector<vector<double>> & NodeValues, 
+                      int flag = 0) const;
+    
+    /** IntegratorNfFace, integrates a vector input over a face of the element, 
+     * left side using shape function
+     * RES: nOfNodes * nOfDofs
+     * NODEVALUES: dim 1, nOfNodes; dim 2, nOfDofs
+     * FACE: vector of the 2 nodes that define a face (order does not matter in 2D)
+     * FLAG: 0 - nodevalues are given at nodes, 
+     *       1 - nodevalues are given at integration points
+     */
+    void IntegratorNfFace(double *res,
+                      int resSize, 
+                      const vector<vector<double>> & NodeValues, 
+                      const vector<int> & scatter_pattern, 
+                      const vector<int> & Face, 
                       int flag = 0) const;
 
     /** IntegratorBf, integrates a vector input inside an element, 
