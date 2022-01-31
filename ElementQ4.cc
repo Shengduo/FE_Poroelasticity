@@ -468,8 +468,10 @@ void ElementQ4::IntegratorNfFace(double *res,
                                  int flag) const {
     // Some constants
     if (NodeValues.size() != Face.size()) throw "Not all nodes are provided for ElementQ4 IntegratorNfFace!";
+
     if (NodeValues[0].size() != scatter_pattern.size()) 
         throw "Not all scatter patterns are provided for ElementQ4 IntegratorNfFace!";
+
     if (resSize != nOfNodes * nOfDofs) throw "ResSize error for ElementQ4 IntegratorNfFace!";
 
     // Calculate Point Value
@@ -518,6 +520,7 @@ void ElementQ4::IntegratorNfFace(double *res,
                              + N_surfVector[3] * valOnIntPoints[1] * IntWs[1]) * J_face;
 
             // DEBUG LINES
+            /**
             cout << "Nodal force addition in direction : " << i << "\n";
             cout << "Added to global nodes: " << _NID[Face[0]]->getID() << " " << _NID[Face[1]]->getID();
             cout << "Values added: " << (N_surfVector[0] * valOnIntPoints[0] * IntWs[0] 
@@ -525,6 +528,7 @@ void ElementQ4::IntegratorNfFace(double *res,
                              << " " << (N_surfVector[1] * valOnIntPoints[0] * IntWs[0] 
                              + N_surfVector[3] * valOnIntPoints[1] * IntWs[1]) * J_face
                              << "\n";
+            */
         }
     }
 };
@@ -1296,6 +1300,7 @@ void ElementQ4::elementF(Vec & globalF, double *localF, int localFSize, int Kern
             for (auto face : _loadFaces) {
                 IntegratorNfFace(localF, localFSize, getFaceTraction(face), scatter_pattern_traction, face, 0);
             }
+                            
 
             // Integrate
             IntegratorNf(localF, localFSize, F0s, 1);

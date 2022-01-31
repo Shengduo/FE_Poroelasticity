@@ -1495,9 +1495,23 @@ void Problem::initializeNodesPoroElastic() {
     // Default DOF
     vector<int> DOF_default (2 * spaceDim + 2, 0); 
     DOF_default[2] = 1; DOF_default[3] = 1;  // Fix V
+
     vector<int> DOFCohesive_default (17, 2);
     for (int i = 12; i < 17; i++) DOFCohesive_default[i] = 0; 
     // DOFCohesive_default[15] = 1;             // Fix psi for now
+    
+    // DEBUG LINE
+    DOF_default[4] = 1; // Fix p
+    DOFCohesive_default[8] = 1; 
+    DOFCohesive_default[9] = 1; 
+    DOFCohesive_default[14] = 1; 
+    DOFCohesive_default[15] = 1; 
+    DOFCohesive_default[16] = 1; 
+
+    // All locked DOF
+    vector<int> DOF_allLocked (2 * spaceDim + 2, 1);
+    vector<int> DOFCohesive_allLocked (17, 2);
+    for (int i = 12; i < 17; i++) DOFCohesive_allLocked[i] = 1; 
 
     // Upper subzone nodes
     upperNodes.resize(myGeometry->nOfNodes);
@@ -1543,17 +1557,17 @@ void Problem::initializeNodesPoroElastic() {
                          source);
             
             // Fix pressure on the upper boundary 
-            if (j == myGeometry->yNodeNum - 1) {
-                // Fix p, uy
+            if (j == 0) {
+                // Fix p
                 upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
-                // upperNodes[nodeID_in_set]->setDOF(0, 1);
                 upperNodes[nodeID_in_set]->setDOF(1, 1);
+                if (i == 0) upperNodes[nodeID_in_set]->setDOF(0, 1);
             }
 
             // Give upper surface a traction
             if (j == myGeometry->yNodeNum - 1) {
                 // Apply pure shear traction (1.0);
-                vector<double> traction = {1.0, 0.0};
+                vector<double> traction = {0.01, -0.01};
                 upperNodes[nodeID_in_set]->setTraction(&traction);
             }
 
@@ -1581,7 +1595,7 @@ void Problem::initializeNodesPoroElastic() {
             thisXYZ[1] = -j * edgeSize[1];
             // massDensity = thisXYZ[0] + thisXYZ[1];
             
-            // upper surface, put pressure = 1 into initialS;
+            // lower surface, put pressure = 1 into initialS;
             if (j == myGeometry->yNodeNum - 1) {
                 initialS[2 * spaceDim] = 0.0;
             }
@@ -1595,7 +1609,7 @@ void Problem::initializeNodesPoroElastic() {
 
             // Initialize a node
             lowerNodes[nodeID_in_set] = 
-                new Node(nodeID, thisXYZ, DOF_default, spaceDim, 
+                new Node(nodeID, thisXYZ, DOF_allLocked, spaceDim, 
                          massDensity, 
                          &bodyForce, 
                          lambda, 
@@ -1649,7 +1663,7 @@ void Problem::initializeNodesPoroElastic() {
         cohesiveNodes[nodeID_in_set] =
             new CohesiveNode(nodeID,
                              thisXYZ,
-                             DOFCohesive_default,
+                             DOFCohesive_allLocked,
                              lowerUpperNodes,
                              spaceDim,
                              massDensity,
@@ -1802,7 +1816,7 @@ void Problem::initializeElementsPoroElastic() {
     int GlobalEleID = 0;
     vector<int> upperFace = {2, 3};
     vector<vector<int>> loadFaces(1, upperFace);
-
+    vector<vector<int>> noLoadFaces;
     // Upperzone ElementQ4s
     upperElements.resize(myGeometry->nOfElements, NULL);
     for (int i = 0; i < myGeometry->xEdgeNum; i++) {
@@ -1813,8 +1827,15 @@ void Problem::initializeElementsPoroElastic() {
                    upperNodes[(j + 1) * myGeometry->xNodeNum + i + 1], 
                    upperNodes[(j + 1) * myGeometry->xNodeNum + i]};
 
-            upperElements[j * myGeometry->xEdgeNum + i] = 
-                new ElementQ4(GlobalEleID, NID, loadFaces, &clocks, &timeConsumed); 
+            // Apply load only to the upper surface
+            if (j == myGeometry->yEdgeNum - 1) {
+                upperElements[j * myGeometry->xEdgeNum + i] = 
+                    new ElementQ4(GlobalEleID, NID, loadFaces, &clocks, &timeConsumed); 
+            }
+            else {
+                upperElements[j * myGeometry->xEdgeNum + i] = 
+                    new ElementQ4(GlobalEleID, NID, noLoadFaces, &clocks, &timeConsumed); 
+            }
             
             // Augmented global ID
             GlobalEleID += 1;           
@@ -1835,7 +1856,7 @@ void Problem::initializeElementsPoroElastic() {
                    lowerNodes[j * myGeometry->xNodeNum + i]};
 
             lowerElements[j * myGeometry->xEdgeNum + i] = 
-                new ElementQ4(GlobalEleID, NID, loadFaces, &clocks, &timeConsumed); 
+                new ElementQ4(GlobalEleID, NID, noLoadFaces, &clocks, &timeConsumed); 
             // Augment global node ID
             GlobalEleID += 1;           
         }
@@ -1958,14 +1979,14 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     for (CohesiveNode* node : myProblem->cohesiveNodes) {
         node->fetchS(s);
         node->fetchS_t(s_t);
-    }      
+    }    
 
     // Loop through all elements in upper and lower Elements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
         element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
     }
-    
+
     for (ElementQ4 *element : myProblem->lowerElements) {
         // Calculate F within the element
         element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
@@ -1975,23 +1996,24 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Calculate F within the element
         element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 2, 0., t);
     }
-    
+
     // Assemble the global residual function
     ierr = VecAssemblyBegin(F);
     ierr = VecAssemblyEnd(F);
 
     // DEBUG LINES
-    /**
     cout << "s: \n";
     VecView(s, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
+    /**
     cout << "s_t: \n";
     VecView(s_t, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
+    */
     cout << "F: \n";
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    */
+    
     return ierr;
 }
 
