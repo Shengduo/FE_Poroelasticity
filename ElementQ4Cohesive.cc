@@ -841,7 +841,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                     evaluateF(s_ts, i, nodalS_ts);
                     evaluateF_x(a_xs, i, nodalAs);
                     // DEBUG LINES
-                    // cout << "fuck!" << "\n";
+                    cout << "Normal dir: " << _n[0] << " " << _n[1] << "\n";
                     PrescribeFaultKernel::Jf0(Jf0s[i],
                                            spaceDim,
                                            t, 
@@ -915,10 +915,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
             }
             else {
                 // DEBUG LINES
-                // double shit = 0.;
-                // cout << "local JF addition before integration: ";
-                // for (int i = 0; i < localJFSize; i++) shit += abs(localJF[i]);
-                // cout << shit << "\n";
+                cout << "Reached augmented localJF:" << "\n";
 
                 
                 
@@ -1001,7 +998,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                     evaluateF(s_ts, i, nodalS_ts);
                     evaluateF_x(a_xs, i, nodalAs);
                     // DEBUG LINES
-                    // cout << "fuck!" << "\n";
+                    // cout << "Normal dir: " << _n[0] << " " << _n[1] << "\n"; 
                     FrictionFaultKernel::Jf0(Jf0s[i],
                                              spaceDim,
                                              t,
@@ -1063,6 +1060,15 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                 // cout << "fuck!" << "\n";
                 (*clocks)[0] = clock();
                 IntegratorNfN(localJF, localJFSize, Jf0s, FrictionFaultKernel::Jf0_is, FrictionFaultKernel::Jf0_js, 1);
+                // DEBUG LINES
+                cout << "See local JF after Jf0: \n";
+                cout << "Jfu+2l is: " << localJF[34 * 3 + 12] << " " << localJF[34 * 3 + 29] << " " 
+                << localJF[34 * 20 + 12] << " " << localJF[34 * 20 + 29] << "\n";
+                cout << "elementDOF: " << elementDOF << "\n";
+                cout << "localGlobalIndices is: \n";
+                for (int i = 0; i < elementDOF; i++) cout << localGlobalIndices[i] << " ";
+                cout << "\n";
+
                 (*clocks)[1] = clock();
                 IntegratorNfB(localJF, localJFSize, Jf1s, FrictionFaultKernel::Jf1_is, FrictionFaultKernel::Jf1_js, 1);
                 (*clocks)[2] = clock();

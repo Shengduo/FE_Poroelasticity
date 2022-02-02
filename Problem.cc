@@ -1305,6 +1305,7 @@ void Problem::testPushGlobalFElastic() {
     
     // Output the global F
     cout << "TEST: Global F\n";
+    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
     VecView(globalF, PETSC_VIEWER_STDOUT_SELF);
 }
 
@@ -1478,7 +1479,7 @@ void Problem::initializeNodesPoroElastic() {
     double DRateState = 1.0;
     double faultSource = 0.0;
     double fReference = 0.6;
-    double VReference = 1.0e-6;
+    double VReference = 1.0;
     vector<double> initialSlip = {0.0, 0.0};
     // double activesource = 1.0;
 
@@ -1502,11 +1503,12 @@ void Problem::initializeNodesPoroElastic() {
     
     // DEBUG LINE
     DOF_default[4] = 1; // Fix p
-    DOFCohesive_default[8] = 1; 
-    DOFCohesive_default[9] = 1; 
+    // DOFCohesive_default[8] = 1; 
+    // DOFCohesive_default[9] = 1; 
+    // DOFCohesive_default[13] = 1;
     DOFCohesive_default[14] = 1; 
     DOFCohesive_default[15] = 1; 
-    DOFCohesive_default[16] = 1; 
+    // DOFCohesive_default[16] = 1; 
 
     // All locked DOF
     vector<int> DOF_allLocked (2 * spaceDim + 2, 1);
@@ -1556,18 +1558,19 @@ void Problem::initializeNodesPoroElastic() {
                          &fluidBodyForce, 
                          source);
             
-            // Fix pressure on the upper boundary 
+            // Fix pressure on the lower boundary 
             if (j == 0) {
                 // Fix p
                 upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
-                upperNodes[nodeID_in_set]->setDOF(1, 1);
-                if (i == 0) upperNodes[nodeID_in_set]->setDOF(0, 1);
+                // upperNodes[nodeID_in_set]->setDOF(1, 1);
+                // if (i == 0) upperNodes[nodeID_in_set]->setDOF(0, 1);
+                // upperNodes[nodeID_in_set]->setDOF(0, 1);
             }
 
             // Give upper surface a traction
             if (j == myGeometry->yNodeNum - 1) {
                 // Apply pure shear traction (1.0);
-                vector<double> traction = {0.01, -0.01};
+                vector<double> traction = {0.0, -0.01};
                 upperNodes[nodeID_in_set]->setTraction(&traction);
             }
 
@@ -1609,7 +1612,7 @@ void Problem::initializeNodesPoroElastic() {
 
             // Initialize a node
             lowerNodes[nodeID_in_set] = 
-                new Node(nodeID, thisXYZ, DOF_allLocked, spaceDim, 
+                new Node(nodeID, thisXYZ, DOF_default, spaceDim, 
                          massDensity, 
                          &bodyForce, 
                          lambda, 
@@ -1642,7 +1645,7 @@ void Problem::initializeNodesPoroElastic() {
     nodeID_in_set = 0;
     initialS.resize(spaceDim + 3);
     fill(initialS.begin(), initialS.end(), 0.0);
-    initialS[4] = 1.0e-6;
+    initialS[4] = 0;
 
     // Initialize \psi = f_* + b log (V_* \theta / D_RS)
     double theta = 1.0e6;
@@ -1663,7 +1666,7 @@ void Problem::initializeNodesPoroElastic() {
         cohesiveNodes[nodeID_in_set] =
             new CohesiveNode(nodeID,
                              thisXYZ,
-                             DOFCohesive_allLocked,
+                             DOFCohesive_default,
                              lowerUpperNodes,
                              spaceDim,
                              massDensity,
@@ -1939,7 +1942,7 @@ void Problem::solvePoroElastic(double endingTime, double dt) {
 
     /** Solve TS */
     TSSolve(ts, globalS);
-    // TSView(ts, PETSC_VIEWER_STDOUT_SELF);
+    TSView(ts, PETSC_VIEWER_STDOUT_SELF);
 };
 
 /** Calculating TSIFunction from the current ts and timestep t,
@@ -2010,7 +2013,9 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     VecView(s_t, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
     */
-    cout << "F: \n";
+    // Output the global F
+    cout << "TEST: Global F\n";
+    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
     
@@ -2080,13 +2085,17 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
 
     // myProblem->clocks[2] = clock();
     
-    // DEBUG LINES
-    
+    // DEBUG LINES    
     cout << "View Pmat Norm: ";
     PetscReal norm;
     MatNorm(Pmat, NORM_FROBENIUS, &norm);
     cout << norm << "\n";
     
+    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
+
+     // Output the global F
+    cout << "TEST: Pmat\n";
+    MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
     
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
