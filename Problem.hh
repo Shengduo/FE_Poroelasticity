@@ -52,6 +52,12 @@ private:
     // Total number of nodes
     int _totalNofNodes;
     
+    // Bulk Kernel, 1-poroelastic bulk
+    int _bulkKernel;
+
+    // Cohesive Kernel, 1-prescribed fault, 2-friction fault
+    int _cohesiveKernel;
+
     // Global residual vector
     Vec globalF;
     
@@ -194,7 +200,7 @@ private:
 // PUBLIC METHODS
 public:
     // Initialize elastic problem
-    void initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime = 1.0, double dt = 0.01, string outputPrefix = "Output");
+    void initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, int bulkKernel = 1, int cohesiveKernel = 1, double endingTime = 1.0, double dt = 0.01, string outputPrefix = "Output");
 
 // PRIVATE METHODS
 private:

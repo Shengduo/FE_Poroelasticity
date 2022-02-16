@@ -18,11 +18,14 @@ int main(int argc, char **argv) {
     vector<int> nOfEdges = {1, 1};
     double endingTime = 0.1;
     double dt = 0.01;
-    string outputPrefix = "QSFricDebug";
+    int BulkKernel = 1;
+    int CohesiveKernel = 1; // 1 - prescribed fault, 2 - friction fault
+
+    string outputPrefix = "QSPrescribeDebug";
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {
-        myProblem->initializePoroElastic(spaceDomain, nOfEdges, endingTime, dt, outputPrefix);
+        myProblem->initializePoroElastic(spaceDomain, nOfEdges, BulkKernel, CohesiveKernel, endingTime, dt, outputPrefix);
     }
     catch (const char* msg) {
         cerr << msg << endl;

@@ -28,7 +28,7 @@ void PrescribeFaultKernel::F0(vector<double> &F0,         // stores the result
                               const vector<double> &n    // unit normal vector
 ) {
     // Check size of F0
-    if (F0.size() != 16) F0.resize(16); 
+    if (F0.size() < 17) F0.resize(17); 
 
     // Clear F0
     for (int i = 0; i < F0.size(); i++) F0[i] = 0.;
@@ -148,8 +148,8 @@ void PrescribeFaultKernel::F1(vector<double> &F1,         // stores the result
                               const vector<double> &n    // unit normal vector
 ) {
     // Check size of F1
-    if (F1.size() != (16) * spaceDim) 
-        F1.resize((16) * spaceDim);
+    if (F1.size() != (17) * spaceDim) 
+        F1.resize((17) * spaceDim);
 
     // Clear F1
     for (int i = 0; i < F1.size(); i++) F1[i] = 0.;
@@ -205,12 +205,12 @@ void PrescribeFaultKernel::Jf0(vector<double> &Jf0,        // stores the result
                                PetscBool isAssembled,      // if assembled, only calculate the time-dependent parts
                                const vector<double> &n    // unit normal vector
 ) {
-    int nCols = 16;
+    int nCols = 17;
     // Check if the system jacobian has been assembled
     if (!isAssembled) {
         // Check size of Jf0
-        if (Jf0.size() != 16 * 16) 
-            Jf0.resize(16 * 16);
+        if (Jf0.size() != nCols * nCols) 
+            Jf0.resize(nCols * nCols);
 
         // First clear every entry
         for (int i = 0; i < nCols; i++) {
@@ -488,8 +488,8 @@ void PrescribeFaultKernel::Jf1(vector<double> &Jf1,        // stores the result
 ) {
     if (!isAssembled) {
         // Check size of Jf1    
-        int nCols = 16 * spaceDim;
-        int nRows = 16;
+        int nCols = 17 * spaceDim;
+        int nRows = 17;
         if (Jf1.size() != nRows * nCols) 
             Jf1.resize(nCols * nRows);
 
@@ -531,8 +531,8 @@ void PrescribeFaultKernel::Jf2(vector<double> &Jf2,        // stores the result
     // If first assemble
     if (!isAssembled) {
         // Check size of Jf2    
-        int nRows = 16 * spaceDim;
-        int nCols = 16;
+        int nRows = 17 * spaceDim;
+        int nCols = 17;
         if (Jf2.size() != nRows * nCols) 
             Jf2.resize(nRows * nCols);
 
@@ -573,8 +573,8 @@ void PrescribeFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
 ) {
     if (!isAssembled) {
         // Check size of Jf3
-        if (Jf3.size() != spaceDim * spaceDim * 16 * 16) 
-            Jf3.resize(spaceDim * spaceDim * 16 * 16);
+        if (Jf3.size() != spaceDim * spaceDim * 17 * 17) 
+            Jf3.resize(spaceDim * spaceDim * 17 * 17);
         // First clear Jf3uu
         int nCols = 16 * spaceDim;
         for (int i = 0; i < nCols; i++) {

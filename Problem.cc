@@ -1304,10 +1304,12 @@ void Problem::testPushGlobalFElastic() {
     }
     
     // Output the global F
+    /**
     cout << "TEST: Global F\n";
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
     VecView(globalF, PETSC_VIEWER_STDOUT_SELF);
-}
+    */
+};
 
 // TEST Try push to globalJF, load only pushes the upper surface force
 void Problem::testPushGlobalJFElastic() {
@@ -1412,7 +1414,7 @@ void Problem::testFetchGlobalSElastic() {
  * Test Petsc, Mat, Vec, KSP solver, integratorBfB
  */
 // Initialization of poroelastic problem
-void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, double endingTime, double dt, string outputPrefix) {
+void Problem::initializePoroElastic(const vector<double> & xRanges, const vector<int> & edgeNums, int bulkKernel, int cohesiveKernel, double endingTime, double dt, string outputPrefix) {
     // Initialize geometry2D
     if (_spaceDim == 2) initializeGeometry2D(xRanges, edgeNums);
 
@@ -1429,12 +1431,15 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
     // Initialize elements
     initializeElementsPoroElastic();
 
-    
     // Initialize Mats and Vecs, Mats and TS
     initializePetsc();
 
     // Set outputprefix
     this->outputPrefix = outputPrefix;
+    
+    // Set the kernels
+    this->_bulkKernel = bulkKernel;
+    this->_cohesiveKernel = cohesiveKernel;
 
     // Non-Linear solver
     solvePoroElastic(endingTime, dt);
@@ -1499,7 +1504,7 @@ void Problem::initializeNodesPoroElastic() {
 
     vector<int> DOFCohesive_default (17, 2);
     for (int i = 12; i < 17; i++) DOFCohesive_default[i] = 0; 
-    // DOFCohesive_default[15] = 1;             // Fix psi for now
+    DOFCohesive_default[15] = 1;             // Fix psi for now
     
     // DEBUG LINE
     DOF_default[4] = 1; // Fix p
@@ -1508,7 +1513,7 @@ void Problem::initializeNodesPoroElastic() {
     // DOFCohesive_default[13] = 1;
     DOFCohesive_default[14] = 1; 
     DOFCohesive_default[15] = 1; 
-    // DOFCohesive_default[16] = 1; 
+    DOFCohesive_default[16] = 1; 
 
     // All locked DOF
     vector<int> DOF_allLocked (2 * spaceDim + 2, 1);
@@ -1630,7 +1635,7 @@ void Problem::initializeNodesPoroElastic() {
             if (j == myGeometry->yNodeNum - 1) {
                 // Fix p, ux, uy
                 lowerNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
-                lowerNodes[nodeID_in_set]->setDOF(0, 1);
+                if (i == 0) lowerNodes[nodeID_in_set]->setDOF(0, 1);
                 lowerNodes[nodeID_in_set]->setDOF(1, 1);
             }
 
@@ -1933,7 +1938,10 @@ void Problem::solvePoroElastic(double endingTime, double dt) {
     TSGetSNES(ts, &snes);
     KSP ksp;
     SNESGetKSP(snes, &ksp);
-    
+    PC pc;
+    KSPGetPC(ksp, &pc);
+    PCSetType(pc, PCJACOBI);
+
     SNESSetTolerances(snes, atol, rtol, rtol, 1000, 1000);     // Default values for the ints
     // SNESLineSearch sneslinesearch;
     // SNESGetLineSearch(snes, &sneslinesearch);
@@ -1987,17 +1995,17 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     // Loop through all elements in upper and lower Elements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
-        element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
+        element->elementF(F, myProblem->localF, myProblem->localFSize, myProblem->_bulkKernel, 0.);
     }
 
     for (ElementQ4 *element : myProblem->lowerElements) {
         // Calculate F within the element
-        element->elementF(F, myProblem->localF, myProblem->localFSize, 1, 0.);
+        element->elementF(F, myProblem->localF, myProblem->localFSize, myProblem->_bulkKernel, 0.);
     }
 
     for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
         // Calculate F within the element
-        element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 2, 0., t);
+        element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, myProblem->_cohesiveKernel, 0., t);
     }
 
     // Assemble the global residual function
@@ -2005,20 +2013,23 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     ierr = VecAssemblyEnd(F);
 
     // DEBUG LINES
+    /**
     cout << "s: \n";
     VecView(s, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
+    */
     /**
     cout << "s_t: \n";
     VecView(s_t, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
     */
     // Output the global F
+    /**
     cout << "TEST: Global F\n";
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    
+    */
     return ierr;
 }
 
@@ -2056,19 +2067,19 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Loop through all elements in upperElements
     for (ElementQ4 *element : myProblem->upperElements) {
         // Calculate F within the element
-        element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);
+        element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, myProblem->_bulkKernel, s_tshift);
     }
 
     // Loop through all elements in lowerElements
     for (ElementQ4 *element : myProblem->lowerElements) {
         // Calculate F within the element
-        element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, 1, s_tshift);
+        element->JF(Pmat, myProblem->localJF, myProblem->localJFSize, myProblem->_bulkKernel, s_tshift);
     }
 
     // Loop through all elements in cohesive Elements
     for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
         // Calculate F within the element
-        element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, 2, s_tshift, t);
+        element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, myProblem->_cohesiveKernel, s_tshift, t);
     }
 
     // myProblem->clocks[1] = clock();
@@ -2090,13 +2101,13 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     PetscReal norm;
     MatNorm(Pmat, NORM_FROBENIUS, &norm);
     cout << norm << "\n";
-    
+    /**
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
 
      // Output the global F
     cout << "TEST: Pmat\n";
     MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-    
+    */
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
     return ierr;
@@ -2115,7 +2126,8 @@ void Problem::prescribedSlip(double t) {
 /** Prescribed slip function. */
 void Problem::slipFunction(const vector<double> & XYZ, double t) {
     // Prescribe slip at a given point, now hyperbolic
-    slip[0] = - (XYZ[0] - myGeometry->xRange) * XYZ[0] * 0.e-2 * t;
+    // slip[0] = - (XYZ[0] - myGeometry->xRange) * XYZ[0] * 0.e-2 * t;
+    slip[0] = 0.;
     slip[1] = 0.;
 };
 
