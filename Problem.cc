@@ -1304,8 +1304,10 @@ void Problem::testPushGlobalFElastic() {
     }
     
     // Output the global F
+    /**
     cout << "TEST: Global F\n";
     VecView(globalF, PETSC_VIEWER_STDOUT_SELF);
+    */
 }
 
 // TEST Try push to globalJF, load only pushes the upper surface force
@@ -1420,7 +1422,7 @@ void Problem::initializePoroElastic(const vector<double> & xRanges, const vector
 
     // Assign Nodal DOFs
     assignNodalDOFPoroElastic();
-
+    
     // Initialize the timer
     timeConsumed.resize(4, 0.);
     clocks.resize(timeConsumed.size() + 1);
@@ -1490,9 +1492,11 @@ void Problem::initializeNodesPoroElastic() {
     // Default DOF
     vector<int> DOF_default (2 * spaceDim + 2, 0); 
     DOF_default[2] = 1; DOF_default[3] = 1;  // Fix V
+    DOF_default[4] = 1; // Fix p for now
     vector<int> DOFCohesive_default (16, 2);
     for (int i = 12; i < 16; i++) DOFCohesive_default[i] = 0; 
     DOFCohesive_default[15] = 1;             // Fix theta for now
+    DOFCohesive_default[14] = 1;             // Fix fault pressure
 
     // Upper subzone nodes
     upperNodes.resize(myGeometry->nOfNodes);
@@ -1509,7 +1513,7 @@ void Problem::initializeNodesPoroElastic() {
             thisXYZ[1] = j * edgeSize[1];
             // massDensity = thisXYZ[0] + thisXYZ[1];
             
-            // upper surface, put pressure = 1 into initialS;
+            // upper surface, put pressure = 0 into initialS;
             if (j == myGeometry->yNodeNum - 1 ) {
                 initialS[2 * spaceDim] = 0.0;
             }
@@ -1541,8 +1545,8 @@ void Problem::initializeNodesPoroElastic() {
             if (j == myGeometry->yNodeNum - 1) {
                 // Fix ux, uy
                 // upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
-                upperNodes[nodeID_in_set]->setDOF(0, 1);
-                upperNodes[nodeID_in_set]->setDOF(1, 1);
+                // upperNodes[nodeID_in_set]->setDOF(0, 1);
+                // upperNodes[nodeID_in_set]->setDOF(1, 1);
             }
             
             upperNodes[nodeID_in_set]->initializeS(initialS);
@@ -1595,7 +1599,7 @@ void Problem::initializeNodesPoroElastic() {
             if (j == myGeometry->yNodeNum - 1) {
                 // Fix ux, uy
                 // lowerNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
-                lowerNodes[nodeID_in_set]->setDOF(0, 1);
+                if (i == 0) lowerNodes[nodeID_in_set]->setDOF(0, 1);
                 lowerNodes[nodeID_in_set]->setDOF(1, 1);
             }
 
@@ -1872,16 +1876,18 @@ void Problem::solvePoroElastic(double endingTime, double dt) {
     TSGetSNES(ts, &snes);
     KSP ksp;
     SNESGetKSP(snes, &ksp);
+    PC pc;
+    KSPGetPC(ksp, &pc);
     
     SNESSetTolerances(snes, atol, rtol, rtol, 1000, 1000);     // Default values for the ints
     // SNESLineSearch sneslinesearch;
     // SNESGetLineSearch(snes, &sneslinesearch);
     // SNESLineSearchSetTolerances(sneslinesearch, PETSC_DEFAULT, 1000, rtol, atol, rtol, 1000); 
     KSPSetTolerances(ksp, rtol, atol, 1.1, 1000);   // 
-
+    PCSetType(pc, PCJACOBI);
     /** Solve TS */
     TSSolve(ts, globalS);
-    // TSView(ts, PETSC_VIEWER_STDOUT_SELF);
+    TSView(ts, PETSC_VIEWER_STDOUT_SELF);
 };
 
 /** Calculating TSIFunction from the current ts and timestep t,
@@ -1896,7 +1902,49 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     
     // Clear the vector
     ierr = VecZeroEntries(F);
-    
+
+    // DEBUG LINES
+    // Impose solution s;
+    /**
+    Vec ss;
+    VecDuplicate(s, &ss);
+    PetscInt ids[25];
+    for (int i = 0; i < 25; i++) ids[i] = i;
+
+    PetscScalar s_values[25] = {
+        6.05418493115906e-18, 
+        0.00750000000000001, 
+        0.00500000000000000, 
+        -0.00250000000000000, 
+        0.00750000000000000, 
+        0.00500000000000000, 
+        1.13131568507169e-17, 
+        0.0150000000000000, 
+        0.00500000000000000, 
+        -0.00249999999999999, 
+        0.0150000000000000, 
+        0.00500000000000001, 
+        -2.08166817117217e-19, 
+        0.00750000000000000, 
+        0.00500000000000001, 
+        -0.00249999999999999, 
+        0.00750000000000000, 
+        0.00500000000000001, 
+        0.00500000000000001, 
+        -0.00250000000000000, 
+        0.00500000000000000, 
+        3.70768230932110e-17, 
+        -0.0200000000000000, 
+        -4.20728267040242e-17, 
+        -0.0200000000000000
+    };
+    for (int i = 0; i < 25; i++) s_values[i] = - s_values[i];
+    VecCopy(s, ss);
+
+    ierr = VecSetValues(ss, 25, ids, s_values, INSERT_VALUES);
+    VecAssemblyBegin(ss);
+    VecAssemblyEnd(ss);
+    */
     // Write vtk file
     if (t > myProblem->nodeTime) {
         // Debug lines
@@ -1938,6 +1986,10 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
         // Calculate F within the element
         element->elementF(F, myProblem->localFCohesive, myProblem->localFCohesiveSize, 1, 0., t);
     }
+
+    // DEBUG LINES, add load
+    VecSetValue(F, 7, -0.01, ADD_VALUES);
+    VecSetValue(F, 10, -0.01, ADD_VALUES);
     
     // Assemble the global residual function
     ierr = VecAssemblyBegin(F);
@@ -1945,16 +1997,19 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
 
     // DEBUG LINES
     /**
-    cout << "s: \n";
-    VecView(s, PETSC_VIEWER_STDOUT_SELF);
-    cout << "\n";
     cout << "s_t: \n";
     VecView(s_t, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    cout << "F: \n";
+    
+
+    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
+    cout << "s: \n";
+    VecView(s, PETSC_VIEWER_STDOUT_SELF);
+    cout << "\n";
+    cout << "F: \n";    
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    */
+    */ 
     return ierr;
 }
 
@@ -2023,12 +2078,58 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     
     // DEBUG LINES
     /**
-    cout << "View Pmat Norm: ";
-    PetscReal norm;
-    MatNorm(Pmat, NORM_FROBENIUS, &norm);
-    cout << norm << "\n";
-    */
+    cout << "View Pmat: \n";
+    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
+    MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
     
+    // DEBUG LINES FOR SHIT
+    KSP myKsp;
+
+    // Preconditioner
+    PC pc;                 
+    KSPCreate(PETSC_COMM_WORLD, &myKsp);
+
+    // Set operators
+    KSPSetOperators(myKsp, Pmat, Pmat);
+    KSPGetPC(myKsp, &pc);
+    PCSetType(pc, PCJACOBI);
+    KSPSetTolerances(myKsp, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);
+    KSPSetFromOptions(myKsp);
+
+    // Initialize solution and residual vectors
+    Vec residual, solution;
+    // Set size of residual and solution
+    VecCreate(PETSC_COMM_WORLD, &residual);
+    VecSetSizes(residual, PETSC_DECIDE, myProblem->_totalDOF);
+    VecSetFromOptions(residual);
+    // Set size of residual and solution
+    VecCreate(PETSC_COMM_WORLD, &solution);
+    VecSetSizes(solution, PETSC_DECIDE, myProblem->_totalDOF);
+    VecSetFromOptions(solution);
+    // Assemble the global residual function
+    ierr = VecAssemblyBegin(solution);
+    ierr = VecAssemblyEnd(solution);
+    // Assemble the global residual function
+    ierr = VecAssemblyBegin(residual);
+    ierr = VecAssemblyEnd(residual);
+    VecZeroEntries(residual);
+    VecZeroEntries(solution);
+    // Add load
+    VecSetValue(residual, 7, -0.01, ADD_VALUES);
+    VecSetValue(residual, 10, -0.01, ADD_VALUES);
+    // Assemble the global residual function
+    ierr = VecAssemblyBegin(residual);
+    ierr = VecAssemblyEnd(residual);
+
+    // Solve globalJF * globalS = globalF
+    KSPSolve(myKsp, residual, solution);
+    cout << "Residual vector is: \n";
+    VecView(residual, PETSC_VIEWER_STDOUT_SELF);
+    cout << "Solution vector is: \n";
+    VecView(solution, PETSC_VIEWER_STDOUT_SELF);
+    cout << "Viewing KSP info: \n";
+    KSPView(myKsp, PETSC_VIEWER_STDOUT_SELF);
+    */
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
     return ierr;
