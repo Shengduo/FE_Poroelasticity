@@ -2006,10 +2006,11 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     cout << "s: \n";
     VecView(s, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
+    */ 
     cout << "F: \n";    
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    */ 
+    
     return ierr;
 }
 
