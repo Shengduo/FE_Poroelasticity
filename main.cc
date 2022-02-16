@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     vector<int> nOfEdges = {1, 1};
     double endingTime = 1.0;
     double dt = 0.1;
-    string outputPrefix = "Loading_Trial0215";
+    string outputPrefix = "Loading_Trial0216";
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {

@@ -2077,11 +2077,14 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // myProblem->clocks[2] = clock();
     
     // DEBUG LINES
-    /**
+    PetscReal Pnorm;
+    MatNorm(Pmat, NORM_FROBENIUS, &Pnorm);
     cout << "View Pmat: \n";
+    cout << "Pmat Frobenius norm is: " << Pnorm << "\n";
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
     MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-    
+
+    /**
     // DEBUG LINES FOR SHIT
     KSP myKsp;
 
@@ -2243,7 +2246,7 @@ void Problem::writeVTU() const {
 /** Write VTU files for the bulk
  */
 void Problem::writeVTU_bulk() const {
-    string path = "./output/" + outputPrefix + to_string(stepNumber) + ".vtu";
+    string path = "./output/" + outputPrefix + "Bulk" + to_string(stepNumber) + ".vtu";
     ofstream myFile(path);
 
     // Head lines
