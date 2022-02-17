@@ -576,7 +576,7 @@ void PrescribeFaultKernel::Jf3(vector<double> &Jf3,        // stores the result
         if (Jf3.size() != spaceDim * spaceDim * 17 * 17) 
             Jf3.resize(spaceDim * spaceDim * 17 * 17);
         // First clear Jf3uu
-        int nCols = 16 * spaceDim;
+        int nCols = 17 * spaceDim;
         for (int i = 0; i < nCols; i++) {
             for (int j = 0; j < nCols; j++)
                 Jf3[i * nCols + j] = 0.;
