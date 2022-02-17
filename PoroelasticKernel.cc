@@ -46,7 +46,7 @@ void PoroelasticKernel::F0(vector<double> &F0,         // stores the result
      */
     int i_bulkDensity = 0;
     int i_bodyForce = 1;
-    // int i_lambda = 3;
+    int i_lambda = 3;
     // int i_shearModulus = 4;
     int i_alpha = 5;
     int i_Mp = 6;
@@ -55,7 +55,7 @@ void PoroelasticKernel::F0(vector<double> &F0,         // stores the result
     int i_source = 13;
     
     double bulkDensity = a[i_bulkDensity];
-    // double lambda = a[i_lambda];
+    double lambda = a[i_lambda];
     //  double shearModulus = a[i_shearModulus];
     double alpha = a[i_alpha];
     double Mp = a[i_Mp];
@@ -97,7 +97,7 @@ void PoroelasticKernel::F0(vector<double> &F0,         // stores the result
      * 4 - pressure
      * 5 - trace-strain
      */
-    F0[I_e] = s_x[spaceDim * I_u] + s_x[(I_u + 1) * spaceDim + 1] - s[I_e];
+    F0[I_e] = -lambda * (s_x[spaceDim * I_u] + s_x[(I_u + 1) * spaceDim + 1] - s[I_e]);
 };
 
 /** Left hand side residual 
@@ -231,13 +231,13 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 13 - fluid source density (/s) 
          * ...)
          */
-        //int i_lambda = 3;
+        int i_lambda = 3;
         //int i_shearModulus = 4;
         int i_alpha = 5;
         int i_Mp = 6;
         //int i_kappa = 7;
         //int i_viscosity = 8;
-        //double lambda = a[i_lambda];
+        double lambda = a[i_lambda];
         //double shearModulus = a[i_shearModulus];
         double alpha = a[i_alpha];
         double Mp = a[i_Mp];
@@ -284,7 +284,7 @@ void PoroelasticKernel::Jf0(vector<double> &Jf0,        // stores the result
          * 4 - pressure
          * 5 - trace-strain
          */
-        Jf0[I_e * nCols + I_e] = -1.;
+        Jf0[I_e * nCols + I_e] = lambda;
     }
     else {
         // Check size of Jf0
@@ -410,13 +410,13 @@ void PoroelasticKernel::Jf1(vector<double> &Jf1,        // stores the result
          * 13 - fluid source density (/s) 
          * ...)
          */
-        // int i_lambda = 3;
+        int i_lambda = 3;
         // int i_shearModulus = 4;
         // int i_alpha = 5;
         // int i_Mp = 6;
         // int i_kappa = 7;
         // int i_viscosity = 8;
-        // double lambda = a[i_lambda];
+        double lambda = a[i_lambda];
         // double shearModulus = a[i_shearModulus];
         // double alpha = a[i_alpha];
         // double Mp = a[i_Mp];
@@ -433,8 +433,8 @@ void PoroelasticKernel::Jf1(vector<double> &Jf1,        // stores the result
          */
         int I_e = 5;
         int I_u = 0;
-        Jf1[I_e * nCols + I_u * spaceDim] = 1.;
-        Jf1[I_e * nCols + (I_u + 1) * spaceDim + 1] = 1.;
+        Jf1[I_e * nCols + I_u * spaceDim] = -lambda;
+        Jf1[I_e * nCols + (I_u + 1) * spaceDim + 1] = -lambda;
     }
 };
 
