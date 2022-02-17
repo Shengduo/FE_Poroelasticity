@@ -462,24 +462,7 @@ void ElementQ4Cohesive::IntegratorNfN(double *res,
     if (resSize != pow(nOfColsRes, 2)) throw "resSize error for ElementQ4 IntegratorNfN!";
     if (NodeValues.size() != nOfNodes) throw "Not all nodal values are provided for ElementQ4 IntegratorNfN!";
     if (NodeValues[0].size() != nOfDofs * nOfDofs) throw "Mass matrix size not compatible with Element Q4 IntegratorNfN!";
-    // DEBUG LINES
-    cout << "NodeValues[0] is :" << "\n";
-    for (int i = 0; i < nOfDofs; i++) {
-        for (int j = 0; j < nOfDofs; j++) {
-            cout << NodeValues[0][i * nOfDofs + j] << " ";
-        }
-        cout << "\n";
-    }
-    cout << "\n";
-    cout << "NodeValues[1] is :" << "\n";
-    for (int i = 0; i < nOfDofs; i++) {
-        for (int j = 0; j < nOfDofs; j++) {
-            cout << NodeValues[1][i * nOfDofs + j] << " ";
-        }
-        cout << "\n";
-    }
-    cout << "\n";
-
+    
     int intPtIndex;
     int resIJindex;
     int p, q;
@@ -799,7 +782,8 @@ void ElementQ4Cohesive::outputInfo(ofstream & myFile) const {
 void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int Kernel, double s_tshift, double t) {
     // Zero localJF
     for (int i = 0; i < localJFSize; i++) localJF[i] = 0.;
-
+    // DEBUG LINES
+    // cout << "ElementQ4Cohesive Kernel is: " << Kernel << "\n";
     // Switch kernel
     switch (Kernel) {
         // 2D Quasi-static linear elasticity
@@ -860,7 +844,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                     evaluateF(s_ts, i, nodalS_ts);
                     evaluateF_x(a_xs, i, nodalAs);
                     // DEBUG LINES
-                    cout << "Normal dir: " << _n[0] << " " << _n[1] << "\n";
+                    // cout << "Normal dir: " << _n[0] << " " << _n[1] << "\n";
                     PrescribeFaultKernel::Jf0(Jf0s[i],
                                            spaceDim,
                                            t, 
@@ -924,34 +908,20 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                 // cout << "fuck!" << "\n";
                 (*clocks)[0] = clock();
                 IntegratorNfN(localJF, localJFSize, Jf0s, PrescribeFaultKernel::Jf0_is, PrescribeFaultKernel::Jf0_js, 1);
-                // DEBUG LINES
-                cout << "CohesiveIJacobian t = " << t << "\n";
-                cout << "After NfN localJF is: ";
-                for (int i = 0; i < localJFSize; i++) cout << localJF[i] << " ";
-                cout << "\n";
                 (*clocks)[1] = clock();
                 
                 IntegratorNfB(localJF, localJFSize, Jf1s, PrescribeFaultKernel::Jf1_is, PrescribeFaultKernel::Jf1_js, 1);
-                cout << "After NfB localJF is: ";
-                for (int i = 0; i < localJFSize; i++) cout << localJF[i] << " ";
-                cout << "\n";
                 (*clocks)[2] = clock();
 
                 IntegratorBfN(localJF, localJFSize, Jf2s, PrescribeFaultKernel::Jf2_is, PrescribeFaultKernel::Jf2_js, 1);
-                cout << "After BfN localJF is: ";
-                for (int i = 0; i < localJFSize; i++) cout << localJF[i] << " ";
-                cout << "\n";                
                 (*clocks)[3] = clock();
 
                 IntegratorBfB(localJF, localJFSize, Jf3s, PrescribeFaultKernel::Jf3_is, PrescribeFaultKernel::Jf3_js, 1);
-                cout << "After BfB localJF is: ";
-                for (int i = 0; i < localJFSize; i++) cout << localJF[i] << " ";
-                cout << "\n";
                 (*clocks)[4] = clock();
             }
             else {
                 // DEBUG LINES
-                cout << "Reached augmented localJF:" << "\n";
+                // cout << "Reached augmented localJF:" << "\n";
 
                 
                 
@@ -999,7 +969,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
 
             // Push to the global JF
             JFPush(globalJF, localJF, localJFSize);
-
+            
             // DEBUG LINES
             (*clocks)[3] = clock();
 
@@ -1009,10 +979,12 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
                 (*timeConsumed)[i] += (double) ((*clocks)[i + 1] - (*clocks)[i]) / CLOCKS_PER_SEC;
             }
             */
+            break;
         }
 
         // 2D quasi-static pressure fault with rate and state friction kernels
         case 2: {
+            cout << "FUCK THE SHIT OUT OF YOU! \n";
             // MatAssembled(globalJF, &isJfAssembled);
             // DEBUG LINES
             // isJfAssembled = PETSC_FALSE;
@@ -1169,7 +1141,7 @@ void ElementQ4Cohesive::JF(Mat & globalJF, double *localJF, int localJFSize, int
 
             // DEBUG LINES
             (*clocks)[3] = clock();
-
+            break;
             // DEBUG LINES
             /**
             for (int i = 0; i < timeConsumed->size(); i++) {
@@ -1262,7 +1234,7 @@ void ElementQ4Cohesive::elementF(Vec & globalF, double *localF, int localFSize, 
             
             // Push to globalF
             elementFPush(globalF, localF, localFSize);
-            
+            break;
         }
 
         // Poroelastic with quasistatic rate and state slip

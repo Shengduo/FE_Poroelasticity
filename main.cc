@@ -15,13 +15,13 @@ int main(int argc, char **argv) {
     PetscLogDefaultBegin();
    
     vector<double> spaceDomain = {1, 1}; 
-    vector<int> nOfEdges = {1, 1};
+    vector<int> nOfEdges = {4, 4};
     double endingTime = 1.0;
     double dt = 0.1;
     int BulkKernel = 1;
     int CohesiveKernel = 1; // 1 - prescribed fault, 2 - friction fault
 
-    string outputPrefix = "Pres_Trial0216";
+    string outputPrefix = "Pres_Trial_Fine0216";
     // Get a handle of the problem
     Problem* myProblem = new Problem();
     try {

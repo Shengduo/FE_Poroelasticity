@@ -1946,7 +1946,7 @@ void Problem::solvePoroElastic(double endingTime, double dt) {
     // SNESLineSearch sneslinesearch;
     // SNESGetLineSearch(snes, &sneslinesearch);
     // SNESLineSearchSetTolerances(sneslinesearch, PETSC_DEFAULT, 1000, rtol, atol, rtol, 1000); 
-    KSPSetTolerances(ksp, rtol, atol, 1.1, 1000);   // 
+    KSPSetTolerances(ksp, rtol, atol, 1.1, 10000);   // 
 
     /** Solve TS */
     TSSolve(ts, globalS);
@@ -2022,12 +2022,13 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     cout << "s_t: \n";
     VecView(s_t, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    */
+    
     // Output the global F
     cout << "TEST: Global F\n";
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
-    cout << "\n";    
+    cout << "\n"; 
+    */   
     return ierr;
 }
 
@@ -2077,6 +2078,8 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     // Loop through all elements in cohesive Elements
     for (ElementQ4Cohesive *element : myProblem->cohesiveElements) {
         // Calculate F within the element
+        // DEBUG LINES
+        cout << "Cohesive Kernel is: " << myProblem->_cohesiveKernel << "\n";
         element->JF(Pmat, myProblem->localJFCohesive, myProblem->localJFCohesiveSize, myProblem->_cohesiveKernel, s_tshift, t);
     }
 
@@ -2103,8 +2106,8 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
 
      // Output the global F
-    cout << "Pmat: \n";
-    MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
+    // cout << "Pmat: \n";
+    // MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
 
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
