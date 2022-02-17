@@ -1575,7 +1575,7 @@ void Problem::initializeNodesPoroElastic() {
             // Give upper surface a traction
             if (j == myGeometry->yNodeNum - 1) {
                 // Apply pure shear traction (1.0);
-                vector<double> traction = {0.0, -0.01};
+                vector<double> traction = {0.0, -0.02};
                 upperNodes[nodeID_in_set]->setTraction(&traction);
             }
 
@@ -1700,7 +1700,7 @@ void Problem::initializeNodesPoroElastic() {
     
     _totalNofNodes = nodeID;
     ofstream myFile;
-    myFile.open("Testlog_PoroElastic.txt");
+    myFile.open("Testlog_PoroElastic1.txt");
     myFile << "=================== NodeInfoBefore ======================================" << "\n";
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
     for (Node* node : lowerNodes) node->outputInfo(myFile, true);
@@ -1756,7 +1756,7 @@ void Problem::assignNodalDOFPoroElastic() {
 
     // Output to log file
     ofstream myFile;
-    myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile.open("Testlog_PoroElastic1.txt", std::fstream::in | std::fstream::out | std::fstream::app);
     myFile << "\n" << "=================== NodeInfoAfter ======================================" << "\n";
 
     for (Node* node : upperNodes) node->outputInfo(myFile, true);
@@ -1883,7 +1883,7 @@ void Problem::initializeElementsPoroElastic() {
     }
 
     ofstream myFile;
-    myFile.open("Testlog_PoroElastic.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+    myFile.open("Testlog_PoroElastic1.txt", std::fstream::in | std::fstream::out | std::fstream::app);
     myFile << "\n" << "=================== ElementInfo ======================================" << "\n";
     for (ElementQ4* thisElement : upperElements) thisElement->outputInfo(myFile);
     for (ElementQ4* thisElement : lowerElements) thisElement->outputInfo(myFile);
@@ -2024,12 +2024,10 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     cout << "\n";
     */
     // Output the global F
-    /**
     cout << "TEST: Global F\n";
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
     VecView(F, PETSC_VIEWER_STDOUT_SELF);
-    cout << "\n";
-    */
+    cout << "\n";    
     return ierr;
 }
 
@@ -2101,13 +2099,13 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     PetscReal norm;
     MatNorm(Pmat, NORM_FROBENIUS, &norm);
     cout << norm << "\n";
-    /**
+    
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
 
      // Output the global F
-    cout << "TEST: Pmat\n";
+    cout << "Pmat: \n";
     MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
-    */
+
     // myProblem->timeConsumed[0] += (double) (myProblem->clocks[1] - myProblem->clocks[0]) / CLOCKS_PER_SEC;
     // myProblem->timeConsumed[1] += (double) (myProblem->clocks[2] - myProblem->clocks[1]) / CLOCKS_PER_SEC;
     return ierr;
@@ -2222,7 +2220,7 @@ void Problem::writeVTU() const {
 /** Write VTU files for the bulk
  */
 void Problem::writeVTU_bulk() const {
-    string path = "./output/" + outputPrefix + to_string(stepNumber) + ".vtu";
+    string path = "./output/" + outputPrefix + "Bulk" + to_string(stepNumber) + ".vtu";
     ofstream myFile(path);
 
     // Head lines
