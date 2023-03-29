@@ -48,7 +48,7 @@ print:
 	@echo CUDA_LIB=$(CUDA_LIB)
 	@echo CUDA_INCLUDE=$(CUDA_INCLUDE)
 
-SRCDIR = FE_poroelasticity
+SRCDIR = FE_Poroelasticity
 EXE = main
 vpath %.cc ${SRCDIR}
 # Many suffixes are covered by implicit rules, but you may need to write custom rules
