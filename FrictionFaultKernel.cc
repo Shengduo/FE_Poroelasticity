@@ -144,6 +144,9 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
         s[I_V] / (2. * a[i_vr])
         * exp(s[I_psi] / a[i_rateStateA])
     );
+    cout << "s[I_V] = " << s[I_V] << "\n";
+    cout << "asinh(s[I_V] / (2. * a[i_vr]) * exp(s[I_psi] / a[i_rateStateA]) = " 
+    << asinh(s[I_V] / (2. * a[i_vr]) * exp(s[I_psi] / a[i_rateStateA])) << "\n";
 
     // ================ f0psi ======================================
     /** The solution fields in solution vector s are
@@ -159,7 +162,11 @@ void FrictionFaultKernel::F0(vector<double> &F0,         // stores the result
     // F0psi = \dot{\psi} - (1 - (-t) \cdot (v^+ - v^-) \psi / D_RS)
     F0[I_psi] = s_t[I_psi] - a[i_rateStateB] * a[i_vr] / a[i_DRateState] * 
                 (exp((a[i_fr] - s[I_psi]) / a[i_rateStateB]) - s[I_V] / a[i_vr]);
-
+    cout << "s_t[I_psi] is: " << s_t[I_psi] << "\n";
+    cout << "s[I_V] is: " << s[I_V] << "\n";
+    cout << "s[I_psi] is: " << s[I_psi] << "\n";
+    cout << "b, Drs, fr, vr is:" << a[i_rateStateB] << " " << a[i_DRateState] << " " << a[i_fr] << " " << a[i_vr] << "\n";
+    cout << "F0[I_psi] is: " << F0[I_psi] << "\n";
     // ================ f0pf ======================================
     /** The solution fields in solution vector s are
      * 0, 1, 2, 3 - u1-, u2-, u1+, u2+;

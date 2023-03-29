@@ -72,7 +72,7 @@ vpath %.cc ${SRCDIR}
 #
 all : ${EXE}
 
-${EXE} : Node.o ElementQ4.o ElementQ4Cohesive.o Problem.o main.o FeKernel.o ElasticKernel.o PoroelasticKernel.o PrescribeFaultKernel.o
+${EXE} : Node.o ElementQ4.o ElementQ4Cohesive.o Problem.o main.o FeKernel.o ElasticKernel.o PoroelasticKernel.o PrescribeFaultKernel.o FrictionFaultKernel.o 
 	$(LINK.cc) -o $@ $^ $(LDLIBS)
 
 clean : 

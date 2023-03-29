@@ -1504,7 +1504,7 @@ void Problem::initializeNodesPoroElastic() {
 
     vector<int> DOFCohesive_default (17, 2);
     for (int i = 12; i < 17; i++) DOFCohesive_default[i] = 0; 
-    DOFCohesive_default[15] = 1;             // Fix psi for now
+    // DOFCohesive_default[15] = 1;             // Fix psi for now
     
     // DEBUG LINE
     DOF_default[4] = 1; // Fix p
@@ -1512,8 +1512,8 @@ void Problem::initializeNodesPoroElastic() {
     // DOFCohesive_default[9] = 1; 
     // DOFCohesive_default[13] = 1;
     DOFCohesive_default[14] = 1; 
-    DOFCohesive_default[15] = 1; 
-    DOFCohesive_default[16] = 1; 
+    // DOFCohesive_default[15] = 1; // Fix psi
+    // DOFCohesive_default[16] = 1; // Fix V
 
     // All locked DOF
     vector<int> DOF_allLocked (2 * spaceDim + 2, 1);
@@ -1568,7 +1568,7 @@ void Problem::initializeNodesPoroElastic() {
                 // Fix p
                 upperNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
                 // upperNodes[nodeID_in_set]->setDOF(1, 1);
-                // if (i == 0) upperNodes[nodeID_in_set]->setDOF(0, 1);
+                if (i == 0) upperNodes[nodeID_in_set]->setDOF(0, 1);
                 // upperNodes[nodeID_in_set]->setDOF(0, 1);
             }
 
@@ -1632,6 +1632,9 @@ void Problem::initializeNodesPoroElastic() {
                          source);
             
             // Fix some boundaries on the bottom
+            if (j == 0) {
+                if (i == 0) lowerNodes[nodeID_in_set]->setDOF(0, 1);
+            }
             if (j == myGeometry->yNodeNum - 1) {
                 // Fix p, ux, uy
                 lowerNodes[nodeID_in_set]->setDOF(2 * spaceDim, 1);
@@ -1653,10 +1656,14 @@ void Problem::initializeNodesPoroElastic() {
     initialS[4] = 0;
 
     // Initialize \psi = f_* + b log (V_* \theta / D_RS)
-    double theta = 1.0e6;
+    // double theta = 1.0e6;
 
     // initialS[3] is \psi
-    initialS[3] = fReference + rateStateB * log(VReference * theta / DRateState);
+    // initialS[3] = fReference - rateStateB * log(VReference * rateStateB / DRateState);
+    initialS[3] = fReference;
+    // initialS[4] = VReference;
+    cout << "InitialS[3] is:" << initialS[3] << "\n";
+    cout << "InitialS[4] is:" << initialS[4] << "\n";
     vector<Node*> lowerUpperNodes (2, NULL);
 
     for (int i = 0; i < myGeometry->xNodeNum; i++) {
@@ -1931,8 +1938,8 @@ void Problem::solvePoroElastic(double endingTime, double dt) {
     TSSetFromOptions(ts);
     
     /** Set tolerances */
-    PetscReal rtol = 1e-10;
-    PetscReal atol = 1e-15;
+    PetscReal rtol = 1e-20;
+    PetscReal atol = 1e-30;
     TSSetTolerances(ts, atol, NULL, rtol, NULL);
     SNES snes;
     TSGetSNES(ts, &snes);
@@ -1943,14 +1950,22 @@ void Problem::solvePoroElastic(double endingTime, double dt) {
     PCSetType(pc, PCJACOBI);
 
     SNESSetTolerances(snes, atol, rtol, rtol, 1000, 1000);     // Default values for the ints
-    // SNESLineSearch sneslinesearch;
-    // SNESGetLineSearch(snes, &sneslinesearch);
-    // SNESLineSearchSetTolerances(sneslinesearch, PETSC_DEFAULT, 1000, rtol, atol, rtol, 1000); 
+    SNESSetLagJacobian(snes, 1);
+    SNESSetLagPreconditioner(snes, 1);
+    SNESLineSearch sneslinesearch;
+    SNESGetLineSearch(snes, &sneslinesearch);
+    SNESLineSearchSetType(sneslinesearch, SNESLINESEARCHBASIC);
+    SNESLineSearchSetTolerances(sneslinesearch, PETSC_DEFAULT, 1000, rtol, atol, rtol, 1000); 
+    
     KSPSetTolerances(ksp, rtol, atol, 1.1, 10000);   // 
 
     /** Solve TS */
+    TSSetMaxSNESFailures(ts, -1);
     TSSolve(ts, globalS);
+    
     TSView(ts, PETSC_VIEWER_STDOUT_SELF);
+    SNESView(snes, PETSC_VIEWER_STDOUT_SELF);
+    SNESLineSearchView(sneslinesearch, PETSC_VIEWER_STDOUT_SELF);
 };
 
 /** Calculating TSIFunction from the current ts and timestep t,
@@ -2011,24 +2026,27 @@ PetscErrorCode Problem::IFunction(TS ts, PetscReal t, Vec s, Vec s_t, Vec F, voi
     // Assemble the global residual function
     ierr = VecAssemblyBegin(F);
     ierr = VecAssemblyEnd(F);
+    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
 
     // DEBUG LINES
-    /**
-    cout << "s: \n";
+    
+    cout << "Test: s \n";
     VecView(s, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    */
+    
     /**
     cout << "s_t: \n";
     VecView(s_t, PETSC_VIEWER_STDOUT_SELF);
     cout << "\n";
-    
+    */
     // Output the global F
     cout << "TEST: Global F\n";
-    PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
-    VecView(F, PETSC_VIEWER_STDOUT_SELF);
-    cout << "\n"; 
-    */   
+    
+    // VecView(F, PETSC_VIEWER_STDOUT_SELF);
+    double Fnorm;
+    VecNorm(F, NORM_2, &Fnorm);
+    cout << "Norm of F is: " << Fnorm << "\n"; 
+    
     return ierr;
 }
 
@@ -2105,7 +2123,7 @@ PetscErrorCode Problem::IJacobian(TS ts, PetscReal t, Vec s, Vec s_t, PetscReal 
     
     PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF, PETSC_VIEWER_ASCII_MATLAB);
 
-     // Output the global F
+    // Output the global JF
     // cout << "Pmat: \n";
     // MatView(Pmat, PETSC_VIEWER_STDOUT_SELF);
 
